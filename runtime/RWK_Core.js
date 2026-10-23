@@ -92,6 +92,59 @@
     }
   };
 
+  //---------------------------------------------------------------------------
+  // Images bigger than the GPU's MAX_TEXTURE_SIZE (often 4096 on phones) fail
+  // to upload and draw nothing, e.g. a 5472px world map parallax. Upload a copy
+  // shrunk to fit instead, with resolution < 1 so the texture keeps the image's
+  // full size in game coordinates. Devices that can hold the image are untouched.
+  //---------------------------------------------------------------------------
+
+  let maxTextureSize = 0;
+  function getMaxTextureSize() {
+    if (!maxTextureSize) {
+      const renderer = Graphics._app && Graphics._app.renderer;
+      const gl = renderer && renderer.gl;
+      if (gl) maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
+    }
+    return maxTextureSize;
+  }
+
+  if (Utils.RPGMAKER_NAME === "MZ") {
+    const _createBaseTexture = Bitmap.prototype._createBaseTexture;
+    Bitmap.prototype._createBaseTexture = function (source) {
+      const max = getMaxTextureSize();
+      if (!max || (source.width <= max && source.height <= max)) {
+        _createBaseTexture.apply(this, arguments);
+        return;
+      }
+      const copy = document.createElement("canvas");
+      const fit = () => {
+        const scale = Math.min(1, max / Math.max(source.width, source.height, 1));
+        // Same rounding as BaseTexture.realWidth, so the copy matches the GL texture.
+        copy.width = Math.max(1, Math.ceil(source.width * scale - 1e-4));
+        copy.height = Math.max(1, Math.ceil(source.height * scale - 1e-4));
+        copy.getContext("2d").drawImage(source, 0, 0, copy.width, copy.height);
+        return scale;
+      };
+      const scale = fit();
+      _createBaseTexture.call(this, copy);
+      const baseTexture = this._baseTexture;
+      baseTexture.resolution = scale;
+      baseTexture.width = source.width;
+      baseTexture.height = source.height;
+      console.warn(`[RWK] ${this._url || "bitmap"} is ${source.width}x${source.height}, ` +
+        `over this GPU's ${max}px limit; drawing it at ${Math.round(scale * 100)}%.`);
+      // Bitmaps drawn on at runtime update their canvas; copy it again first.
+      if (source instanceof HTMLCanvasElement) {
+        const update = baseTexture.update;
+        baseTexture.update = function () {
+          this.resolution = fit();
+          return update.apply(this, arguments);
+        };
+      }
+    };
+  }
+
   let toastEl = null;
   let toastTimer = 0;
   function toast(message, kind = "info", ms = 2500) {
