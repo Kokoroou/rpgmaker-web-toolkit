@@ -54,13 +54,21 @@ export function stripComments(code) {
 }
 
 // What a key is for, as far as we can tell: the description of the plugin
-// that reads it (tags like "[v1.2]" dropped), else the plugin's name.
+// that reads it, else the plugin's name.
 export function pluginHint(plugin) {
-  const desc = String(plugin.description || "")
-    .replace(/^\s*(?:[[【(（<][^\]】)）>]*[\]】)）>]\s*)+/, "")
-    .trim();
-  const hint = desc || plugin.name;
+  const hint = cleanHint(plugin.description) || plugin.name;
   return hint.length > 32 ? hint.slice(0, 31) + "…" : hint;
+}
+
+// Drops the version and author around a plugin description: "[v1.2] Quest
+// journal", "v1.0.0 FlyCat-<Quest journal>" -> "Quest journal".
+export function cleanHint(text) {
+  const s = String(text || "")
+    .replace(/^\s*(?:[[【(（][^\]】)）]*[\]】)）]\s*)+/, "")
+    .replace(/^\s*v?\d+(?:\.\d+)+\s*/i, "")
+    .trim();
+  const wrapped = s.match(/^[^<>]*<([^<>]+)>$/);
+  return wrapped ? wrapped[1].trim() : s;
 }
 
 export function defaultLabel(key) {

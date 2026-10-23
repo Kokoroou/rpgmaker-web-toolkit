@@ -17,7 +17,7 @@ import {
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { MAX_ASSET_BYTES, MAX_ASSET_FILES, analyzeGame, collectFiles, suggestSlug, validateSlug } from "../lib/game.js";
-import { GAMEPAD_KEYS, defaultLabel, scanKeys } from "../lib/keys.js";
+import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
 
@@ -261,8 +261,10 @@ async function addNewKeys(game, cfg) {
   if (!controls) return;
   const known = new Set(controls.scannedKeys || []);
   const scanned = scanKeys(game.root);
-  // Configs made before hints existed: say what each key is for.
+  // Configs made before hints existed, or before they were cleaned up: say
+  // what each key is for.
   for (const b of controls.buttons || []) {
+    if (b.hint) b.hint = cleanHint(b.hint);
     const k = !b.hint && scanned.find((s) => s.key === b.key);
     if (k) b.hint = k.hint;
   }
