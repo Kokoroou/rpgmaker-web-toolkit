@@ -1,0 +1,20 @@
+{
+  "name": "rpgmaker-web-toolkit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deploy RPG Maker MZ/MV games to Cloudflare Workers with cloud save sync and mobile controls.",
+  "type": "module",
+  "bin": {
+    "rwk": "cli/index.js"
+  },
+  "scripts": {
+    "deploy": "node cli/index.js deploy",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "wrangler": "4.148.0"
+  }
+}

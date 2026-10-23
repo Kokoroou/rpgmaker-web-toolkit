@@ -1,0 +1,26 @@
+@echo off
+rem rpgmaker-web-toolkit launcher (Windows).
+rem   rwk.cmd "D:\Games\My Game"
+setlocal
+set "RWK_HOME=%~dp0"
+
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [rwk] Chua co Node.js. Cai ban LTS tai https://nodejs.org roi chay lai.
+  exit /b 1
+)
+
+if not exist "%RWK_HOME%node_modules\wrangler\bin\wrangler.js" (
+  echo [rwk] Cai dat phu thuoc lan dau...
+  pushd "%RWK_HOME%"
+  call npm ci --no-fund --no-audit
+  if errorlevel 1 (
+    popd
+    echo [rwk] npm ci that bai.
+    exit /b 1
+  )
+  popd
+)
+
+node "%RWK_HOME%cli\index.js" %*
+exit /b %errorlevel%
