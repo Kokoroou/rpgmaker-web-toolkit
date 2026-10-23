@@ -7,6 +7,9 @@ import path from "node:path";
 // Already reachable by touch in MZ/MV (tap, two-finger cancel, built-in buttons).
 const TOUCH_COVERED = new Set(["ok", "cancel", "up", "down", "left", "right", "menu", "debug", "control", "tab", "shift"]);
 
+// Pressed by the on-screen gamepad in RWK_MobileControls (A/B/X/Y, L/R).
+export const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
+
 export function readPlugins(root) {
   const file = path.join(root, "js", "plugins.js");
   const src = fs.readFileSync(file, "utf8");
@@ -51,6 +54,6 @@ export function stripComments(code) {
 }
 
 export function defaultLabel(key) {
-  const known = { escape: "Menu", pageup: "◀◀", pagedown: "▶▶" };
+  const known = { escape: "Back", pageup: "Prev page", pagedown: "Next page" };
   return known[key.toLowerCase()] || key.toUpperCase();
 }

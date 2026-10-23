@@ -4,7 +4,7 @@ Publish an **RPG Maker MZ** game (MV: adapter included, not yet tested) to **Clo
 
 - Play in a browser anywhere: `https://<game-name>.<username>.workers.dev`
 - **Cloud save sync**: sign in with the same email and continue on any device
-- **On-screen buttons on phones** for the keys the game's plugins use (R, T, Q, E…)
+- **On-screen gamepad on phones** (D-pad, A/B/X/Y, L/R, like JoiPlay), plus buttons for the keys the game's plugins use (R, T, Q, E…)
 - Re-run as often as you like: later runs **upload only the files that changed** (handy for patches and translation updates)
 - **The original game folder is never modified**, and no clone is needed: the toolkit runs from a temp folder and cleans up after itself
 
@@ -75,23 +75,37 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
 "controls": {
   "enabled": true,
   "showOn": "touch",
-  "dpad": false,
+  "gamepad": true,
+  "dpad": true,
   "opacity": 0.5,
   "scale": 1,
   "extras": ["fullscreen", "editLayout"],
   "buttons": [
     { "key": "r", "label": "Inspect" },
-    { "key": "escape", "label": "Menu" },
     { "label": "Popup", "keys": [{ "key": "f", "label": "F" }, "e", "q"] }
   ]
 }
 ```
 
-- `key` is an RPG Maker logical key name (`ok`, `escape`, `pageup`…) or a key name a plugin registers itself (`r`, `t`…).
+The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y bottom-right, L/R above them. The buttons press the same keys RPG Maker maps a real controller to:
+
+| Button | Key | Does |
+|---|---|---|
+| A | `ok` | Confirm, talk, interact |
+| B | `cancel` | Back / close |
+| X | `shift` | Dash (hold) |
+| Y | `menu` | Open the menu |
+| L / R | `pageup` / `pagedown` | Previous / next page (switch actor in menus) |
+
+- `gamepad`: A/B/X/Y and L/R. `dpad`: the D-pad (slide your thumb to change direction). Either can be `false`.
+- `buttons` are extra keys the game's plugins use, shown as keycaps (portrait: above L/R; landscape: down the right edge).
+  Buttons for keys the gamepad already presses (`ok`, `escape`, `pageup`…) are hidden while `gamepad` is on.
+- `key` is an RPG Maker logical key name or a key name a plugin registers itself (`r`, `t`…).
   A numeric keyCode also works; its name is then looked up in `Input.keyMapper`.
 - An entry with `keys` is a **button group**: tap it to open its sub-buttons.
-- `showOn`: `touch` (touch devices only), `always` or `never`.
-- In game, the top-left corner has: ◐ hide/show, ⛶ fullscreen, ✥ drag buttons to new positions (layout is saved per device), ↺ reset the layout.
+- `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
+- In portrait the game moves to the top of the screen so the controls get the space below it.
+- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⛶ fullscreen, ✥ drag buttons to new positions (saved per device and per orientation), ↺ reset the layout.
 
 ## Architecture
 
