@@ -23,6 +23,8 @@
   // v2: positions are anchored to the nearest corner and kept per orientation.
   const LAYOUT_KEY = "rwk.layout2." + RWK.config.gameId;
   const HIDDEN_KEY = "rwk.controlsHidden." + RWK.config.gameId;
+  // Ids of single buttons the player hid in edit mode (e.g. an unused L/R).
+  const OFF_KEY = "rwk.controlsOff." + RWK.config.gameId;
 
   //---------------------------------------------------------------------------
   // Input injection
@@ -105,18 +107,19 @@
   //---------------------------------------------------------------------------
 
   const scale = Number(cfg.scale) || 1;
-  const opacity = cfg.opacity ?? 0.5;
+  const opacity = cfg.opacity ?? 0.35;
   const style = document.createElement("style");
   style.textContent = `
 .rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
-  color:#fff;font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
+  color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
 .rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle){display:none}
-.rwk-item{position:absolute;transform:translate(-50%,-50%)}
+.rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
+.rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}
 .rwk-btn{display:flex;align-items:center;justify-content:center;gap:.15em;text-align:center;overflow:hidden;
-  background:var(--bg);border:2px solid rgba(255,255,255,.4);transition:background .08s}
+  background:var(--bg);border:2px solid rgba(255,255,255,.25);transition:background .08s}
 .rwk-btn.on,.rwk-arm.on{background:rgba(90,140,255,.8);border-color:#fff}
 .rwk-btn small{font-size:calc(var(--u)*.2);font-weight:500;opacity:.9}
 .rwk-face{width:calc(var(--u)*3.32);height:calc(var(--u)*3.32)}
@@ -129,13 +132,13 @@
   border-radius:calc(var(--u)*.2);white-space:nowrap;border-bottom-width:4px}
 .rwk-dpad{width:calc(var(--u)*3);height:calc(var(--u)*3);border-radius:50%;background:rgba(20,20,28,${opacity * 0.45})}
 .rwk-arm{position:absolute;width:34%;height:34%;display:flex;align-items:center;justify-content:center;
-  background:var(--bg);border:2px solid rgba(255,255,255,.4);font-size:calc(var(--u)*.38)}
+  background:var(--bg);border:2px solid rgba(255,255,255,.25);font-size:calc(var(--u)*.38)}
 .rwk-arm.up{left:33%;top:3%;border-radius:22% 22% 0 0;border-bottom:0}
 .rwk-arm.down{left:33%;bottom:3%;border-radius:0 0 22% 22%;border-top:0}
 .rwk-arm.left{top:33%;left:3%;border-radius:22% 0 0 22%;border-right:0}
 .rwk-arm.right{top:33%;right:3%;border-radius:0 22% 22% 0;border-left:0}
 .rwk-arm.mid{left:33%;top:33%;border:0;width:34%;height:34%}
-.rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%)}
+.rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-tool{width:calc(var(--u)*.66);height:calc(var(--u)*.66);border-radius:50%;font-size:calc(var(--u)*.3)}
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
@@ -145,9 +148,13 @@
   background:rgba(20,20,28,.88);border:1px solid rgba(255,255,255,.3);border-radius:12px}
 .rwk-panel.open,.rwk-backdrop.open{display:flex}
 .rwk-backdrop{position:absolute;inset:0;display:none;pointer-events:auto}
-.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center;padding:0 calc(var(--u)*.7)}
-.rwk-panel-close{position:absolute;top:4px;right:4px;width:calc(var(--u)*.7);height:calc(var(--u)*.7);display:flex;
-  align-items:center;justify-content:center;font-size:calc(var(--u)*.32);opacity:.75;pointer-events:auto;cursor:pointer}
+.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center}
+.rwk-pad:not(.editing) .rwk-off{display:none}
+.rwk-pad.editing .rwk-off{opacity:.35}
+.rwk-badge{position:absolute;display:none;width:calc(var(--u)*.5);height:calc(var(--u)*.5);transform:translate(-50%,-50%);
+  align-items:center;justify-content:center;border-radius:50%;background:#ffd54a;color:#000;text-shadow:none;
+  font-size:calc(var(--u)*.36);line-height:1}
+.rwk-pad.editing .rwk-badge{display:flex}
 .rwk-panel-keys{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .rwk-panel .rwk-key{flex-direction:column;height:auto;min-height:calc(var(--u)*1.1);max-width:calc(var(--u)*3);
   padding:calc(var(--u)*.12) calc(var(--u)*.2)}
@@ -180,6 +187,7 @@
   const unit = () => clamp(Math.min(vw(), vh()) * (orientation() === "portrait" ? 0.13 : 0.14), 40, 72) * scale;
 
   const saved = RWK.storage.get(LAYOUT_KEY, {});
+  const off = new Set(RWK.storage.get(OFF_KEY, []));
   let editing = false;
   const items = []; // { id, el, def: () => pos }; pos = { h: "l"|"r", x, v: "t"|"b", y } in px from that corner
 
@@ -199,9 +207,26 @@
   function addItem(id, node, def) {
     node.classList.add("rwk-item");
     const item = { id, el: node, def };
+    // In edit mode: − hides the button, + brings it back.
+    item.badge = el("div", "rwk-badge");
+    bindPress(item.badge, null, () => {}, () => {
+      if (off.has(id)) off.delete(id);
+      else off.add(id);
+      layout();
+    });
     items.push(item);
     pad.appendChild(node);
+    pad.appendChild(item.badge);
     return item;
+  }
+
+  // On the item's top-right corner, kept on screen.
+  function placeBadge(item) {
+    const r = unit() * 0.25;
+    const x = parseFloat(item.el.style.left) + item.el.offsetWidth / 2;
+    const y = parseFloat(item.el.style.top) - item.el.offsetHeight / 2;
+    item.badge.style.left = clamp(x, r, vw() - r) + "px";
+    item.badge.style.top = clamp(y, r, vh() - r) + "px";
   }
 
   function place(node, pos) {
@@ -245,6 +270,7 @@
       if (drag && drag.pointerId === e.pointerId) {
         item.el.style.left = e.clientX + drag.dx + "px";
         item.el.style.top = e.clientY + drag.dy + "px";
+        placeBadge(item);
         return;
       }
       if (onMove && pointers.has(e.pointerId)) onMove(e);
@@ -254,6 +280,7 @@
         const layout = (saved[orientation()] = saved[orientation()] || {});
         layout[item.id] = toAnchor(e.clientX + drag.dx, e.clientY + drag.dy);
         place(item.el, layout[item.id]);
+        placeBadge(item);
         fitGame();
         drag = null;
         return;
@@ -376,7 +403,7 @@
     extraSlots.clear();
     const gap = 8;
     const m = margin();
-    const flow = extraItems.filter((item) => !item.pos);
+    const flow = extraItems.filter((item) => !item.pos && (editing || !off.has(item.id)));
     for (const item of extraItems) if (item.pos) extraSlots.set(item, item.pos);
     if (orientation() === "portrait") {
       // Rows centered above the L/R line, bottom-up.
@@ -444,7 +471,8 @@
   let panel = null;
   let backdrop = null;
   if (panelKeys.length) {
-    // Tapping anywhere outside the panel closes it without reaching the game.
+    // Tapping anywhere outside the panel (⌨ included) closes it without
+    // reaching the game.
     backdrop = el("div", "rwk-backdrop");
     backdrop.addEventListener("pointerdown", (e) => {
       e.preventDefault();
@@ -452,9 +480,6 @@
     });
     pad.appendChild(backdrop);
     panel = el("div", "rwk-panel", '<div class="rwk-panel-title">Game keys</div>');
-    const close = el("div", "rwk-panel-close", "✕");
-    bindPress(close, null, () => {}, () => setPanel(false));
-    panel.appendChild(close);
     const grid = el("div", "rwk-panel-keys");
     // A hint shared by several keys (one plugin, many keys) tells them apart
     // no better than the label, so only unique hints are shown.
@@ -490,12 +515,13 @@
       editBtn.textContent = editing ? "✓" : "✥";
       if (!editing) {
         RWK.storage.set(LAYOUT_KEY, saved);
+        RWK.storage.set(OFF_KEY, [...off]);
         RWK.toast("Button layout saved", "info", 1500);
       } else {
-        RWK.toast("Drag buttons to move them. ↺ resets to default, ✓ saves.", "info", 4000);
+        RWK.toast("Drag buttons to move them, − hides one, + shows it again. ↺ resets positions, ✓ saves.", "info", 5000);
       }
       resetBtn.style.display = editing ? "" : "none";
-      layoutTools();
+      layout(); // hidden buttons show up dimmed while editing
     });
     const resetBtn = addTool("↺", "rwk-tool-reset", () => {
       delete saved[orientation()];
@@ -587,9 +613,16 @@
 
   function layout() {
     pad.style.setProperty("--u", unit().toFixed(1) + "px");
+    for (const item of items) {
+      item.el.classList.toggle("rwk-off", off.has(item.id));
+      item.badge.textContent = off.has(item.id) ? "+" : "−";
+    }
     layoutExtras();
     const own = saved[orientation()] || {};
-    for (const item of items) place(item.el, own[item.id] || item.def());
+    for (const item of items) {
+      place(item.el, own[item.id] || item.def());
+      placeBadge(item);
+    }
     layoutTools();
     layoutPanel();
     fitGame();
@@ -609,6 +642,18 @@
       }, ms)
     );
   }
+
+  // Fade the controls while the player only watches (dialogue, cutscenes);
+  // the first touch brings them back.
+  const IDLE_MS = 4000;
+  let idleTimer = 0;
+  const wake = () => {
+    pad.classList.remove("idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => pad.classList.add("idle"), IDLE_MS);
+  };
+  window.addEventListener("pointerdown", wake, true);
+  wake();
 
   if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
   else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
