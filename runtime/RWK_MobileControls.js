@@ -143,8 +143,11 @@
 .rwk-panel{position:absolute;display:none;flex-direction:column;gap:8px;padding:10px;overflow:auto;
   width:max-content;max-width:calc(100vw - 16px);transform:translateX(-50%);pointer-events:auto;
   background:rgba(20,20,28,.88);border:1px solid rgba(255,255,255,.3);border-radius:12px}
-.rwk-panel.open{display:flex}
-.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center}
+.rwk-panel.open,.rwk-backdrop.open{display:flex}
+.rwk-backdrop{position:absolute;inset:0;display:none;pointer-events:auto}
+.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center;padding:0 calc(var(--u)*.7)}
+.rwk-panel-close{position:absolute;top:4px;right:4px;width:calc(var(--u)*.7);height:calc(var(--u)*.7);display:flex;
+  align-items:center;justify-content:center;font-size:calc(var(--u)*.32);opacity:.75;pointer-events:auto;cursor:pointer}
 .rwk-panel-keys{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .rwk-panel .rwk-key{flex-direction:column;height:auto;min-height:calc(var(--u)*1.1);max-width:calc(var(--u)*3);
   padding:calc(var(--u)*.12) calc(var(--u)*.2)}
@@ -329,6 +332,7 @@
   //--- Extra keys (game-specific, from the config)
   const extraItems = [];
   extras.forEach((b, index) => {
+    if (!onScreen(b)) return; // in the ⌨ panel instead
     const id = b.id || (b.keys ? "group:" + (b.label || index) : "key:" + b.key);
     const label = b.label || String(b.key).toUpperCase();
     const btn = el("div", "rwk-btn rwk-key", text(b.keys ? label + " ▾" : label));
@@ -438,12 +442,28 @@
     layout();
   });
   let panel = null;
+  let backdrop = null;
   if (panelKeys.length) {
+    // Tapping anywhere outside the panel closes it without reaching the game.
+    backdrop = el("div", "rwk-backdrop");
+    backdrop.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      setPanel(false);
+    });
+    pad.appendChild(backdrop);
     panel = el("div", "rwk-panel", '<div class="rwk-panel-title">Game keys</div>');
+    const close = el("div", "rwk-panel-close", "✕");
+    bindPress(close, null, () => {}, () => setPanel(false));
+    panel.appendChild(close);
     const grid = el("div", "rwk-panel-keys");
+    // A hint shared by several keys (one plugin, many keys) tells them apart
+    // no better than the label, so only unique hints are shown.
+    const hintCount = {};
+    for (const b of panelKeys) if (b.hint) hintCount[b.hint] = (hintCount[b.hint] || 0) + 1;
     for (const b of panelKeys) {
       const label = b.label || String(b.key).toUpperCase();
-      const btn = el("div", "rwk-btn rwk-key", `<b>${text(label)}</b>` + (b.hint ? `<small>${text(b.hint)}</small>` : ""));
+      const hint = hintCount[b.hint] === 1 ? b.hint : "";
+      const btn = el("div", "rwk-btn rwk-key", `<b>${text(label)}</b>` + (hint ? `<small>${text(hint)}</small>` : ""));
       bindPress(btn, null, () => press(b.key), () => {
         release(b.key);
         if (b.closeOnPress !== false) setPanel(false);
@@ -457,6 +477,7 @@
 
   function setPanel(open) {
     panel.classList.toggle("open", open);
+    backdrop.classList.toggle("open", open);
     layoutPanel();
   }
 
