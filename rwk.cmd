@@ -6,17 +6,17 @@ set "RWK_HOME=%~dp0"
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [rwk] Chua co Node.js. Cai ban LTS tai https://nodejs.org roi chay lai.
+  echo [rwk] Node.js not found. Install the LTS release from https://nodejs.org and run again.
   exit /b 1
 )
 
 if not exist "%RWK_HOME%node_modules\wrangler\bin\wrangler.js" (
-  echo [rwk] Cai dat phu thuoc lan dau...
+  echo [rwk] Installing dependencies (first run)...
   pushd "%RWK_HOME%"
   call npm ci --no-fund --no-audit
   if errorlevel 1 (
     popd
-    echo [rwk] npm ci that bai.
+    echo [rwk] npm ci failed.
     exit /b 1
   )
   popd

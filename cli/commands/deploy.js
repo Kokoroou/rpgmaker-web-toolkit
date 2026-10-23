@@ -1,23 +1,18 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import {
-  BUILD_DIR,
-  DEFAULT_BUCKET,
-  TOOLKIT_ROOT,
-  findGameConfig,
-  gameConfigExists,
-  loadSettings,
-  saveGameConfig,
-  saveSettings,
-} from "../lib/config.js";
+import { DEFAULT_BUCKET, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
 import {
   deployWorker,
   ensureBucket,
   ensureLogin,
   importSaves,
   listSaveFiles,
+  loadGameConfigs,
   probeAccess,
+  saveGameConfigs,
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
@@ -26,108 +21,124 @@ import { defaultLabel, scanKeys } from "../lib/keys.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
 
-export async function deploy(inputPath, { importOnly = false } = {}) {
-  if (!inputPath) inputPath = await ask("Kéo thả hoặc dán đường dẫn thư mục game");
+export async function deploy(inputPath, { importOnly = false, editOnly = false } = {}) {
+  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path");
   inputPath = inputPath.replace(/^["']|["']$/g, "");
 
   //-------------------------------------------------------------------------
-  log.step("Phân tích game");
+  log.step("Analyzing the game");
   const game = analyzeGame(inputPath);
   log.ok(`${game.engine} · ${game.title}`);
   log.info(c.dim(game.root));
-  if (game.engine === "MV") log.warn("Game MV: adapter đã có nhưng chưa được kiểm thử thực tế.");
+  if (game.engine === "MV") log.warn("MV game: the adapter exists but has not been tested on a real game yet.");
 
   const settings = loadSettings();
-  let cfg = findGameConfig(game.fingerprint);
+  const { email, account } = await connect(settings);
+  const bucket = DEFAULT_BUCKET;
+  await ensureBucket(bucket, account.id);
+
+  const configs = await loadGameConfigs(bucket);
+  let saved = "";
+  // Writes the shared config back to R2, skipping the call when nothing changed.
+  const saveGameConfig = async () => {
+    const next = JSON.stringify(cfg);
+    if (next === saved) return;
+    configs[game.fingerprint] = cfg;
+    await saveGameConfigs(bucket, configs);
+    saved = next;
+  };
+
+  let cfg = configs[game.fingerprint];
   if (cfg) {
-    log.ok(`Dùng cấu hình đã lưu: games/${cfg.slug}.json`);
+    saved = JSON.stringify(cfg);
+    log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
   } else {
-    log.info("Lần đầu deploy game này: trả lời vài câu hỏi (Enter = dùng giá trị mặc định).");
-    cfg = await createConfig(game);
+    log.info("First deploy of this game: answer a few questions (Enter = use the default).");
+    const taken = new Set(Object.values(configs).map((other) => other.slug));
+    cfg = await createConfig(game, taken);
   }
   await addNewKeys(game, cfg);
-  saveGameConfig(cfg);
+  await saveGameConfig();
+
+  if (editOnly) {
+    cfg = editInNotepad(cfg);
+    await saveGameConfig();
+    log.ok("Config saved to R2. Run the deploy command again to apply it.");
+    return;
+  }
 
   if (importOnly) {
-    const { email } = await connect(settings);
-    await offerSaveImport(game, cfg, settings.bucket, email, true);
-    saveGameConfig(cfg);
+    await offerSaveImport(game, cfg, bucket, email, true);
+    await saveGameConfig();
     return;
   }
 
   //-------------------------------------------------------------------------
-  log.step("Chuẩn bị bản web");
-  const buildDir = path.join(BUILD_DIR, cfg.slug);
+  log.step("Preparing the web build");
+  const buildDir = createBuildDir(game.root, cfg.slug);
   const files = collectFiles(game, cfg);
   const overflow = files.filter((f) => f.size > MAX_ASSET_BYTES);
   const assets = files.filter((f) => f.size <= MAX_ASSET_BYTES);
   const generated = generatedFiles(game, cfg);
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  log.info(`${files.length} file, ${formatBytes(totalBytes)} (${overflow.length} file > 25 MiB sẽ nằm trên R2)`);
+  log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over 25 MiB go to R2)`);
   if (assetCount > MAX_ASSET_FILES) throw tooManyFiles(assets, assetCount);
 
   const stats = syncPublicDir(path.join(buildDir, "public"), assets, generated);
-  log.ok(`Đã dựng .build/${cfg.slug}/public (mới ${stats.linked + stats.copied}, giữ ${stats.unchanged}, xoá ${stats.removed})`);
-  if (stats.copied) log.info(c.dim("Game và toolkit khác ổ đĩa nên phải copy thay vì hard link; lần sau chỉ copy file thay đổi."));
-
-  const { email, account } = await connect(settings);
+  log.ok(`Temporary build ready (${stats.linked} hard links, ${stats.copied} copies)`);
+  log.info(c.dim(buildDir));
+  if (stats.copied) log.info(c.dim("Hard links were not possible (different drive, or the drive root is not writable), so files were copied."));
 
   //-------------------------------------------------------------------------
-  const needBucket = overflow.length > 0 || cfg.sync.enabled;
-  if (needBucket) {
-    log.step("R2");
-    await ensureBucket(settings.bucket, account.id);
-    const cacheFile = path.join(buildDir, "hash-cache.json");
-    const hashCache = readJson(cacheFile) || {};
-    const res = await syncOverflow({ bucket: settings.bucket, slug: cfg.slug, files: overflow, hashCache });
-    fs.writeFileSync(cacheFile, JSON.stringify(hashCache));
-    log.ok(`File lớn trên R2: tải lên ${res.uploaded}, không đổi ${res.unchanged}, xoá ${res.removed}`);
+  if (overflow.length) {
+    log.step("Large files on R2");
+    const res = await syncOverflow({ bucket, slug: cfg.slug, files: overflow });
+    log.ok(`Uploaded ${res.uploaded}, unchanged ${res.unchanged}, removed ${res.removed}`);
   }
 
   //-------------------------------------------------------------------------
-  log.step("Deploy Worker (wrangler chỉ tải lên file đã thay đổi)");
+  log.step("Deploying the Worker (wrangler uploads changed files only)");
   const project = {
     buildDir,
     slug: cfg.slug,
-    bucket: needBucket ? settings.bucket : null,
+    bucket,
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
   };
   const authReady = isAuthReady(cfg.auth);
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
-  saveGameConfig(cfg);
+  await saveGameConfig();
 
   if (!authReady) {
     await setupAuth(cfg, account);
-    saveGameConfig(cfg);
+    await saveGameConfig();
     if (isAuthReady(cfg.auth)) {
-      log.step("Deploy lại với bảo vệ truy cập");
+      log.step("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
     } else {
-      log.warn("Trang vẫn đang khoá. Chạy lại lệnh này khi muốn hoàn tất bước bảo vệ truy cập.");
+      log.warn("The site is still locked. Run this command again to finish setting up access protection.");
     }
   } else if (cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);
-    if (probe.protected) log.ok("Cloudflare Access đang bảo vệ trang");
-    else log.warn(c.yellow("Cloudflare Access KHÔNG còn bảo vệ trang! Kiểm tra lại trong dashboard (Worker → Settings → Domains & Routes)."));
+    if (probe.protected) log.ok("Cloudflare Access is protecting the site");
+    else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Settings → Domains & Routes)."));
   }
 
   //-------------------------------------------------------------------------
-  if (cfg.sync.enabled && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, settings.bucket, email, false);
-  saveGameConfig(cfg);
+  if (cfg.sync.enabled && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, bucket, email, false);
+  await saveGameConfig();
 
-  console.log(`\n${c.green("Hoàn tất!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
-  log.info(`Cấu hình: games/${cfg.slug}.json. Hãy commit & push để máy khác dùng lại (git add games && git commit && git push).`);
-  log.info("Điện thoại: mở link → menu trình duyệt → “Thêm vào màn hình chính” để chơi toàn màn hình.");
+  console.log(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
+  log.info("The game's config is stored in R2: on another machine, log in to the same Cloudflare account and run the command again.");
+  log.info("On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.");
 }
 
 async function connect(settings) {
   log.step("Cloudflare");
   const session = await ensureLogin(settings);
-  settings.bucket = settings.bucket || DEFAULT_BUCKET;
-  saveSettings(settings);
+  saveSettings({ accountId: settings.accountId });
   log.ok(`Account: ${session.account.name}`);
   return session;
 }
@@ -136,11 +147,24 @@ function isAuthReady(auth = {}) {
   return auth.mode === "none" || (auth.mode === "access" && !!auth.teamDomain && !!auth.aud);
 }
 
-function readJson(file) {
+// Opens the config in Notepad and blocks until it is closed; reopens on bad JSON.
+function editInNotepad(cfg) {
+  const file = path.join(os.tmpdir(), `rwk-${cfg.slug}-${crypto.randomUUID().slice(0, 8)}.json`);
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return null;
+    for (;;) {
+      log.info("Opening Notepad: edit, save (Ctrl+S), then close the window to continue…");
+      spawnSync("notepad.exe", [file], { stdio: "ignore" });
+      try {
+        const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
+        // Identity fields are not editable: they tie the config to the game and Worker.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint };
+      } catch (err) {
+        log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
+      }
+    }
+  } finally {
+    fs.rmSync(file, { force: true });
   }
 }
 
@@ -152,8 +176,8 @@ function tooManyFiles(assets, count) {
   }
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
-    `Bản web có ${count} file, vượt giới hạn ${MAX_ASSET_FILES} của Workers (gói free).\n` +
-      `${lines.join("\n")}\nThêm mẫu loại trừ vào "exclude" trong games/<slug>.json (ví dụ "data-tw/**") rồi chạy lại.`
+    `The web build has ${count} files, over the Workers limit of ${MAX_ASSET_FILES} (free plan).\n` +
+      `${lines.join("\n")}\nAdd exclude patterns (edit-config command, e.g. "data-tw/**") and run again.`
   );
 }
 
@@ -161,22 +185,22 @@ function tooManyFiles(assets, count) {
 // First-run questions
 //---------------------------------------------------------------------------
 
-async function createConfig(game) {
-  const slug = await ask("Tên web (sẽ thành <tên>.<username>.workers.dev)", suggestSlug(game), (v) => {
+async function createConfig(game, takenSlugs) {
+  const slug = await ask("Site name (becomes <name>.<username>.workers.dev)", suggestSlug(game), (v) => {
     const problem = validateSlug(v);
     if (problem) return problem;
-    return gameConfigExists(v) ? `games/${v}.json đã dùng cho game khác, chọn tên khác.` : null;
+    return takenSlugs.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
   });
 
   const include = [];
   if (game.unknownDirs.length) {
-    log.info(`Thư mục lạ ở gốc game (không thuộc cấu trúc RPG Maker chuẩn): ${game.unknownDirs.join(", ")}`);
+    log.info(`Non-standard folders in the game root: ${game.unknownDirs.join(", ")}`);
     for (const dir of game.unknownDirs) {
-      if (await confirm(`Đưa "${dir}" lên web? (chọn có nếu plugin của game đọc file trong đó)`, false)) include.push(dir);
+      if (await confirm(`Include "${dir}" in the web build? (yes if a plugin reads files from it)`, false)) include.push(dir);
     }
   }
 
-  const syncEnabled = await confirm("Bật đồng bộ save qua cloud (chơi tiếp trên nhiều máy)?", true);
+  const syncEnabled = await confirm("Enable cloud save sync (continue playing on other devices)?", true);
 
   const cfg = {
     slug,
@@ -193,28 +217,28 @@ async function createConfig(game) {
   const keys = scanKeys(game.root);
   cfg.controls.scannedKeys = keys.map((k) => k.key);
   if (keys.length) {
-    log.info("Plugin của game dùng các phím mà điện thoại không bấm được:");
+    log.info("The game's plugins use keys a touch screen cannot press:");
     for (const k of keys) log.info(`    ${c.bold(k.key.padEnd(10))} ${c.dim(k.plugins.join(", "))}`);
   } else {
-    log.info("Không thấy plugin nào dùng phím đặc biệt.");
+    log.info("No plugin uses special keys.");
   }
-  if (await confirm("Tạo nút ảo trên màn hình cảm ứng?", keys.length > 0)) {
+  if (await confirm("Add on-screen buttons for touch screens?", keys.length > 0)) {
     cfg.controls.enabled = true;
     cfg.controls.buttons = await askButtons(keys);
     if (!cfg.controls.buttons.some((b) => b.key === "escape")) {
-      if (await confirm('Thêm nút "Menu" (phím Esc)?', true)) cfg.controls.buttons.push({ key: "escape", label: "Menu" });
+      if (await confirm('Add a "Menu" button (Esc key)?', true)) cfg.controls.buttons.push({ key: "escape", label: "Menu" });
     }
-    cfg.controls.dpad = await confirm("Thêm D-pad (4 nút hướng)? MZ/MV đã có chạm để di chuyển", false);
-    log.info(c.dim(`Có thể chỉnh nhãn, nhóm nút, cỡ, độ mờ trong games/${slug}.json; trong game có nút ✥ để kéo đổi vị trí.`));
+    cfg.controls.dpad = await confirm("Add a D-pad (4 direction buttons)? MZ/MV already support tap-to-move", false);
+    log.info(c.dim("Labels, groups, size and opacity can be changed with edit-config; in game, the ✥ button lets you drag buttons around."));
   }
   return cfg;
 }
 
 async function askButtons(keys) {
   const buttons = [];
-  if (keys.length) log.info(c.dim('Đặt nhãn cho từng nút: Enter = mặc định, "-" = bỏ qua phím này.'));
+  if (keys.length) log.info(c.dim('Label each button: Enter = default, "-" = skip this key.'));
   for (const k of keys) {
-    const label = await ask(`Nhãn nút cho phím "${k.key}"`, defaultLabel(k.key));
+    const label = await ask(`Button label for key "${k.key}"`, defaultLabel(k.key));
     if (label !== "-") buttons.push({ key: k.key, label });
   }
   return buttons;
@@ -228,8 +252,8 @@ async function addNewKeys(game, cfg) {
   const fresh = scanKeys(game.root).filter((k) => !known.has(k.key));
   if (!fresh.length) return;
   controls.scannedKeys = [...known, ...fresh.map((k) => k.key)];
-  log.info(`Bản game mới dùng thêm phím: ${fresh.map((k) => k.key).join(", ")}`);
-  if (controls.enabled && (await confirm("Thêm nút ảo cho các phím này?", true))) {
+  log.info(`This game version uses new keys: ${fresh.map((k) => k.key).join(", ")}`);
+  if (controls.enabled && (await confirm("Add on-screen buttons for these keys?", true))) {
     controls.buttons.push(...(await askButtons(fresh)));
   }
 }
@@ -239,49 +263,49 @@ async function addNewKeys(game, cfg) {
 //---------------------------------------------------------------------------
 
 async function setupAuth(cfg, account) {
-  log.step("Bảo vệ truy cập");
-  log.info("Trang đang tạm khoá. Chọn cách bảo vệ:");
-  const mode = await choose("Phương án", [
-    { label: "Cloudflare Access: đăng nhập bằng email, save gắn với email (khuyên dùng)", value: "access" },
-    { label: "Không bảo vệ: ai có link cũng chơi được và dùng chung save", value: "none" },
-    { label: "Để sau (giữ trang khoá)", value: "later" },
+  log.step("Access protection");
+  log.info("The site is locked for now. Choose how to protect it:");
+  const mode = await choose("Option", [
+    { label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" },
+    { label: "No protection: anyone with the link can play, and everyone shares saves", value: "none" },
+    { label: "Later (keep the site locked)", value: "later" },
   ]);
   if (mode === "later") return;
   if (mode === "none") {
-    if (await confirm("Chắc chắn để trang công khai?", false)) cfg.auth = { mode: "none" };
+    if (await confirm("Really make the site public?", false)) cfg.auth = { mode: "none" };
     return;
   }
 
-  if (!cfg.url) cfg.url = await ask("URL của Worker (https://<tên>.<username>.workers.dev)");
+  if (!cfg.url) cfg.url = await ask("Worker URL (https://<name>.<username>.workers.dev)");
   const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/settings`;
-  log.info("Làm theo các bước sau trong trình duyệt (đang mở trang Settings của Worker):");
-  log.info(`  1. Mục ${c.bold("Domains & Routes")} → dòng ${c.bold("workers.dev")} → bật ${c.bold("Cloudflare Access")}.`);
-  log.info("  2. Nếu lần đầu dùng Zero Trust: đặt tên team và chọn gói Free.");
-  log.info("  3. Mặc định chỉ email của tài khoản Cloudflare được vào. Muốn thêm email khác:");
-  log.info("     Zero Trust → Access → Applications → app của Worker → Policies.");
+  log.info("Follow these steps in the browser (opening the Worker's Settings page):");
+  log.info(`  1. Under ${c.bold("Domains & Routes")}, on the ${c.bold("workers.dev")} row, enable ${c.bold("Cloudflare Access")}.`);
+  log.info("  2. If this is your first time using Zero Trust: pick a team name and the Free plan.");
+  log.info("  3. By default only the Cloudflare account's email may sign in. To allow other emails:");
+  log.info("     Zero Trust → Access → Applications → the Worker's app → Policies.");
   log.info(c.dim(`  ${dash}`));
   openBrowser(dash);
 
   for (;;) {
-    await pause("Bật xong thì nhấn Enter để kiểm tra…");
+    await pause("When done, press Enter to check…");
     const probe = await probeAccess(cfg.url);
     if (probe.protected && probe.aud) {
       cfg.auth = { mode: "access", teamDomain: probe.teamDomain, aud: probe.aud };
-      log.ok(`Đã nhận Access: ${probe.teamDomain}`);
+      log.ok(`Access detected: ${probe.teamDomain}`);
       return;
     }
-    log.warn(probe.error ? `Không truy cập được trang: ${probe.error}` : "Trang chưa được Access bảo vệ (thay đổi có thể mất ~1 phút).");
-    const next = await choose("Tiếp theo", [
-      { label: "Kiểm tra lại", value: "retry" },
-      { label: "Tự nhập Team domain và AUD", value: "manual" },
-      { label: "Để sau (giữ trang khoá)", value: "later" },
+    log.warn(probe.error ? `Could not reach the site: ${probe.error}` : "The site is not protected by Access yet (changes can take about a minute).");
+    const next = await choose("Next", [
+      { label: "Check again", value: "retry" },
+      { label: "Enter the team domain and AUD manually", value: "manual" },
+      { label: "Later (keep the site locked)", value: "later" },
     ]);
     if (next === "later") return;
     if (next === "manual") {
-      const teamDomain = await ask("Team domain (vd: tenteam.cloudflareaccess.com)", "", (v) =>
-        /^[a-z0-9-]+\.cloudflareaccess\.com$/i.test(v) ? null : "Dạng <team>.cloudflareaccess.com"
+      const teamDomain = await ask("Team domain (e.g. myteam.cloudflareaccess.com)", "", (v) =>
+        /^[a-z0-9-]+\.cloudflareaccess\.com$/i.test(v) ? null : "Format: <team>.cloudflareaccess.com"
       );
-      const aud = await ask("Application Audience (AUD) tag", "", (v) => (/^[a-f0-9]{32,}$/i.test(v) ? null : "AUD là chuỗi hex dài"));
+      const aud = await ask("Application Audience (AUD) tag", "", (v) => (/^[a-f0-9]{32,}$/i.test(v) ? null : "The AUD is a long hex string"));
       cfg.auth = { mode: "access", teamDomain: teamDomain.toLowerCase(), aud };
       return;
     }
@@ -302,28 +326,28 @@ function openBrowser(url) {
 
 async function offerSaveImport(game, cfg, bucket, accountEmail, force) {
   if (!cfg.sync.enabled) {
-    log.warn("Game này không bật đồng bộ save.");
+    log.warn("Save sync is disabled for this game.");
     return;
   }
   if (!force && cfg.savesImportedAt) return;
   if (!game.saveDir) {
-    if (force) log.warn("Không thấy thư mục save/ trong game.");
+    if (force) log.warn("No save/ folder found in the game.");
     return;
   }
   const saves = listSaveFiles(game.saveDir, game.engine);
   if (!saves.length) return;
 
-  log.step("Save trên máy");
-  log.info(`Có ${saves.length} save trong ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
-  if (!(await confirm("Tải các save này lên cloud? (ghi đè save cùng tên trên cloud)", !cfg.savesImportedAt))) {
+  log.step("Local saves");
+  log.info(`Found ${saves.length} save(s) in ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
+  if (!(await confirm("Upload these saves to the cloud? (overwrites cloud saves with the same name)", !cfg.savesImportedAt))) {
     if (!force) cfg.savesImportedAt = "skipped";
     return;
   }
   const email =
     cfg.auth.mode === "none"
       ? "public"
-      : await ask("Email bạn dùng để đăng nhập Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Email không hợp lệ"));
+      : await ask("The email you use to sign in through Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Invalid email"));
   const count = await importSaves({ bucket, slug: cfg.slug, email, saves });
   cfg.savesImportedAt = new Date().toISOString();
-  log.ok(`Đã tải ${count} save lên cloud`);
+  log.ok(`Uploaded ${count} save(s) to the cloud`);
 }

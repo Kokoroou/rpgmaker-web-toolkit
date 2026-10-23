@@ -44,7 +44,7 @@ export async function wranglerOrThrow(args, options) {
   const result = await wrangler(args, options);
   if (result.code !== 0) {
     const tail = result.output.trim().split("\n").slice(-6).join("\n");
-    throw new Error(`wrangler ${args.slice(0, 3).join(" ")} thất bại (mã ${result.code})\n${tail}`);
+    throw new Error(`wrangler ${args.slice(0, 3).join(" ")} failed (exit code ${result.code})\n${tail}`);
   }
   return result;
 }

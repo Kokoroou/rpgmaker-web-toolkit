@@ -12,7 +12,7 @@ export function readPlugins(root) {
   const src = fs.readFileSync(file, "utf8");
   const start = src.indexOf("[");
   const end = src.lastIndexOf("]");
-  if (start < 0 || end < start) throw new Error("Không đọc được js/plugins.js");
+  if (start < 0 || end < start) throw new Error("Could not parse js/plugins.js");
   return JSON.parse(src.slice(start, end + 1));
 }
 

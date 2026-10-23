@@ -17,16 +17,16 @@ export const DEFAULT_EXCLUDES = ["**/.*", "**/Thumbs.db", "**/desktop.ini", "**/
 
 export function analyzeGame(inputPath) {
   const given = path.resolve(inputPath);
-  if (!fs.existsSync(given)) throw new Error(`Không tìm thấy thư mục: ${given}`);
+  if (!fs.existsSync(given)) throw new Error(`Folder not found: ${given}`);
   const root = [given, path.join(given, "www")].find(
     (dir) => fs.existsSync(path.join(dir, "index.html")) && fs.existsSync(path.join(dir, "js"))
   );
-  if (!root) throw new Error(`Không thấy index.html + js/ trong ${given} (hay ${given}\\www). Đây có phải game RPG Maker MZ/MV?`);
+  if (!root) throw new Error(`No index.html + js/ in ${given} (or ${given}\\www). Is this an RPG Maker MZ/MV game?`);
 
   let engine;
   if (fs.existsSync(path.join(root, "js", "rmmz_core.js"))) engine = "MZ";
   else if (fs.existsSync(path.join(root, "js", "rpg_core.js"))) engine = "MV";
-  else throw new Error("Không nhận diện được engine (thiếu js/rmmz_core.js hoặc js/rpg_core.js).");
+  else throw new Error("Unknown engine (neither js/rmmz_core.js nor js/rpg_core.js found).");
 
   const system = readJson(path.join(root, "data", "System.json"));
   const title = system.gameTitle || path.basename(given);
@@ -123,7 +123,7 @@ export function compileGlobs(patterns) {
 
 export function suggestSlug(game) {
   const base = game.folderName
-    .replace(/[([{（【].*?[)\]}）】]/g, " ") // bracketed tags: (GVNVH18), [VH]
+    .replace(/[([{（【].*?[)\]}）】]/g, " ") // bracketed tags: (Team01), [VH]
     .replace(/\bv?\d+(\.\d+)+\w*\b/gi, " ") // versions: v1.292
     .replace(/\b(VH|Viet ?hoa|eng|english|full|final)\b/gi, " ");
   return toSlug(base) || toSlug(game.title) || "rpg-game";
@@ -143,7 +143,7 @@ export function toSlug(text) {
 
 export function validateSlug(slug) {
   if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(slug)) {
-    return "Chỉ dùng chữ thường a-z, số và dấu '-', không bắt đầu/kết thúc bằng '-' (tối đa 63 ký tự).";
+    return "Use lowercase a-z, digits and '-' only, not starting or ending with '-' (max 63 characters).";
   }
   return null;
 }

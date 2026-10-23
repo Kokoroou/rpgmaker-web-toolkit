@@ -1,26 +1,26 @@
 # Roadmap
 
-## Giai đoạn 2: ưu tiên cao
+## Phase 2: high priority
 
-### Service Worker lưu đệm file game (quan trọng khi chơi bằng 4G)
+### Service Worker cache for game files (important when playing over 4G)
 
-Hiện tại mỗi lần mở game, trình duyệt chỉ dựa vào HTTP cache. Cache này dễ bị xoá trên điện thoại, và các ảnh parallax nặng 10–27 MB sẽ bị tải lại nhiều lần.
+Right now the browser relies only on the HTTP cache on every launch. That cache is easily evicted on phones, so the 10–27 MB parallax images get downloaded again and again.
 
-Dự kiến:
+Plan:
 
-- `rwk-sw.js` do build sinh ra, cache-first cho `img/ audio/ effects/ data/ js/ fonts/`.
-- Mỗi lần build tạo một `buildId` (hash của manifest) dùng làm tên cache. Khi có bản deploy mới, Service Worker xoá cache cũ và **chỉ tải lại file đã đổi** (so hash theo từng file, không xoá cả cache).
-- Không cache `/api/*`. Nên không cache file trên 25 MiB, hoặc cache có giới hạn, vì iOS giới hạn dung lượng.
-- Tuỳ chọn "Tải trước" trong menu: tải sẵn các map/nhạc khi đang dùng Wi-Fi.
-- Rủi ro: iOS Safari giới hạn quota và có thể xoá dữ liệu sau 7 ngày không mở. Cần hiển thị dung lượng đã cache và có nút xoá cache.
+- A build-generated `rwk-sw.js`, cache-first for `img/ audio/ effects/ data/ js/ fonts/`.
+- Each build produces a `buildId` (hash of the manifest) used as the cache name. On a new deploy the Service Worker drops the old cache and **re-downloads only the files that changed** (per-file hash comparison, not a full cache wipe).
+- Never cache `/api/*`. Skip files over 25 MiB, or cache them with a cap, since iOS limits storage.
+- A "Preload" option in the menu: download maps and music ahead of time while on Wi-Fi.
+- Risk: iOS Safari limits quota and may evict data after 7 days without a visit. Show how much is cached and offer a button to clear it.
 
-### Kiểm thử MV
+### MV testing
 
-Adapter MV (`RWK_SaveSync`: localStorage `RPG File%d`; boot gate qua `SceneManager.run`) đã viết nhưng chưa được kiểm thử trên game thật.
+The MV adapter (`RWK_SaveSync`: localStorage `RPG File%d`; boot gate through `SceneManager.run`) is written but has not been tested on a real game.
 
-## Giai đoạn 3
+## Phase 3
 
-- Đồng bộ save cho bản PC (NW.js): plugin tuỳ chọn để bản desktop cũng đẩy và kéo save, dùng service token của Access.
-- Tự động bật Cloudflare Access qua API (cần API token có quyền Access) thay cho bước bật thủ công trong dashboard.
-- Hỗ trợ macOS và Linux (`rwk.sh`). Phần CLI đã viết đa nền tảng, chủ yếu cần thêm script khởi chạy và cách mở trình duyệt.
-- Trang `/` liệt kê các game đã deploy (hub cá nhân).
+- Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
+- Enable Cloudflare Access automatically through the API (needs an API token with Access permissions) instead of the manual dashboard step.
+- macOS and Linux support (`run.sh`). The CLI is already cross-platform; it mainly needs a launcher script and a way to open the browser.
+- A `/` page listing all deployed games (personal hub).

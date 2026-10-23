@@ -277,9 +277,9 @@
       editBtn.textContent = editing ? "✓" : "✥";
       if (!editing) {
         RWK.storage.set(LAYOUT_KEY, saved);
-        RWK.toast("Đã lưu bố cục nút", "info", 1500);
+        RWK.toast("Button layout saved", "info", 1500);
       } else {
-        RWK.toast("Kéo nút để đổi chỗ. Bấm ↺ để về mặc định, ✓ để lưu.", "info", 4000);
+        RWK.toast("Drag buttons to move them. ↺ resets to default, ✓ saves.", "info", 4000);
       }
       resetBtn.style.display = editing ? "" : "none";
     });
@@ -307,7 +307,7 @@
     }
     const request = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!request) {
-      RWK.toast("Trình duyệt không hỗ trợ toàn màn hình. Hãy dùng “Thêm vào màn hình chính”.", "warn", 4000);
+      RWK.toast("This browser has no fullscreen support. Use “Add to Home Screen” instead.", "warn", 4000);
       return;
     }
     Promise.resolve(request.call(el))
