@@ -1,6 +1,6 @@
 //=============================================================================
 // RWK_MobileControls.js - rpgmaker-web-toolkit
-// On-screen gamepad (D-pad, A/B/X/Y, L/R) plus buttons for extra keys the
+// On-screen gamepad (D-pad, A/B/X/Y, L/R) plus a panel of extra keys the
 // game's plugins use. Works on MZ and MV by driving Input._currentState, the
 // same state the keyboard handler sets.
 //=============================================================================
@@ -95,6 +95,10 @@
   // Keys the gamepad already presses; extra buttons for them would be duplicates.
   const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
   const extras = (cfg.buttons || []).filter((b) => b.keys || !gamepadOn || !GAMEPAD_KEYS.has(keyName(b.key)));
+  // Plugin keys go in the ⌨ panel so they don't crowd the screen; groups,
+  // pinned buttons, and every button when there is no gamepad stay on screen.
+  const onScreen = (b) => b.keys || b.pin || b.pos || !gamepadOn;
+  const panelKeys = extras.filter((b) => !onScreen(b));
 
   //---------------------------------------------------------------------------
   // DOM
@@ -136,8 +140,18 @@
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
+.rwk-panel{position:absolute;display:none;flex-direction:column;gap:8px;padding:10px;overflow:auto;
+  width:max-content;max-width:calc(100vw - 16px);transform:translateX(-50%);pointer-events:auto;
+  background:rgba(20,20,28,.88);border:1px solid rgba(255,255,255,.3);border-radius:12px}
+.rwk-panel.open{display:flex}
+.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center}
+.rwk-panel-keys{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.rwk-panel .rwk-key{flex-direction:column;height:auto;min-height:calc(var(--u)*1.1);max-width:calc(var(--u)*3);
+  padding:calc(var(--u)*.12) calc(var(--u)*.2)}
+.rwk-panel .rwk-key b{font-size:calc(var(--u)*.36)}
+.rwk-panel .rwk-key small{white-space:normal;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 @media (orientation:portrait){
-  body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #UpperCanvas{bottom:auto!important}
+  body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #UpperCanvas{bottom:var(--rwk-game-bottom,0px)!important}
 }
 `;
   document.head.appendChild(style);
@@ -237,6 +251,7 @@
         const layout = (saved[orientation()] = saved[orientation()] || {});
         layout[item.id] = toAnchor(e.clientX + drag.dx, e.clientY + drag.dy);
         place(item.el, layout[item.id]);
+        fitGame();
         drag = null;
         return;
       }
@@ -252,8 +267,8 @@
   //---------------------------------------------------------------------------
   // Default layout (px, recomputed on every resize):
   //   D-pad bottom-left, A/B/X/Y bottom-right, L/R above them.
-  //   Extra keys: portrait - centered rows above L/R; landscape - columns
-  //   down the right edge.
+  //   On-screen extra keys: portrait - centered rows above L/R; landscape -
+  //   columns down the right edge.
   //---------------------------------------------------------------------------
 
   const margin = () => unit() * 0.3 + 8;
@@ -403,8 +418,8 @@
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar: hide/show, fullscreen, edit layout. Top-left in landscape; in
-  // portrait the game sits at the top, so it moves between L and R.
+  // Toolbar: hide/show, game keys, fullscreen, edit layout. Top-left in
+  // landscape; in portrait it sits between L and R.
   //---------------------------------------------------------------------------
 
   const toolbar = el("div", "rwk-tools");
@@ -422,6 +437,29 @@
     RWK.storage.set(HIDDEN_KEY, pad.classList.contains("hidden"));
     layout();
   });
+  let panel = null;
+  if (panelKeys.length) {
+    panel = el("div", "rwk-panel", '<div class="rwk-panel-title">Game keys</div>');
+    const grid = el("div", "rwk-panel-keys");
+    for (const b of panelKeys) {
+      const label = b.label || String(b.key).toUpperCase();
+      const btn = el("div", "rwk-btn rwk-key", `<b>${text(label)}</b>` + (b.hint ? `<small>${text(b.hint)}</small>` : ""));
+      bindPress(btn, null, () => press(b.key), () => {
+        release(b.key);
+        if (b.closeOnPress !== false) setPanel(false);
+      });
+      grid.appendChild(btn);
+    }
+    panel.appendChild(grid);
+    pad.appendChild(panel);
+    addTool("⌨", "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
+  }
+
+  function setPanel(open) {
+    panel.classList.toggle("open", open);
+    layoutPanel();
+  }
+
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
   if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen);
   if (extrasTools.includes("editLayout")) {
@@ -445,10 +483,13 @@
     resetBtn.style.display = "none";
   }
 
+  // Portrait with a gamepad: the game sits above the controls.
+  const docked = () => orientation() === "portrait" && !pad.classList.contains("hidden") && (gamepadOn || dpadOn);
+
   function layoutTools() {
     const w = toolbar.offsetWidth;
     const h = toolbar.offsetHeight;
-    if (orientation() === "portrait" && !pad.classList.contains("hidden") && (gamepadOn || dpadOn)) {
+    if (docked()) {
       toolbar.style.left = vw() / 2 + "px";
       toolbar.style.top = vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) + "px";
     } else {
@@ -456,6 +497,49 @@
       toolbar.style.top = margin() + h / 2 + "px";
     }
   }
+
+  // Above the controls when docked, under the toolbar otherwise.
+  function layoutPanel() {
+    if (!panel || !panel.classList.contains("open")) return;
+    panel.style.left = vw() / 2 + "px";
+    if (docked()) {
+      const bottom = vh() - controlsTop() + 8;
+      panel.style.top = "";
+      panel.style.bottom = bottom + "px";
+      panel.style.maxHeight = vh() - bottom - 8 + "px";
+    } else {
+      const top = toolbar.offsetTop + toolbar.offsetHeight / 2 + 8;
+      panel.style.bottom = "";
+      panel.style.top = top + "px";
+      panel.style.maxHeight = vh() - top - 8 + "px";
+    }
+  }
+
+  // Top edge of the controls in the lower half of the screen.
+  function controlsTop() {
+    let top = vh();
+    for (const node of [toolbar, ...items.map((i) => i.el)]) {
+      if (!node.offsetWidth || node.offsetTop < vh() / 2) continue; // hidden, or moved to the top
+      top = Math.min(top, node.offsetTop - node.offsetHeight / 2); // offsetTop is the center (translate -50%)
+    }
+    return top;
+  }
+
+  // In portrait, center the game in the space above the controls instead of
+  // the whole screen; it may cover them only when it doesn't fit otherwise.
+  function fitGame() {
+    const canvas = document.getElementById("gameCanvas");
+    let bottom = 0;
+    if (canvas && docked()) bottom = clamp(vh() - controlsTop() + 8, 0, Math.max(0, vh() - canvas.offsetHeight));
+    document.body.style.setProperty("--rwk-game-bottom", bottom + "px");
+  }
+
+  // The engine resizes the canvas after our resize handler runs.
+  const _updateAllElements = Graphics._updateAllElements;
+  Graphics._updateAllElements = function () {
+    _updateAllElements.apply(this, arguments);
+    fitGame();
+  };
 
   function toggleFullscreen() {
     const doc = document;
@@ -469,7 +553,13 @@
       RWK.toast("This browser has no fullscreen support. Use “Add to Home Screen” instead.", "warn", 4000);
       return;
     }
-    Promise.resolve(request.call(root)).catch(() => {});
+    // Fullscreen is what allows locking the orientation: turn a landscape game sideways.
+    Promise.resolve(request.call(root))
+      .then(() => {
+        const o = screen.orientation;
+        if (o && o.lock && Graphics.width >= Graphics.height) return o.lock("landscape");
+      })
+      .catch(() => {});
   }
 
   //---------------------------------------------------------------------------
@@ -480,13 +570,35 @@
     const own = saved[orientation()] || {};
     for (const item of items) place(item.el, own[item.id] || item.def());
     layoutTools();
+    layoutPanel();
+    fitGame();
+  }
+
+  // Mobile browsers report the final size a little after rotating or
+  // entering fullscreen, sometimes with no resize event: lay out again then,
+  // and let the engine resize the game too.
+  let settle = [];
+  function relayout() {
+    layout();
+    for (const t of settle) clearTimeout(t);
+    settle = [150, 500].map((ms) =>
+      setTimeout(() => {
+        if (Graphics._canvas) Graphics._updateAllElements();
+        layout();
+      }, ms)
+    );
   }
 
   if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
   else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
   document.body.appendChild(pad);
   layout();
-  window.addEventListener("resize", layout);
-  // Some mobile browsers report the new size only after the rotation settles.
-  window.addEventListener("orientationchange", () => setTimeout(layout, 300));
+  // The engine creates the canvas after plugins load.
+  const waitCanvas = () => (document.getElementById("gameCanvas") ? fitGame() : requestAnimationFrame(waitCanvas));
+  waitCanvas();
+  window.addEventListener("resize", relayout);
+  window.addEventListener("orientationchange", relayout);
+  document.addEventListener("fullscreenchange", relayout);
+  document.addEventListener("webkitfullscreenchange", relayout);
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 })();

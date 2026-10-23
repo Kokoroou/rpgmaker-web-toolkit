@@ -76,6 +76,22 @@
 `;
   document.head.appendChild(style);
 
+  //---------------------------------------------------------------------------
+  // Fit the game in the window. Desktop browsers draw it at 1x (only NW.js and
+  // phones stretch), so a game bigger than the window gets cut off behind a
+  // scrollbar. Shrink it to fit; never enlarge.
+  //---------------------------------------------------------------------------
+
+  document.documentElement.style.overflow = "hidden";
+  const _updateRealScale = Graphics._updateRealScale;
+  Graphics._updateRealScale = function () {
+    _updateRealScale.apply(this, arguments);
+    if (this._width > 0 && this._height > 0) {
+      const fit = Math.min(window.innerWidth / this._width, window.innerHeight / this._height);
+      if (fit < this._realScale) this._realScale = fit;
+    }
+  };
+
   let toastEl = null;
   let toastTimer = 0;
   function toast(message, kind = "info", ms = 2500) {
