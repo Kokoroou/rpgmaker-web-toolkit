@@ -1,23 +1,18 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import {
-  BUILD_DIR,
-  DEFAULT_BUCKET,
-  TOOLKIT_ROOT,
-  findGameConfig,
-  gameConfigExists,
-  loadSettings,
-  saveGameConfig,
-  saveSettings,
-} from "../lib/config.js";
+import { DEFAULT_BUCKET, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
 import {
   deployWorker,
   ensureBucket,
   ensureLogin,
   importSaves,
   listSaveFiles,
+  loadGameConfigs,
   probeAccess,
+  saveGameConfigs,
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
@@ -26,7 +21,7 @@ import { defaultLabel, scanKeys } from "../lib/keys.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
 
-export async function deploy(inputPath, { importOnly = false } = {}) {
+export async function deploy(inputPath, { importOnly = false, editOnly = false } = {}) {
   if (!inputPath) inputPath = await ask("Kéo thả hoặc dán đường dẫn thư mục game");
   inputPath = inputPath.replace(/^["']|["']$/g, "");
 
@@ -38,26 +33,49 @@ export async function deploy(inputPath, { importOnly = false } = {}) {
   if (game.engine === "MV") log.warn("Game MV: adapter đã có nhưng chưa được kiểm thử thực tế.");
 
   const settings = loadSettings();
-  let cfg = findGameConfig(game.fingerprint);
+  const { email, account } = await connect(settings);
+  const bucket = DEFAULT_BUCKET;
+  await ensureBucket(bucket, account.id);
+
+  const configs = await loadGameConfigs(bucket);
+  let saved = "";
+  // Writes the shared config back to R2, skipping the call when nothing changed.
+  const saveGameConfig = async () => {
+    const next = JSON.stringify(cfg);
+    if (next === saved) return;
+    configs[game.fingerprint] = cfg;
+    await saveGameConfigs(bucket, configs);
+    saved = next;
+  };
+
+  let cfg = configs[game.fingerprint];
   if (cfg) {
-    log.ok(`Dùng cấu hình đã lưu: games/${cfg.slug}.json`);
+    saved = JSON.stringify(cfg);
+    log.ok(`Dùng cấu hình đã lưu trên R2 (tên web: ${cfg.slug})`);
   } else {
     log.info("Lần đầu deploy game này: trả lời vài câu hỏi (Enter = dùng giá trị mặc định).");
-    cfg = await createConfig(game);
+    const taken = new Set(Object.values(configs).map((other) => other.slug));
+    cfg = await createConfig(game, taken);
   }
   await addNewKeys(game, cfg);
-  saveGameConfig(cfg);
+  await saveGameConfig();
+
+  if (editOnly) {
+    cfg = editInNotepad(cfg);
+    await saveGameConfig();
+    log.ok("Đã lưu cấu hình lên R2. Chạy lại lệnh deploy để áp dụng.");
+    return;
+  }
 
   if (importOnly) {
-    const { email } = await connect(settings);
-    await offerSaveImport(game, cfg, settings.bucket, email, true);
-    saveGameConfig(cfg);
+    await offerSaveImport(game, cfg, bucket, email, true);
+    await saveGameConfig();
     return;
   }
 
   //-------------------------------------------------------------------------
   log.step("Chuẩn bị bản web");
-  const buildDir = path.join(BUILD_DIR, cfg.slug);
+  const buildDir = createBuildDir(game.root, cfg.slug);
   const files = collectFiles(game, cfg);
   const overflow = files.filter((f) => f.size > MAX_ASSET_BYTES);
   const assets = files.filter((f) => f.size <= MAX_ASSET_BYTES);
@@ -68,21 +86,15 @@ export async function deploy(inputPath, { importOnly = false } = {}) {
   if (assetCount > MAX_ASSET_FILES) throw tooManyFiles(assets, assetCount);
 
   const stats = syncPublicDir(path.join(buildDir, "public"), assets, generated);
-  log.ok(`Đã dựng .build/${cfg.slug}/public (mới ${stats.linked + stats.copied}, giữ ${stats.unchanged}, xoá ${stats.removed})`);
-  if (stats.copied) log.info(c.dim("Game và toolkit khác ổ đĩa nên phải copy thay vì hard link; lần sau chỉ copy file thay đổi."));
-
-  const { email, account } = await connect(settings);
+  log.ok(`Đã dựng bản web tạm (${stats.linked} hard link, ${stats.copied} copy)`);
+  log.info(c.dim(buildDir));
+  if (stats.copied) log.info(c.dim("Không hard link được (khác ổ đĩa hoặc không ghi được gốc ổ) nên phải copy file."));
 
   //-------------------------------------------------------------------------
-  const needBucket = overflow.length > 0 || cfg.sync.enabled;
-  if (needBucket) {
-    log.step("R2");
-    await ensureBucket(settings.bucket, account.id);
-    const cacheFile = path.join(buildDir, "hash-cache.json");
-    const hashCache = readJson(cacheFile) || {};
-    const res = await syncOverflow({ bucket: settings.bucket, slug: cfg.slug, files: overflow, hashCache });
-    fs.writeFileSync(cacheFile, JSON.stringify(hashCache));
-    log.ok(`File lớn trên R2: tải lên ${res.uploaded}, không đổi ${res.unchanged}, xoá ${res.removed}`);
+  if (overflow.length) {
+    log.step("File lớn trên R2");
+    const res = await syncOverflow({ bucket, slug: cfg.slug, files: overflow });
+    log.ok(`Tải lên ${res.uploaded}, không đổi ${res.unchanged}, xoá ${res.removed}`);
   }
 
   //-------------------------------------------------------------------------
@@ -90,18 +102,18 @@ export async function deploy(inputPath, { importOnly = false } = {}) {
   const project = {
     buildDir,
     slug: cfg.slug,
-    bucket: needBucket ? settings.bucket : null,
+    bucket,
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
   };
   const authReady = isAuthReady(cfg.auth);
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
-  saveGameConfig(cfg);
+  await saveGameConfig();
 
   if (!authReady) {
     await setupAuth(cfg, account);
-    saveGameConfig(cfg);
+    await saveGameConfig();
     if (isAuthReady(cfg.auth)) {
       log.step("Deploy lại với bảo vệ truy cập");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
@@ -115,19 +127,18 @@ export async function deploy(inputPath, { importOnly = false } = {}) {
   }
 
   //-------------------------------------------------------------------------
-  if (cfg.sync.enabled && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, settings.bucket, email, false);
-  saveGameConfig(cfg);
+  if (cfg.sync.enabled && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, bucket, email, false);
+  await saveGameConfig();
 
   console.log(`\n${c.green("Hoàn tất!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
-  log.info(`Cấu hình: games/${cfg.slug}.json. Hãy commit & push để máy khác dùng lại (git add games && git commit && git push).`);
+  log.info("Cấu hình game đã lưu trên R2: máy khác chỉ cần đăng nhập cùng tài khoản Cloudflare và chạy lại lệnh.");
   log.info("Điện thoại: mở link → menu trình duyệt → “Thêm vào màn hình chính” để chơi toàn màn hình.");
 }
 
 async function connect(settings) {
   log.step("Cloudflare");
   const session = await ensureLogin(settings);
-  settings.bucket = settings.bucket || DEFAULT_BUCKET;
-  saveSettings(settings);
+  saveSettings({ accountId: settings.accountId });
   log.ok(`Account: ${session.account.name}`);
   return session;
 }
@@ -136,11 +147,24 @@ function isAuthReady(auth = {}) {
   return auth.mode === "none" || (auth.mode === "access" && !!auth.teamDomain && !!auth.aud);
 }
 
-function readJson(file) {
+// Opens the config in Notepad and blocks until it is closed; reopens on bad JSON.
+function editInNotepad(cfg) {
+  const file = path.join(os.tmpdir(), `rwk-${cfg.slug}-${crypto.randomUUID().slice(0, 8)}.json`);
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return null;
+    for (;;) {
+      log.info("Đang mở Notepad: sửa, lưu (Ctrl+S) rồi đóng cửa sổ để tiếp tục…");
+      spawnSync("notepad.exe", [file], { stdio: "ignore" });
+      try {
+        const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
+        // Identity fields are not editable: they tie the config to the game and Worker.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint };
+      } catch (err) {
+        log.warn(`JSON không hợp lệ (${err.message}), mở lại để sửa.`);
+      }
+    }
+  } finally {
+    fs.rmSync(file, { force: true });
   }
 }
 
@@ -153,7 +177,7 @@ function tooManyFiles(assets, count) {
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
     `Bản web có ${count} file, vượt giới hạn ${MAX_ASSET_FILES} của Workers (gói free).\n` +
-      `${lines.join("\n")}\nThêm mẫu loại trừ vào "exclude" trong games/<slug>.json (ví dụ "data-tw/**") rồi chạy lại.`
+      `${lines.join("\n")}\nThêm mẫu loại trừ vào "exclude" (lệnh edit-config, ví dụ "data-tw/**") rồi chạy lại.`
   );
 }
 
@@ -161,11 +185,11 @@ function tooManyFiles(assets, count) {
 // First-run questions
 //---------------------------------------------------------------------------
 
-async function createConfig(game) {
+async function createConfig(game, takenSlugs) {
   const slug = await ask("Tên web (sẽ thành <tên>.<username>.workers.dev)", suggestSlug(game), (v) => {
     const problem = validateSlug(v);
     if (problem) return problem;
-    return gameConfigExists(v) ? `games/${v}.json đã dùng cho game khác, chọn tên khác.` : null;
+    return takenSlugs.has(v) ? `"${v}" đã dùng cho game khác, chọn tên khác.` : null;
   });
 
   const include = [];
@@ -205,7 +229,7 @@ async function createConfig(game) {
       if (await confirm('Thêm nút "Menu" (phím Esc)?', true)) cfg.controls.buttons.push({ key: "escape", label: "Menu" });
     }
     cfg.controls.dpad = await confirm("Thêm D-pad (4 nút hướng)? MZ/MV đã có chạm để di chuyển", false);
-    log.info(c.dim(`Có thể chỉnh nhãn, nhóm nút, cỡ, độ mờ trong games/${slug}.json; trong game có nút ✥ để kéo đổi vị trí.`));
+    log.info(c.dim("Có thể chỉnh nhãn, nhóm nút, cỡ, độ mờ bằng lệnh edit-config; trong game có nút ✥ để kéo đổi vị trí."));
   }
   return cfg;
 }

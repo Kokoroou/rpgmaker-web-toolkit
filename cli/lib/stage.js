@@ -1,4 +1,4 @@
-// Builds .build/<slug>/public: hard links to the game's files (falls back to
+// Builds <build dir>/public: hard links to the game's files (falls back to
 // copies across drives) plus generated files. Generated files are always
 // written after unlinking the destination so a hard link can never write
 // through to the original game folder.

@@ -1,38 +1,16 @@
-// Per-game config lives in games/<slug>.json (commit it so other machines
-// reuse the same answers). Per-machine settings live in .rwk/settings.json.
+// Per-game configs live in R2 (see loadGameConfigs in cloudflare.js), so the
+// toolkit itself can run from a throwaway folder. The only local state is the
+// chosen Cloudflare account, kept next to wrangler's own login in the profile.
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const GAMES_DIR = path.join(TOOLKIT_ROOT, "games");
-export const BUILD_DIR = path.join(TOOLKIT_ROOT, ".build");
-const SETTINGS_FILE = path.join(TOOLKIT_ROOT, ".rwk", "settings.json");
+const SETTINGS_FILE = path.join(process.env.APPDATA || os.homedir(), "rpgmaker-web-toolkit", "settings.json");
 
 export const DEFAULT_BUCKET = "rpgmaker-web-toolkit";
-
-export function findGameConfig(fingerprint) {
-  if (!fs.existsSync(GAMES_DIR)) return null;
-  for (const file of fs.readdirSync(GAMES_DIR)) {
-    if (!file.endsWith(".json")) continue;
-    const cfg = readJsonFile(path.join(GAMES_DIR, file));
-    if (cfg && cfg.fingerprint === fingerprint) return cfg;
-  }
-  return null;
-}
-
-export function gameConfigExists(slug) {
-  return fs.existsSync(gameConfigPath(slug));
-}
-
-export function gameConfigPath(slug) {
-  return path.join(GAMES_DIR, `${slug}.json`);
-}
-
-export function saveGameConfig(cfg) {
-  writeJsonFile(gameConfigPath(cfg.slug), cfg);
-}
 
 export function loadSettings() {
   return readJsonFile(SETTINGS_FILE) || {};
@@ -40,6 +18,35 @@ export function loadSettings() {
 
 export function saveSettings(settings) {
   writeJsonFile(SETTINGS_FILE, settings);
+}
+
+// A fresh staging folder per run, removed on exit. It must sit on the game's
+// drive so the 8k+ game files can be hard-linked instead of copied.
+export function createBuildDir(gameRoot, slug) {
+  const tmp = os.tmpdir();
+  const gameDrive = path.parse(path.resolve(gameRoot)).root.toLowerCase();
+  const bases = path.parse(tmp).root.toLowerCase() === gameDrive ? [tmp] : [path.join(gameDrive, ".rwk-build"), tmp];
+  for (const base of bases) {
+    try {
+      fs.mkdirSync(base, { recursive: true });
+      const dir = fs.mkdtempSync(path.join(base, `${slug}-`));
+      process.on("exit", () => removeBuildDir(dir, base !== tmp ? base : null));
+      return dir;
+    } catch {
+      // Drive root not writable: fall back to the temp folder (copies).
+    }
+  }
+  throw new Error("Không tạo được thư mục tạm để dựng bản web.");
+}
+
+function removeBuildDir(dir, base) {
+  try {
+    // Only unlinks the hard links; the game's own files stay untouched.
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    if (base && !fs.readdirSync(base).length) fs.rmdirSync(base);
+  } catch {
+    // Best effort; a locked file (e.g. workerd on Ctrl+C) leaves a temp folder.
+  }
 }
 
 function readJsonFile(file) {

@@ -7,6 +7,7 @@ ${c.bold("rpgmaker-web-toolkit")}: đưa game RPG Maker MZ/MV lên Cloudflare Wo
 
   rwk "<thư mục game>"                Deploy lần đầu hoặc cập nhật (chỉ tải lên file thay đổi)
   rwk import-saves "<thư mục game>"   Tải save trên máy (thư mục save/) lên cloud
+  rwk edit-config "<thư mục game>"    Sửa cấu hình game (nút ảo, exclude…) lưu trên R2
   rwk help                            Trợ giúp
 `;
 
@@ -25,6 +26,8 @@ async function main() {
       return deploy(rest.join(" ") || undefined);
     case "import-saves":
       return deploy(rest.join(" ") || undefined, { importOnly: true });
+    case "edit-config":
+      return deploy(rest.join(" ") || undefined, { editOnly: true });
     default:
       return deploy(process.argv.slice(2).join(" ") || undefined);
   }

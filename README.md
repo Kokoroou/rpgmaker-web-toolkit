@@ -6,43 +6,58 @@
 - **Đồng bộ save qua cloud**: cùng một email đăng nhập thì chơi tiếp được trên mọi máy
 - **Nút ảo trên điện thoại** cho các phím mà plugin của game dùng (R, T, Q, E…)
 - Chạy lại bao nhiêu lần cũng được: lần sau **chỉ tải lên file đã thay đổi** (dùng khi có bản vá Việt hoá)
-- **Không sửa thư mục game gốc**: mọi thay đổi chỉ nằm trong `.build/`
+- **Không sửa thư mục game gốc**, không cần clone repo: toolkit chạy trong thư mục tạm rồi tự dọn sạch
 
 Giai đoạn hiện tại chỉ hỗ trợ **Windows**.
 
 ## Cài đặt & chạy
 
-Yêu cầu: [Node.js](https://nodejs.org) 20+ (bản LTS) và Git.
+Yêu cầu duy nhất: [Node.js](https://nodejs.org) 20+ (bản LTS, hoặc `winget install OpenJS.NodeJS.LTS`).
+
+Mở **PowerShell** và dán:
 
 ```powershell
-git clone https://github.com/Kokoroou/rpgmaker-web-toolkit
-.\rpgmaker-web-toolkit\rwk.cmd "D:\Games\Ten Game"
+irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
+```
+
+Script hỏi đường dẫn thư mục game (kéo thả thư mục vào cửa sổ là được). Nó tải toolkit vào thư mục tạm, cài wrangler, chạy, rồi **xoá sạch** thư mục tạm. Nếu dùng `cmd` thay vì PowerShell:
+
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex"
 ```
 
 Lần đầu, script sẽ:
 
-1. Cài phụ thuộc (wrangler) nếu chưa có.
+1. Mở trình duyệt để đăng nhập Cloudflare (chỉ lần đầu trên mỗi máy).
 2. Phân tích game (MZ/MV, plugin, các phím đặc biệt) và hỏi vài câu: tên web, có bật đồng bộ save không, nhãn cho từng nút ảo.
-   Câu trả lời được lưu ở `games/<tên>.json`.
-3. Mở trình duyệt để đăng nhập Cloudflare (chỉ lần đầu trên mỗi máy).
-4. Đưa file lớn hơn 25 MiB lên R2, deploy Worker cùng toàn bộ file game.
-5. Hướng dẫn bật **Cloudflare Access** (đăng nhập bằng email). Trong lúc chưa bật, trang ở trạng thái **khoá**, chưa ai vào được.
-6. Hỏi có tải các save đang có trên máy (thư mục `save/`) lên cloud không.
+   Câu trả lời được lưu **trên R2** (`rwk/games.json` trong bucket), không lưu trên máy.
+3. Đưa file lớn hơn 25 MiB lên R2, deploy Worker cùng toàn bộ file game.
+4. Hướng dẫn bật **Cloudflare Access** (đăng nhập bằng email). Trong lúc chưa bật, trang ở trạng thái **khoá**, chưa ai vào được.
+5. Hỏi có tải các save đang có trên máy (thư mục `save/`) lên cloud không.
 
-Khi có bản vá: chép bản vá đè vào thư mục game rồi chạy lại đúng lệnh trên. Nếu bản mới dùng thêm phím, script sẽ hỏi có thêm nút ảo không.
+Khi có bản vá: chép bản vá đè vào thư mục game rồi chạy lại đúng lệnh trên. Chỉ file thay đổi được tải lên. Nếu bản mới dùng thêm phím, script sẽ hỏi có thêm nút ảo không.
 
-Sang máy khác: `git clone` (hoặc `git pull`) repo này, tải game về rồi chạy lệnh trên. Cấu hình trong `games/` được dùng lại, nên không phải trả lời lại các câu hỏi. **Nhớ commit và push thư mục `games/`** sau lần chạy đầu.
+Sang máy khác: tải game về rồi chạy lại lệnh trên, đăng nhập cùng tài khoản Cloudflare. Cấu hình được lấy từ R2, nên không phải trả lời lại các câu hỏi.
 
-> Nếu repo để public, `games/*.json` sẽ lộ tên game và team Access của bạn. Hãy để repo private, hoặc thêm `games/` vào `.gitignore`.
+Trên máy chỉ còn lại phiên đăng nhập của wrangler, account đã chọn (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) và cache của npm (giúp lần chạy sau nhanh hơn). Thư mục dựng tạm nằm ở `<ổ đĩa của game>:\.rwk-build\`, để hard link được tới file game thay vì copy, và bị xoá khi chạy xong.
 
 ### Lệnh khác
 
+Muốn truyền tham số thì gọi script dưới dạng scriptblock:
+
 ```powershell
-rwk.cmd import-saves "D:\Games\Ten Game"   # tải lại save trên máy lên cloud (ghi đè bản cùng tên)
-rwk.cmd help
+$rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
+& $rwk "D:\Games\Ten Game"                 # deploy, không cần hỏi đường dẫn
+& $rwk import-saves "D:\Games\Ten Game"    # tải lại save trên máy lên cloud (ghi đè bản cùng tên)
+& $rwk edit-config "D:\Games\Ten Game"     # sửa cấu hình (nút ảo, exclude…) bằng Notepad
+& $rwk help
 ```
 
-## Cấu hình game: `games/<tên>.json`
+`$env:RWK_REF = "v1.0.0"` để chạy một tag hoặc nhánh cố định thay vì `main`.
+
+Khi phát triển toolkit thì clone repo và dùng `rwk.cmd` với cùng các lệnh trên.
+
+## Cấu hình game (`edit-config`)
 
 | Khoá | Ý nghĩa |
 |---|---|
@@ -81,7 +96,7 @@ rwk.cmd help
 ## Kiến trúc
 
 ```
-rwk.cmd ─► cli/            Node CLI: phân tích game, dựng .build/<slug>/, gọi wrangler
+run.ps1 ─► cli/            Node CLI: phân tích game, dựng bản web tạm, gọi wrangler
            runtime/        Plugin chèn vào bản web (thêm vào cuối js/plugins.js của bản build)
              RWK_Core            cấu hình, deviceId, toast, hộp thoại
              RWK_SaveSync        đồng bộ save (adapter MZ: localforage, MV: localStorage)
@@ -95,6 +110,7 @@ rwk.cmd ─► cli/            Node CLI: phân tích game, dựng .build/<slug>/
 **Lưu trữ.** File tĩnh nằm trong Workers Static Assets (miễn phí, không giới hạn băng thông, tối đa 20.000 file và 25 MiB/file). Chỉ những file lớn hơn 25 MiB mới nằm trên R2. R2 dùng chung một bucket `rpgmaker-web-toolkit`:
 
 ```
+rwk/games.json                     cấu hình của mọi game (theo fingerprint)
 assets/<slug>/<đường dẫn>          file > 25 MiB
 assets/<slug>/.rwk-manifest.json   hash của các file trên, dùng để chỉ tải lại file đã đổi
 saves/<sha256(email)>/<slug>/<tên>  save (config, global, file1…)
