@@ -15,20 +15,20 @@ import { useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 export async function ensureLogin(settings) {
   let who = await whoami();
   if (!who.loggedIn) {
-    log.info("Chưa đăng nhập Cloudflare: trình duyệt sẽ mở để đăng nhập…");
+    log.info("Not logged in to Cloudflare: a browser window will open to log in…");
     await wranglerOrThrow(["login"], { interactive: true });
     who = await whoami();
-    if (!who.loggedIn) throw new Error("Đăng nhập Cloudflare không thành công.");
+    if (!who.loggedIn) throw new Error("Cloudflare login failed.");
   }
   const accounts = who.accounts || [];
   let account = accounts.find((a) => a.id === settings.accountId);
   if (!account) {
-    if (!accounts.length) throw new Error("Tài khoản không có Cloudflare account nào.");
+    if (!accounts.length) throw new Error("This login has no Cloudflare account.");
     account =
       accounts.length === 1
         ? accounts[0]
         : await choose(
-            "Chọn Cloudflare account dùng để host:",
+            "Choose the Cloudflare account to host on:",
             accounts.map((a) => ({ label: `${a.name} (${a.id})`, value: a }))
           );
     settings.accountId = account.id;
@@ -55,15 +55,15 @@ export async function ensureBucket(bucket, accountId) {
     const res = await wrangler(["r2", "bucket", "create", bucket], { quiet: true });
     if (res.code === 0 || /already exists|10004/i.test(res.output)) return;
     if (/enable R2|10042|purchase/i.test(res.output)) {
-      log.warn("R2 chưa được bật cho account này (cần bật 1 lần, gói miễn phí 10 GB).");
-      log.info(`Mở: https://dash.cloudflare.com/${accountId}/r2/overview → bật R2, rồi quay lại đây.`);
-      const retry = await choose("Đã bật R2?", [
-        { label: "Đã bật, thử lại", value: true },
-        { label: "Thoát", value: false },
+      log.warn("R2 is not enabled for this account (a one-time step; the free tier has 10 GB).");
+      log.info(`Open https://dash.cloudflare.com/${accountId}/r2/overview, enable R2, then come back here.`);
+      const retry = await choose("Is R2 enabled now?", [
+        { label: "Yes, try again", value: true },
+        { label: "Quit", value: false },
       ]);
       if (retry) continue;
     }
-    throw new Error(`Không tạo được R2 bucket "${bucket}":\n${res.output.trim().split("\n").slice(-5).join("\n")}`);
+    throw new Error(`Could not create R2 bucket "${bucket}":\n${res.output.trim().split("\n").slice(-5).join("\n")}`);
   }
 }
 
@@ -75,7 +75,7 @@ async function r2Get(bucket, key) {
   if (res.code !== 0) {
     fs.rmSync(tmp, { force: true });
     if (/specified key does not exist/i.test(res.output)) return null;
-    throw new Error(`Không đọc được R2 ${key}:\n${res.output.trim().split("\n").slice(-5).join("\n")}`);
+    throw new Error(`Could not read R2 object ${key}:\n${res.output.trim().split("\n").slice(-5).join("\n")}`);
   }
   try {
     return fs.readFileSync(tmp);
@@ -251,10 +251,10 @@ export async function deployWorker(configFile) {
   if (res.code !== 0) {
     if (/workers\.dev subdomain/i.test(res.output)) {
       throw new Error(
-        "Account chưa có subdomain workers.dev. Vào https://dash.cloudflare.com → Workers & Pages → đăng ký subdomain (ví dụ tên username), rồi chạy lại."
+        "The account has no workers.dev subdomain yet. Go to https://dash.cloudflare.com → Workers & Pages, register a subdomain (e.g. your username), then run again."
       );
     }
-    throw new Error("wrangler deploy thất bại (xem log phía trên).");
+    throw new Error("wrangler deploy failed (see the log above).");
   }
   const m = res.output.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/i);
   return m ? m[0] : null;
@@ -306,7 +306,7 @@ export async function importSaves({ bucket, slug, email, saves }) {
   for (const save of saves) {
     const text = fs.readFileSync(save.file, "utf8");
     if ([...text].some((ch) => ch.charCodeAt(0) > 255)) {
-      log.warn(`Bỏ qua ${save.name}: định dạng không phải chuỗi nhị phân của engine.`);
+      log.warn(`Skipping ${save.name}: not in the engine's binary string format.`);
       continue;
     }
     const tmp = path.join(os.tmpdir(), `rwk-save-${crypto.randomUUID()}`);

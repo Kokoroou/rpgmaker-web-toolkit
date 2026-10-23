@@ -47,21 +47,21 @@ export async function confirm(text, defaultYes = true) {
     .trim()
     .toLowerCase();
   if (answer === "") return defaultYes;
-  return answer === "y" || answer === "yes" || answer === "c" || answer === "co" || answer === "có";
+  return answer === "y" || answer === "yes";
 }
 
 // options: [{ label, value }] -> value
 export async function choose(text, options, defaultIndex = 0) {
   console.log(`  ${c.yellow("?")} ${text}`);
-  options.forEach((o, i) => console.log(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (mặc định)") : ""}`));
-  const answer = await ask("Chọn số", String(defaultIndex + 1), (v) => {
+  options.forEach((o, i) => console.log(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`));
+  const answer = await ask("Enter a number", String(defaultIndex + 1), (v) => {
     const n = Number(v);
-    return Number.isInteger(n) && n >= 1 && n <= options.length ? null : `Nhập số từ 1 đến ${options.length}`;
+    return Number.isInteger(n) && n >= 1 && n <= options.length ? null : `Enter a number from 1 to ${options.length}`;
   });
   return options[Number(answer) - 1].value;
 }
 
-export async function pause(text = "Nhấn Enter để tiếp tục") {
+export async function pause(text = "Press Enter to continue") {
   await question(`  ${c.dim(text)} `);
 }
 

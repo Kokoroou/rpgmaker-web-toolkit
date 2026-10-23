@@ -36,7 +36,7 @@ export function createBuildDir(gameRoot, slug) {
       // Drive root not writable: fall back to the temp folder (copies).
     }
   }
-  throw new Error("Không tạo được thư mục tạm để dựng bản web.");
+  throw new Error("Could not create a temporary build folder.");
 }
 
 function removeBuildDir(dir, base) {

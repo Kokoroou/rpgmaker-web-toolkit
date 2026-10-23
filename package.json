@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Deploy RPG Maker MZ/MV games to Cloudflare Workers with cloud save sync and mobile controls.",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "bin": {
     "rwk": "cli/index.js"

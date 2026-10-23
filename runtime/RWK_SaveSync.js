@@ -256,19 +256,19 @@
   // wait for the player as long as needed.
   async function boot() {
     if (!navigator.onLine) {
-      RWK.toast("Đang offline: dùng save trên máy này, sẽ đồng bộ khi có mạng.", "warn", 5000);
+      RWK.toast("Offline: using this device's saves; they will sync when back online.", "warn", 5000);
       return;
     }
-    RWK.toast("☁ Đang đồng bộ save…", "info", 0);
+    RWK.toast("☁ Syncing saves…", "info", 0);
     try {
       await reconcile();
     } catch (e) {
       if (e instanceof AuthExpired) {
         authLost = true;
-        RWK.toast("Phiên đăng nhập hết hạn: tải lại trang để đồng bộ save.", "error", 8000);
+        RWK.toast("Login expired: reload the page to sync saves.", "error", 8000);
       } else {
         console.error("[RWK] boot sync failed", e);
-        RWK.toast("Không đồng bộ được save (mạng chậm/lỗi), đang dùng bản trên máy.", "warn", 5000);
+        RWK.toast("Could not sync saves (slow or failed network); using this device's saves.", "warn", 5000);
       }
     }
     // Whatever could not be pushed is retried in the background.
@@ -329,7 +329,7 @@
       else await upload(name);
     }
     saveMeta();
-    RWK.toast(pulls.length ? "☁ Đã tải " + pulls.length + " save từ cloud" : "☁ Save đã đồng bộ", "info", 2000);
+    RWK.toast(pulls.length ? "☁ Downloaded " + pulls.length + " save(s) from the cloud" : "☁ Saves are in sync", "info", 2000);
   }
 
   async function warnIfRecentlyUsedElsewhere(items) {
@@ -338,21 +338,21 @@
     if (!recent.length) return;
     const latest = recent.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
     await RWK.choose(
-      "Game có thể đang mở ở thiết bị khác",
-      `Thiết bị “${latest.deviceId}” vừa lưu lúc ${time(latest.updatedAt)}.\n` +
-        "Nếu đang mở ở đó, hãy đóng lại để tránh hai nơi ghi đè save của nhau.",
-      [{ label: "Đã hiểu", value: true, primary: true }]
+      "The game may be open on another device",
+      `Device “${latest.deviceId}” saved at ${time(latest.updatedAt)}.\n` +
+        "If it is still open there, close it so the two devices do not overwrite each other's saves.",
+      [{ label: "Got it", value: true, primary: true }]
     );
   }
 
   function askConflict(conflicts) {
-    const lines = conflicts.map((c) => `• ${c.name}: cloud lưu lúc ${time(c.remote.updatedAt)} (${c.remote.deviceId})`);
+    const lines = conflicts.map((c) => `• ${c.name}: cloud copy saved at ${time(c.remote.updatedAt)} (${c.remote.deviceId})`);
     return RWK.choose(
-      "Save trên máy này khác với cloud",
-      "Các save sau đã thay đổi ở cả hai nơi:\n" + lines.join("\n") + "\n\nChọn bản muốn giữ cho tất cả:",
+      "This device's saves differ from the cloud",
+      "These saves changed in both places:\n" + lines.join("\n") + "\n\nChoose which copy to keep for all of them:",
       [
-        { label: "Giữ bản máy này", value: "local" },
-        { label: "Dùng bản cloud", value: "cloud", primary: true },
+        { label: "Keep this device's", value: "local" },
+        { label: "Use the cloud's", value: "cloud", primary: true },
       ]
     );
   }
@@ -397,14 +397,14 @@
         if (result.status === "conflict") await resolveRuntimeConflict(name, result.current);
         else if (result.status === "ok") synced++;
       }
-      if (synced) RWK.toast("☁ Đã lưu lên cloud", "info", 1500);
+      if (synced) RWK.toast("☁ Saved to the cloud", "info", 1500);
     } catch (e) {
       if (e instanceof AuthExpired) {
         authLost = true;
-        RWK.toast("Phiên đăng nhập hết hạn: save chỉ lưu trên máy. Tải lại trang để đồng bộ.", "error", 8000);
+        RWK.toast("Login expired: saves stay on this device. Reload the page to sync.", "error", 8000);
       } else {
         console.warn("[RWK] push failed, retrying later", e);
-        RWK.toast("Chưa đẩy được save lên cloud, sẽ thử lại.", "warn", 3000);
+        RWK.toast("Could not upload the save yet; will retry.", "warn", 3000);
         retrying = true;
         schedule(RETRY_DELAY_MS);
       }
@@ -416,13 +416,13 @@
   }
 
   async function resolveRuntimeConflict(name, current) {
-    const when = current ? time(current.updatedAt) + " (" + current.deviceId + ")" : "gần đây";
+    const when = current ? time(current.updatedAt) + " (" + current.deviceId + ")" : "recently";
     const choice = await RWK.choose(
-      "Cloud có bản save mới hơn",
-      `Save “${name}” trên cloud vừa được cập nhật lúc ${when}.\nGhi đè bằng bản vừa lưu ở máy này?`,
+      "The cloud has a newer save",
+      `Save “${name}” was updated in the cloud at ${when}.\nOverwrite it with the save just made on this device?`,
       [
-        { label: "Để sau", value: "later" },
-        { label: "Ghi đè cloud", value: "overwrite", primary: true },
+        { label: "Later", value: "later" },
+        { label: "Overwrite cloud", value: "overwrite", primary: true },
       ]
     );
     const m = entry(name);
