@@ -17,7 +17,7 @@ import {
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { MAX_ASSET_BYTES, MAX_ASSET_FILES, analyzeGame, collectFiles, suggestSlug, validateSlug } from "../lib/game.js";
-import { defaultLabel, scanKeys } from "../lib/keys.js";
+import { GAMEPAD_KEYS, defaultLabel, scanKeys } from "../lib/keys.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
 
@@ -211,7 +211,16 @@ async function createConfig(game, takenSlugs) {
     exclude: [],
     sync: { enabled: syncEnabled },
     auth: {},
-    controls: { enabled: false, showOn: "touch", dpad: false, opacity: 0.5, scale: 1, buttons: [], scannedKeys: [] },
+    controls: {
+      enabled: false,
+      showOn: "touch",
+      gamepad: true,
+      dpad: true,
+      opacity: 0.5,
+      scale: 1,
+      buttons: [],
+      scannedKeys: [],
+    },
   };
 
   const keys = scanKeys(game.root);
@@ -222,19 +231,18 @@ async function createConfig(game, takenSlugs) {
   } else {
     log.info("No plugin uses special keys.");
   }
-  if (await confirm("Add on-screen buttons for touch screens?", keys.length > 0)) {
+  if (await confirm("Add an on-screen gamepad for touch screens (D-pad, A/B/X/Y, L/R)?", true)) {
     cfg.controls.enabled = true;
+    cfg.controls.dpad = await confirm("Include the D-pad? (No = move by tapping the map only)", true);
     cfg.controls.buttons = await askButtons(keys);
-    if (!cfg.controls.buttons.some((b) => b.key === "escape")) {
-      if (await confirm('Add a "Menu" button (Esc key)?', true)) cfg.controls.buttons.push({ key: "escape", label: "Menu" });
-    }
-    cfg.controls.dpad = await confirm("Add a D-pad (4 direction buttons)? MZ/MV already support tap-to-move", false);
     log.info(c.dim("Labels, groups, size and opacity can be changed with edit-config; in game, the ✥ button lets you drag buttons around."));
   }
   return cfg;
 }
 
 async function askButtons(keys) {
+  // A/B/X/Y and L/R already press these.
+  keys = keys.filter((k) => !GAMEPAD_KEYS.has(k.key.toLowerCase()));
   const buttons = [];
   if (keys.length) log.info(c.dim('Label each button: Enter = default, "-" = skip this key.'));
   for (const k of keys) {

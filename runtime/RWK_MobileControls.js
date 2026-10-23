@@ -1,11 +1,12 @@
 //=============================================================================
 // RWK_MobileControls.js - rpgmaker-web-toolkit
-// On-screen buttons for keys a touch screen cannot press. Works on MZ and MV
-// by driving Input._currentState, the same state the keyboard handler sets.
+// On-screen gamepad (D-pad, A/B/X/Y, L/R) plus buttons for extra keys the
+// game's plugins use. Works on MZ and MV by driving Input._currentState, the
+// same state the keyboard handler sets.
 //=============================================================================
 /*:
  * @target MZ MV
- * @plugindesc [rpgmaker-web-toolkit] Configurable touch buttons. Requires RWK_Core.
+ * @plugindesc [rpgmaker-web-toolkit] Configurable touch gamepad. Requires RWK_Core.
  * @author rpgmaker-web-toolkit
  */
 
@@ -14,12 +15,13 @@
 
   const RWK = window.RWK;
   const cfg = RWK && RWK.config.controls;
-  if (!cfg || cfg.enabled === false || !cfg.buttons) return;
+  if (!cfg || cfg.enabled === false) return;
 
   const isTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
   if (cfg.showOn === "never" || (cfg.showOn !== "always" && !isTouch)) return;
 
-  const LAYOUT_KEY = "rwk.layout." + RWK.config.gameId;
+  // v2: positions are anchored to the nearest corner and kept per orientation.
+  const LAYOUT_KEY = "rwk.layout2." + RWK.config.gameId;
   const HIDDEN_KEY = "rwk.controlsHidden." + RWK.config.gameId;
 
   //---------------------------------------------------------------------------
@@ -74,27 +76,69 @@
   };
 
   //---------------------------------------------------------------------------
+  // Buttons. The gamepad uses the logical keys RPG Maker itself maps a real
+  // controller to (Input.gamepadMapper), so it behaves like one.
+  //---------------------------------------------------------------------------
+
+  const gamepadOn = cfg.gamepad !== false;
+  const dpadOn = cfg.dpad !== false;
+  const FACE = [
+    { key: "ok", label: "A", hint: "OK", color: "#7ddc7d", dx: 0, dy: 1 },
+    { key: "cancel", label: "B", hint: "Back", color: "#ff7b7b", dx: 1, dy: 0 },
+    { key: "shift", label: "X", hint: "Dash", color: "#7fb0ff", dx: -1, dy: 0 },
+    { key: "menu", label: "Y", hint: "Menu", color: "#ffd76a", dx: 0, dy: -1 },
+  ];
+  const SHOULDER = [
+    { id: "shoulder:l", key: "pageup", label: "L", hint: "Prev", side: "l" },
+    { id: "shoulder:r", key: "pagedown", label: "R", hint: "Next", side: "r" },
+  ];
+  // Keys the gamepad already presses; extra buttons for them would be duplicates.
+  const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
+  const extras = (cfg.buttons || []).filter((b) => b.keys || !gamepadOn || !GAMEPAD_KEYS.has(keyName(b.key)));
+
+  //---------------------------------------------------------------------------
   // DOM
   //---------------------------------------------------------------------------
 
   const scale = Number(cfg.scale) || 1;
+  const opacity = cfg.opacity ?? 0.5;
   const style = document.createElement("style");
   style.textContent = `
-.rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;
-  --rwk-size:calc(clamp(40px,11vmin,72px)*${scale});font:600 12px/1.1 system-ui,sans-serif;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-.rwk-pad.hidden .rwk-btn:not(.rwk-tool-toggle),.rwk-pad.hidden .rwk-group-items{display:none}
-.rwk-btn{position:absolute;pointer-events:auto;touch-action:none;box-sizing:border-box;
-  width:var(--rwk-size);height:var(--rwk-size);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;overflow:hidden;
-  color:#fff;background:rgba(20,20,28,${cfg.opacity ?? 0.5});border:2px solid rgba(255,255,255,.35);
-  text-shadow:0 1px 2px #000;transform:translate(-50%,-50%);transition:background .08s}
-.rwk-btn.on{background:rgba(90,140,255,.75);border-color:#fff}
-.rwk-btn.rwk-tool{width:calc(var(--rwk-size)*.62);height:calc(var(--rwk-size)*.62);font-size:15px}
-.rwk-pad.editing .rwk-btn{outline:2px dashed #ffd54a;outline-offset:2px}
+.rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
+  color:#fff;font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.rwk-pad *{box-sizing:border-box}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle){display:none}
+.rwk-item{position:absolute;transform:translate(-50%,-50%)}
+.rwk-hit{pointer-events:auto;touch-action:none}
+.rwk-btn{display:flex;align-items:center;justify-content:center;gap:.15em;text-align:center;overflow:hidden;
+  background:var(--bg);border:2px solid rgba(255,255,255,.4);transition:background .08s}
+.rwk-btn.on,.rwk-arm.on{background:rgba(90,140,255,.8);border-color:#fff}
+.rwk-btn small{font-size:calc(var(--u)*.2);font-weight:500;opacity:.9}
+.rwk-face{width:calc(var(--u)*3.32);height:calc(var(--u)*3.32)}
+.rwk-face .rwk-btn{position:absolute;left:50%;top:50%;width:calc(var(--u)*1.12);height:calc(var(--u)*1.12);
+  border-radius:50%;flex-direction:column;gap:1px}
+.rwk-face .rwk-btn b{font-size:calc(var(--u)*.44)}
+.rwk-shoulder{width:calc(var(--u)*1.8);height:calc(var(--u)*.82);border-radius:calc(var(--u)*.41)}
+.rwk-shoulder b{font-size:calc(var(--u)*.36)}
+.rwk-key{min-width:calc(var(--u)*1.2);height:calc(var(--u)*.9);padding:0 calc(var(--u)*.25);
+  border-radius:calc(var(--u)*.2);white-space:nowrap;border-bottom-width:4px}
+.rwk-dpad{width:calc(var(--u)*3);height:calc(var(--u)*3);border-radius:50%;background:rgba(20,20,28,${opacity * 0.45})}
+.rwk-arm{position:absolute;width:34%;height:34%;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);border:2px solid rgba(255,255,255,.4);font-size:calc(var(--u)*.38)}
+.rwk-arm.up{left:33%;top:3%;border-radius:22% 22% 0 0;border-bottom:0}
+.rwk-arm.down{left:33%;bottom:3%;border-radius:0 0 22% 22%;border-top:0}
+.rwk-arm.left{top:33%;left:3%;border-radius:22% 0 0 22%;border-right:0}
+.rwk-arm.right{top:33%;right:3%;border-radius:0 22% 22% 0;border-left:0}
+.rwk-arm.mid{left:33%;top:33%;border:0;width:34%;height:34%}
+.rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%)}
+.rwk-tool{width:calc(var(--u)*.66);height:calc(var(--u)*.66);border-radius:50%;font-size:calc(var(--u)*.3)}
+.rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
-.rwk-group-items .rwk-btn{position:relative;transform:none}
+@media (orientation:portrait){
+  body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #UpperCanvas{bottom:auto!important}
+}
 `;
   document.head.appendChild(style);
 
@@ -112,165 +156,275 @@
     );
   }
 
+  const vw = () => window.innerWidth;
+  const vh = () => window.innerHeight;
+  const orientation = () => (vh() > vw() ? "portrait" : "landscape");
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+  const unit = () => clamp(Math.min(vw(), vh()) * (orientation() === "portrait" ? 0.13 : 0.14), 40, 72) * scale;
+
   const saved = RWK.storage.get(LAYOUT_KEY, {});
   let editing = false;
-  const positioned = []; // { el, id, def: {x,y} }
+  const items = []; // { id, el, def: () => pos }; pos = { h: "l"|"r", x, v: "t"|"b", y } in px from that corner
 
-  function makeButton(label, extraClass) {
-    const el = document.createElement("div");
-    el.className = "rwk-btn" + (extraClass ? " " + extraClass : "");
-    el.textContent = label;
-    return el;
+  function el(tag, className, html) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (html !== undefined) node.innerHTML = html;
+    return node;
   }
 
-  // Calls onDown/onUp for each pointer; in edit mode drags the button instead.
-  function bindPointer(el, id, onDown, onUp) {
+  function text(value) {
+    const span = document.createElement("span");
+    span.textContent = value;
+    return span.innerHTML;
+  }
+
+  function addItem(id, node, def) {
+    node.classList.add("rwk-item");
+    const item = { id, el: node, def };
+    items.push(item);
+    pad.appendChild(node);
+    return item;
+  }
+
+  function place(node, pos) {
+    const halfW = node.offsetWidth / 2;
+    const halfH = node.offsetHeight / 2;
+    const x = pos.h === "r" ? vw() - pos.x : pos.x;
+    const y = pos.v === "b" ? vh() - pos.y : pos.y;
+    node.style.left = clamp(x, halfW, vw() - halfW) + "px";
+    node.style.top = clamp(y, halfH, vh() - halfH) + "px";
+  }
+
+  function toAnchor(x, y) {
+    const h = x < vw() / 2 ? "l" : "r";
+    const v = y < vh() / 2 ? "t" : "b";
+    return { h, x: h === "l" ? x : vw() - x, v, y: v === "t" ? y : vh() - y };
+  }
+
+  // Press/release on each pointer; in edit mode drags `item` instead.
+  function bindPress(node, item, onDown, onUp, onMove) {
     const pointers = new Set();
     let drag = null;
-    el.addEventListener("pointerdown", (e) => {
+    node.classList.add("rwk-hit");
+    node.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
       try {
-        el.setPointerCapture(e.pointerId);
+        node.setPointerCapture(e.pointerId);
       } catch (err) {
         // Pointer already gone (very short taps): the press still counts.
       }
-      if (editing && id) {
-        drag = { pointerId: e.pointerId };
+      if (editing && item) {
+        const r = item.el.getBoundingClientRect();
+        drag = { pointerId: e.pointerId, dx: r.left + r.width / 2 - e.clientX, dy: r.top + r.height / 2 - e.clientY };
         return;
       }
       pointers.add(e.pointerId);
-      el.classList.add("on");
-      onDown();
+      node.classList.add("on");
+      onDown(e);
     });
-    el.addEventListener("pointermove", (e) => {
-      if (!drag || drag.pointerId !== e.pointerId) return;
-      place(el, { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
+    node.addEventListener("pointermove", (e) => {
+      if (drag && drag.pointerId === e.pointerId) {
+        item.el.style.left = e.clientX + drag.dx + "px";
+        item.el.style.top = e.clientY + drag.dy + "px";
+        return;
+      }
+      if (onMove && pointers.has(e.pointerId)) onMove(e);
     });
     const end = (e) => {
       if (drag && drag.pointerId === e.pointerId) {
-        saved[id] = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight };
+        const layout = (saved[orientation()] = saved[orientation()] || {});
+        layout[item.id] = toAnchor(e.clientX + drag.dx, e.clientY + drag.dy);
+        place(item.el, layout[item.id]);
         drag = null;
         return;
       }
       if (!pointers.delete(e.pointerId)) return;
-      if (!pointers.size) el.classList.remove("on");
-      onUp();
+      if (!pointers.size) node.classList.remove("on");
+      onUp(e);
     };
-    el.addEventListener("pointerup", end);
-    el.addEventListener("pointercancel", end);
-    el.addEventListener("lostpointercapture", end);
-  }
-
-  function place(el, pos) {
-    el.style.left = (pos.x * 100).toFixed(2) + "%";
-    el.style.top = (pos.y * 100).toFixed(2) + "%";
-  }
-
-  // def may be a function so default slots follow viewport resizes.
-  const resolve = (def) => (typeof def === "function" ? def() : def);
-
-  function addPositioned(el, id, def) {
-    positioned.push({ el, id, def });
-    place(el, saved[id] || resolve(def));
-    pad.appendChild(el);
+    node.addEventListener("pointerup", end);
+    node.addEventListener("pointercancel", end);
+    node.addEventListener("lostpointercapture", end);
   }
 
   //---------------------------------------------------------------------------
-  // Default layout: a column of buttons along the right edge, bottom-up,
-  // wrapping into further columns; optional d-pad bottom-left.
+  // Default layout (px, recomputed on every resize):
+  //   D-pad bottom-left, A/B/X/Y bottom-right, L/R above them.
+  //   Extra keys: portrait - centered rows above L/R; landscape - columns
+  //   down the right edge.
   //---------------------------------------------------------------------------
 
-  const vw = () => window.innerWidth;
-  const vh = () => window.innerHeight;
-  const sizePx = () => Math.min(Math.max(40, Math.min(vw(), vh()) * 0.11), 72) * scale;
+  const margin = () => unit() * 0.3 + 8;
+  const clusterHeight = () => Math.max(dpadOn ? unit() * 3 : 0, gamepadOn ? unit() * 3.32 : 0);
+  const shoulderY = () => margin() + clusterHeight() + unit() * 0.75;
 
-  function slot(index) {
-    const s = sizePx() * 1.18;
-    const perColumn = Math.max(1, Math.floor((vh() * 0.78) / s));
-    const col = Math.floor(index / perColumn);
-    const row = index % perColumn;
-    return { x: (vw() - s * (0.62 + col)) / vw(), y: (vh() - s * (0.62 + row)) / vh() };
+  //--- D-pad: one touch area, so a thumb can slide between directions.
+  if (dpadOn) {
+    const dpad = el(
+      "div",
+      "rwk-dpad",
+      '<div class="rwk-arm up">▲</div><div class="rwk-arm down">▼</div><div class="rwk-arm left">◀</div>' +
+        '<div class="rwk-arm right">▶</div><div class="rwk-arm mid"></div>'
+    );
+    const item = addItem("dpad", dpad, () => ({ h: "l", x: margin() + unit() * 1.5, v: "b", y: margin() + unit() * 1.5 }));
+    let current = null;
+    const setDir = (dir) => {
+      if (dir === current) return;
+      if (current) {
+        release(current);
+        dpad.querySelector(".rwk-arm." + current).classList.remove("on");
+      }
+      current = dir;
+      if (dir) {
+        press(dir);
+        dpad.querySelector(".rwk-arm." + dir).classList.add("on");
+      }
+    };
+    const dirAt = (e) => {
+      const r = dpad.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < r.width * 0.12) return null;
+      if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+      return dy > 0 ? "down" : "up";
+    };
+    bindPress(dpad, item, (e) => setDir(dirAt(e)), () => setDir(null), (e) => setDir(dirAt(e)));
   }
 
-  cfg.buttons.forEach((b, index) => {
-    const id = b.id || (b.keys ? "group:" + (b.label || index) : "key:" + b.key);
-    if (b.keys) {
-      addGroup(b, id, index);
-      return;
+  //--- A/B/X/Y diamond
+  if (gamepadOn) {
+    const face = el("div", "rwk-face");
+    const item = addItem("face", face, () => ({ h: "r", x: margin() + unit() * 1.66, v: "b", y: margin() + unit() * 1.66 }));
+    face.style.pointerEvents = "none";
+    for (const f of FACE) {
+      const btn = el("div", "rwk-btn", `<b style="color:${f.color}">${f.label}</b><small>${f.hint}</small>`);
+      btn.style.transform = `translate(calc(-50% + var(--u) * ${f.dx * 1.1}), calc(-50% + var(--u) * ${f.dy * 1.1}))`;
+      bindPress(btn, item, () => press(f.key), () => release(f.key));
+      face.appendChild(btn);
     }
-    const el = makeButton(b.label || String(b.key).toUpperCase());
-    bindPointer(el, id, () => press(b.key), () => release(b.key));
-    addPositioned(el, id, b.pos || (() => slot(index)));
+    for (const s of SHOULDER) {
+      const btn = el("div", "rwk-btn rwk-shoulder", `<b>${s.label}</b><small>${s.hint}</small>`);
+      const sItem = addItem(s.id, btn, () => ({ h: s.side, x: margin() + unit() * 0.9, v: "b", y: shoulderY() }));
+      bindPress(btn, sItem, () => press(s.key), () => release(s.key));
+    }
+  }
+
+  //--- Extra keys (game-specific, from the config)
+  const extraItems = [];
+  extras.forEach((b, index) => {
+    const id = b.id || (b.keys ? "group:" + (b.label || index) : "key:" + b.key);
+    const label = b.label || String(b.key).toUpperCase();
+    const btn = el("div", "rwk-btn rwk-key", text(b.keys ? label + " ▾" : label));
+    const item = addItem(id, btn, () => extraSlots.get(item) || { h: "r", x: 0, v: "t", y: 0 });
+    item.pos = b.pos ? { h: "l", x: b.pos.x * vw(), v: "t", y: b.pos.y * vh() } : null;
+    extraItems.push(item);
+    if (b.keys) bindGroup(b, btn, item);
+    else bindPress(btn, item, () => press(b.key), () => release(b.key));
   });
 
-  function addGroup(group, id, index) {
-    const toggle = makeButton(group.label || "…", "rwk-group");
-    const items = document.createElement("div");
-    items.className = "rwk-group-items";
+  function bindGroup(group, toggle, item) {
+    const list = el("div", "rwk-group-items");
     for (const sub of group.keys) {
       const k = typeof sub === "object" ? sub.key : sub;
       const label = typeof sub === "object" && sub.label ? sub.label : String(k).toUpperCase();
-      const el = makeButton(label);
-      bindPointer(el, null, () => press(k), () => {
+      const btn = el("div", "rwk-btn rwk-key", text(label));
+      bindPress(btn, null, () => press(k), () => {
         release(k);
-        if (group.closeOnPress !== false) items.classList.remove("open");
+        if (group.closeOnPress !== false) list.classList.remove("open");
       });
-      items.appendChild(el);
+      list.appendChild(btn);
     }
-    bindPointer(toggle, id, () => {}, () => {
-      items.classList.toggle("open");
-      positionGroup(toggle, items);
+    bindPress(toggle, item, () => {}, () => {
+      list.classList.toggle("open");
+      positionGroup(toggle, list);
     });
-    addPositioned(toggle, id, group.pos || (() => slot(index)));
-    pad.appendChild(items);
+    pad.appendChild(list);
   }
 
-  function positionGroup(toggle, items) {
+  // Opens above the toggle in the lower half of the screen, below it otherwise.
+  function positionGroup(toggle, list) {
     const r = toggle.getBoundingClientRect();
-    const left = r.left - 8 - items.offsetWidth;
-    items.style.top = r.top + "px";
-    items.style.left = Math.max(4, left) + "px";
+    const left = r.left + r.width / 2 - list.offsetWidth / 2;
+    const top = r.top > vh() / 2 ? r.top - 8 - list.offsetHeight : r.bottom + 8;
+    list.style.left = clamp(left, 4, vw() - list.offsetWidth - 4) + "px";
+    list.style.top = clamp(top, 4, vh() - list.offsetHeight - 4) + "px";
   }
 
-  if (cfg.dpad) {
-    const s = sizePx() * 1.05;
-    const cx = s * 1.6;
-    const cy = vh() - s * 1.6;
-    const dirs = [
-      ["up", "▲", 0, -1],
-      ["down", "▼", 0, 1],
-      ["left", "◀", -1, 0],
-      ["right", "▶", 1, 0],
-    ];
-    for (const [key, label, dx, dy] of dirs) {
-      const el = makeButton(label);
-      bindPointer(el, "dpad:" + key, () => press(key), () => release(key));
-      addPositioned(el, "dpad:" + key, { x: (cx + dx * s) / vw(), y: (cy + dy * s) / vh() });
+  const extraSlots = new Map();
+  function layoutExtras() {
+    extraSlots.clear();
+    const gap = 8;
+    const m = margin();
+    const flow = extraItems.filter((item) => !item.pos);
+    for (const item of extraItems) if (item.pos) extraSlots.set(item, item.pos);
+    if (orientation() === "portrait") {
+      // Rows centered above the L/R line, bottom-up.
+      let y = (gamepadOn ? shoulderY() + unit() * 0.41 : m + clusterHeight()) + gap + unit() * 0.45;
+      let row = [];
+      let width = 0;
+      const flush = () => {
+        let x = (vw() - width + gap) / 2;
+        for (const item of row) {
+          extraSlots.set(item, { h: "l", x: x + item.el.offsetWidth / 2, v: "b", y });
+          x += item.el.offsetWidth + gap;
+        }
+        y += unit() * 0.9 + gap;
+        row = [];
+        width = 0;
+      };
+      for (const item of flow) {
+        const w = item.el.offsetWidth + gap;
+        if (row.length && width + w > vw() - 2 * m) flush();
+        row.push(item);
+        width += w;
+      }
+      if (row.length) flush();
+    } else {
+      // Columns down the right edge, between the toolbar row and R.
+      const top = m + unit() * 0.45;
+      const bottom = vh() - (gamepadOn ? shoulderY() + unit() * 0.41 : margin() + clusterHeight()) - gap;
+      let x = m;
+      let y = top;
+      let colWidth = 0;
+      for (const item of flow) {
+        const h = item.el.offsetHeight;
+        if (y > top && y + h > bottom) {
+          x += colWidth + gap;
+          y = top;
+          colWidth = 0;
+        }
+        extraSlots.set(item, { h: "r", x: x + item.el.offsetWidth / 2, v: "t", y: y + h / 2 });
+        colWidth = Math.max(colWidth, item.el.offsetWidth);
+        y += h + gap;
+      }
     }
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar (top-left): hide/show, fullscreen, edit layout
+  // Toolbar: hide/show, fullscreen, edit layout. Top-left in landscape; in
+  // portrait the game sits at the top, so it moves between L and R.
   //---------------------------------------------------------------------------
 
-  const tools = [];
+  const toolbar = el("div", "rwk-tools");
+  pad.appendChild(toolbar);
   function addTool(label, extraClass, onTap) {
-    const el = makeButton(label, "rwk-tool " + extraClass);
-    bindPointer(el, null, () => {}, onTap);
-    tools.push(el);
-    pad.appendChild(el);
-    return el;
+    const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
+    bindPress(btn, null, () => {}, onTap);
+    toolbar.appendChild(btn);
+    return btn;
   }
 
   addTool("◐", "rwk-tool-toggle", () => {
     pad.classList.toggle("hidden");
+    document.body.classList.toggle("rwk-ctl", !pad.classList.contains("hidden") && (gamepadOn || dpadOn));
     RWK.storage.set(HIDDEN_KEY, pad.classList.contains("hidden"));
+    layout();
   });
-  if ((cfg.extras || ["fullscreen", "editLayout"]).includes("fullscreen")) {
-    addTool("⛶", "rwk-tool-fs", toggleFullscreen);
-  }
-  if ((cfg.extras || ["fullscreen", "editLayout"]).includes("editLayout")) {
+  const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
+  if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen);
+  if (extrasTools.includes("editLayout")) {
     const editBtn = addTool("✥", "rwk-tool-edit", () => {
       editing = !editing;
       pad.classList.toggle("editing", editing);
@@ -282,45 +436,57 @@
         RWK.toast("Drag buttons to move them. ↺ resets to default, ✓ saves.", "info", 4000);
       }
       resetBtn.style.display = editing ? "" : "none";
+      layoutTools();
     });
     const resetBtn = addTool("↺", "rwk-tool-reset", () => {
-      for (const key of Object.keys(saved)) delete saved[key];
-      for (const p of positioned) place(p.el, resolve(p.def));
+      delete saved[orientation()];
+      layout();
     });
     resetBtn.style.display = "none";
   }
 
   function layoutTools() {
-    const s = sizePx() * 0.62;
-    tools.forEach((el, i) => {
-      el.style.left = s * 0.75 + i * (s + 8) + "px";
-      el.style.top = s * 0.75 + "px";
-    });
+    const w = toolbar.offsetWidth;
+    const h = toolbar.offsetHeight;
+    if (orientation() === "portrait" && !pad.classList.contains("hidden") && (gamepadOn || dpadOn)) {
+      toolbar.style.left = vw() / 2 + "px";
+      toolbar.style.top = vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) + "px";
+    } else {
+      toolbar.style.left = margin() + w / 2 + "px";
+      toolbar.style.top = margin() + h / 2 + "px";
+    }
   }
 
   function toggleFullscreen() {
     const doc = document;
-    const el = doc.documentElement;
+    const root = doc.documentElement;
     if (doc.fullscreenElement || doc.webkitFullscreenElement) {
       (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
       return;
     }
-    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
     if (!request) {
       RWK.toast("This browser has no fullscreen support. Use “Add to Home Screen” instead.", "warn", 4000);
       return;
     }
-    Promise.resolve(request.call(el))
-      .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape"))
-      .catch(() => {});
+    Promise.resolve(request.call(root)).catch(() => {});
+  }
+
+  //---------------------------------------------------------------------------
+
+  function layout() {
+    pad.style.setProperty("--u", unit().toFixed(1) + "px");
+    layoutExtras();
+    const own = saved[orientation()] || {};
+    for (const item of items) place(item.el, own[item.id] || item.def());
+    layoutTools();
   }
 
   if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
-  layoutTools();
-  window.addEventListener("resize", () => {
-    layoutTools();
-    for (const p of positioned) if (!saved[p.id]) place(p.el, resolve(p.def));
-  });
-
+  else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
   document.body.appendChild(pad);
+  layout();
+  window.addEventListener("resize", layout);
+  // Some mobile browsers report the new size only after the rotation settles.
+  window.addEventListener("orientationchange", () => setTimeout(layout, 300));
 })();
