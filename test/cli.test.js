@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
 import { compileGlobs, suggestSlug, validateSlug } from "../cli/lib/game.js";
-import { scanKeys, stripComments } from "../cli/lib/keys.js";
+import { pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { syncPublicDir } from "../cli/lib/stage.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -47,7 +47,7 @@ test("scanKeys reads only enabled plugins and skips touch-covered keys", () => {
   fs.mkdirSync(path.join(root, "js", "plugins"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "js", "plugins.js"),
-    `var $plugins =\n[\n{"name":"A","status":true,"description":"","parameters":{}},\n{"name":"B","status":false,"description":"","parameters":{}}\n];\n`
+    `var $plugins =\n[\n{"name":"A","status":true,"description":"[v1.2] Quest journal","parameters":{}},\n{"name":"B","status":false,"description":"","parameters":{}}\n];\n`
   );
   fs.writeFileSync(
     path.join(root, "js", "plugins", "A.js"),
@@ -55,6 +55,8 @@ test("scanKeys reads only enabled plugins and skips touch-covered keys", () => {
   );
   fs.writeFileSync(path.join(root, "js", "plugins", "B.js"), `Input.isTriggered('z')`);
   assert.deepEqual(scanKeys(root).map((k) => k.key).sort(), ["pagedown", "r", "t"]);
+  assert.equal(scanKeys(root)[0].hint, "Quest journal");
+  assert.equal(pluginHint({ name: "MiniMap", description: "" }), "MiniMap");
   assert.equal(stripComments('a = "http://x"; // note').trim(), 'a = "http://x";');
 });
 

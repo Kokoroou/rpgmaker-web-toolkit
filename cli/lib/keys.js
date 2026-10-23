@@ -19,7 +19,7 @@ export function readPlugins(root) {
   return JSON.parse(src.slice(start, end + 1));
 }
 
-// -> [{ key, plugins: [names], count }] sorted by usage
+// -> [{ key, plugins: [names], hint, count }] sorted by usage
 export function scanKeys(root) {
   const found = new Map();
   for (const plugin of readPlugins(root)) {
@@ -35,7 +35,7 @@ export function scanKeys(root) {
       for (const m of code.matchAll(re)) {
         const key = m[1];
         if (TOUCH_COVERED.has(key.toLowerCase())) continue;
-        const item = found.get(key) || { key, plugins: new Set(), count: 0 };
+        const item = found.get(key) || { key, plugins: new Set(), hint: pluginHint(plugin), count: 0 };
         item.plugins.add(plugin.name);
         item.count++;
         found.set(key, item);
@@ -51,6 +51,16 @@ export function stripComments(code) {
   // Good enough for plugin sources: drops /* */ blocks and // line comments
   // that are not part of a URL ("http://").
   return code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\'"])\/\/.*$/gm, "$1");
+}
+
+// What a key is for, as far as we can tell: the description of the plugin
+// that reads it (tags like "[v1.2]" dropped), else the plugin's name.
+export function pluginHint(plugin) {
+  const desc = String(plugin.description || "")
+    .replace(/^\s*(?:[[【(（<][^\]】)）>]*[\]】)）>]\s*)+/, "")
+    .trim();
+  const hint = desc || plugin.name;
+  return hint.length > 32 ? hint.slice(0, 31) + "…" : hint;
 }
 
 export function defaultLabel(key) {

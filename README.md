@@ -81,7 +81,8 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
   "scale": 1,
   "extras": ["fullscreen", "editLayout"],
   "buttons": [
-    { "key": "r", "label": "Inspect" },
+    { "key": "t", "label": "T", "hint": "Quest journal" },
+    { "key": "r", "label": "Inspect", "pin": true },
     { "label": "Popup", "keys": [{ "key": "f", "label": "F" }, "e", "q"] }
   ]
 }
@@ -98,14 +99,17 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 | L / R | `pageup` / `pagedown` | Previous / next page (switch actor in menus) |
 
 - `gamepad`: A/B/X/Y and L/R. `dpad`: the D-pad (slide your thumb to change direction). Either can be `false`.
-- `buttons` are extra keys the game's plugins use, shown as keycaps (portrait: above L/R; landscape: down the right edge).
+- `buttons` are extra keys the game's plugins use. They live in the **⌨ Game keys** panel of the toolbar, each with its `hint`
+  (filled from the description of the plugin that reads the key), so they don't crowd the screen.
+  `"pin": true` keeps a button on screen as a keycap (portrait: above L/R; landscape: down the right edge); so do groups, and all buttons when `gamepad` is `false`.
   Buttons for keys the gamepad already presses (`ok`, `escape`, `pageup`…) are hidden while `gamepad` is on.
 - `key` is an RPG Maker logical key name or a key name a plugin registers itself (`r`, `t`…).
   A numeric keyCode also works; its name is then looked up in `Input.keyMapper`.
 - An entry with `keys` is a **button group**: tap it to open its sub-buttons.
 - `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
-- In portrait the game moves to the top of the screen so the controls get the space below it.
-- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⛶ fullscreen, ✥ drag buttons to new positions (saved per device and per orientation), ↺ reset the layout.
+- In portrait the game is centered in the space above the controls.
+- ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
+- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys, ⛶ fullscreen, ✥ drag buttons to new positions (saved per device and per orientation), ↺ reset the layout.
 
 ## Architecture
 

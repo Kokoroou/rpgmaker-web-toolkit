@@ -244,10 +244,13 @@ async function askButtons(keys) {
   // A/B/X/Y and L/R already press these.
   keys = keys.filter((k) => !GAMEPAD_KEYS.has(k.key.toLowerCase()));
   const buttons = [];
-  if (keys.length) log.info(c.dim('Label each button: Enter = default, "-" = skip this key.'));
+  if (keys.length) {
+    log.info(c.dim("These keys go in the ⌨ panel of the in-game toolbar, each with a hint saying what it is for."));
+    log.info(c.dim('Label each button: Enter = default, "-" = skip this key.'));
+  }
   for (const k of keys) {
-    const label = await ask(`Button label for key "${k.key}"`, defaultLabel(k.key));
-    if (label !== "-") buttons.push({ key: k.key, label });
+    const label = await ask(`Button label for key "${k.key}" (${k.hint})`, defaultLabel(k.key));
+    if (label !== "-") buttons.push({ key: k.key, label, hint: k.hint });
   }
   return buttons;
 }
@@ -257,7 +260,13 @@ async function addNewKeys(game, cfg) {
   const controls = cfg.controls;
   if (!controls) return;
   const known = new Set(controls.scannedKeys || []);
-  const fresh = scanKeys(game.root).filter((k) => !known.has(k.key));
+  const scanned = scanKeys(game.root);
+  // Configs made before hints existed: say what each key is for.
+  for (const b of controls.buttons || []) {
+    const k = !b.hint && scanned.find((s) => s.key === b.key);
+    if (k) b.hint = k.hint;
+  }
+  const fresh = scanned.filter((k) => !known.has(k.key));
   if (!fresh.length) return;
   controls.scannedKeys = [...known, ...fresh.map((k) => k.key)];
   log.info(`This game version uses new keys: ${fresh.map((k) => k.key).join(", ")}`);
