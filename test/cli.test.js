@@ -23,8 +23,8 @@ test("globs", () => {
 
 test("slug suggestion and validation", () => {
   assert.equal(
-    suggestSlug({ folderName: "Xianxinglu of the Scarlet Moon  v1.292 VH (GVNVH18)", title: "绯月仙行录" }),
-    "xianxinglu-of-the-scarlet-moon"
+    suggestSlug({ folderName: "Sample Quest of the Moon  v1.292 VH (Team01)", title: "示例游戏" }),
+    "sample-quest-of-the-moon"
   );
   assert.equal(suggestSlug({ folderName: "Ký Sự Đường Xa [Việt hóa]", title: "" }), "ky-su-duong-xa");
   assert.equal(validateSlug("ok-name-1"), null);

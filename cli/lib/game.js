@@ -123,7 +123,7 @@ export function compileGlobs(patterns) {
 
 export function suggestSlug(game) {
   const base = game.folderName
-    .replace(/[([{（【].*?[)\]}）】]/g, " ") // bracketed tags: (GVNVH18), [VH]
+    .replace(/[([{（【].*?[)\]}）】]/g, " ") // bracketed tags: (Team01), [VH]
     .replace(/\bv?\d+(\.\d+)+\w*\b/gi, " ") // versions: v1.292
     .replace(/\b(VH|Viet ?hoa|eng|english|full|final)\b/gi, " ");
   return toSlug(base) || toSlug(game.title) || "rpg-game";
