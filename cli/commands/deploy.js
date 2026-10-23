@@ -216,7 +216,7 @@ async function createConfig(game, takenSlugs) {
       showOn: "touch",
       gamepad: true,
       dpad: true,
-      opacity: 0.5,
+      opacity: 0.35,
       scale: 1,
       buttons: [],
       scannedKeys: [],

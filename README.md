@@ -77,7 +77,7 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
   "showOn": "touch",
   "gamepad": true,
   "dpad": true,
-  "opacity": 0.5,
+  "opacity": 0.35,
   "scale": 1,
   "extras": ["fullscreen", "editLayout"],
   "buttons": [
@@ -109,7 +109,8 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 - `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
 - In portrait the game is centered in the space above the controls.
 - ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
-- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys, ⛶ fullscreen, ✥ drag buttons to new positions (saved per device and per orientation), ↺ reset the layout.
+- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys (tap it again to close), ⛶ fullscreen, ✥ edit the layout: drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions. Saved per browser, positions per orientation.
+- The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
 
 ## Architecture
 
