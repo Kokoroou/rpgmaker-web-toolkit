@@ -28,7 +28,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -c "irm https://raw.githubusercont
 
 On the first run the script will:
 
-1. Open a browser to log in to Cloudflare (once per machine).
+1. Open a browser to log in to Cloudflare (once per machine). The login asks only for `account:read`, `user:read`, `workers:write` and `workers_scripts:write`, and is kept in its own wrangler profile (`rpgmaker-web-toolkit`), separate from any `wrangler login` you already have.
 2. Analyze the game (MZ/MV, plugins, special keys) and ask a few questions: site name, whether to enable save sync, a label for each on-screen button.
    The answers are stored **in R2** (`rwk/games.json` in the bucket), not on the machine.
 3. Upload files larger than 25 MiB to R2, then deploy the Worker with all the game files.
@@ -39,7 +39,7 @@ When a patch comes out: copy it over the game folder and run the same command ag
 
 On another machine: download the game, run the same command and log in to the same Cloudflare account. The config comes from R2, so there are no questions to answer again.
 
-What stays on the machine: wrangler's login, the chosen account (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) and the npm cache (makes later runs faster). The build folder lives in `<game drive>:\.rwk-build\` so it can hard-link the game files instead of copying them, and it is deleted when the run ends.
+What stays on the machine: the toolkit's wrangler profile (remove it with `npx wrangler auth delete rpgmaker-web-toolkit`), the chosen account (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) and the npm cache (makes later runs faster). The build folder lives in `<game drive>:\.rwk-build\` so it can hard-link the game files instead of copying them, and it is deleted when the run ends.
 
 ### Other commands
 

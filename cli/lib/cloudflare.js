@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { choose, log } from "./ui.js";
-import { useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
+import { PROFILE, SCOPES, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
 //---------------------------------------------------------------------------
 // Account
@@ -16,7 +16,8 @@ export async function ensureLogin(settings) {
   let who = await whoami();
   if (!who.loggedIn) {
     log.info("Not logged in to Cloudflare: a browser window will open to log in…");
-    await wranglerOrThrow(["login"], { interactive: true });
+    log.info(`The toolkit only asks for: ${SCOPES.join(", ")}.`);
+    await wranglerOrThrow(["auth", "create", PROFILE, "--scopes", ...SCOPES], { interactive: true });
     who = await whoami();
     if (!who.loggedIn) throw new Error("Cloudflare login failed.");
   }
@@ -37,13 +38,31 @@ export async function ensureLogin(settings) {
   return { email: who.email, account };
 }
 
+// `wrangler whoami` only reads the default profile, so ask the API with the
+// toolkit profile's token (wrangler refreshes it when expired).
 async function whoami() {
-  const res = await wrangler(["whoami", "--json"], { quiet: true });
+  const res = await wrangler(["auth", "token", "--json", "--profile", PROFILE], { quiet: true });
+  let token;
   try {
-    return JSON.parse(res.stdout.slice(res.stdout.indexOf("{")));
+    token = JSON.parse(res.stdout.slice(res.stdout.indexOf("{"))).token;
   } catch {
-    return { loggedIn: false };
+    // Not logged in (no profile yet, or the refresh token was revoked).
   }
+  if (!token) return { loggedIn: false };
+  const [user, accounts] = await Promise.all([cfApi(token, "/user"), cfApi(token, "/accounts?per_page=50")]);
+  return { loggedIn: true, email: user.email, accounts: accounts.map((a) => ({ id: a.id, name: a.name })) };
+}
+
+async function cfApi(token, route) {
+  const res = await fetch(`https://api.cloudflare.com/client/v4${route}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    const reason = body.errors?.map((e) => e.message).join("; ") || `HTTP ${res.status}`;
+    throw new Error(`Cloudflare API ${route.split("?")[0]} failed: ${reason}`);
+  }
+  return body.result;
 }
 
 //---------------------------------------------------------------------------
