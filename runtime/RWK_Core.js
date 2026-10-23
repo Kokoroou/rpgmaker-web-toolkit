@@ -184,12 +184,16 @@
       }
       box.append(h, p, actions);
       overlay.appendChild(box);
-      // Keep taps inside the dialog away from the game's TouchInput.
-      for (const type of ["mousedown", "mouseup", "mousemove", "touchstart", "touchmove", "touchend", "wheel"]) {
-        overlay.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
-      }
+      shield(overlay);
       document.body.appendChild(overlay);
     });
+  }
+
+  // Keeps taps on a toolkit element away from the game's TouchInput.
+  function shield(node) {
+    for (const type of ["mousedown", "mouseup", "mousemove", "touchstart", "touchmove", "touchend", "wheel"]) {
+      node.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+    }
   }
 
   window.RWK = {
@@ -199,5 +203,6 @@
     storage,
     toast,
     choose,
+    shield,
   };
 })();

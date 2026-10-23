@@ -667,4 +667,13 @@
   document.addEventListener("fullscreenchange", relayout);
   document.addEventListener("webkitfullscreenchange", relayout);
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
+
+  // Later toolkit plugins (save tools) add their buttons to the toolbar.
+  RWK.controls = {
+    addTool(label, extraClass, onTap) {
+      const btn = addTool(label, extraClass, onTap);
+      layout();
+      return btn;
+    },
+  };
 })();
