@@ -38,7 +38,7 @@ Until Access is on, the link shows only this:
 
 Choose **Cloudflare Access** and follow [Protect the site](/setup/access). If the game folder has desktop saves, the toolkit then offers to upload them (it asks for the email you will sign in with).
 
-The last line is the link: `Done! https://my-game.myname.workers.dev`.
+Just before it, the **build report** sums up the run: file count and size, files stored on R2, and every warning printed along the way (for example file names with non-ASCII characters, a common cause of a missing picture or sound). The last line is the link: `Done! https://my-game.myname.workers.dev`.
 
 ::: details What stays on the PC
 | What | Remove with |

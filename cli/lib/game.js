@@ -98,6 +98,13 @@ export function collectFiles(game, { include = [], exclude = [] } = {}) {
   return files;
 }
 
+// Paths with non-ASCII characters (Chinese, Japanese, accented letters…).
+// They often work, but a name saved in another Unicode form or encoded
+// differently by a plugin is a common cause of a missing picture or sound.
+export function nonAsciiPaths(files) {
+  return files.map((f) => f.rel).filter((rel) => /[^\x20-\x7e]/.test(rel));
+}
+
 // Minimal glob: "**" crosses folders, "*" and "?" stay within one segment.
 // Patterns without "/" match the file name anywhere.
 export function compileGlobs(patterns) {
