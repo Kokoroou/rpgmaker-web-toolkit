@@ -1,0 +1,9 @@
+{
+  "$comment": "Cloudflare free plan limits the CLI enforces. Each deploy reads this file from the main branch, so older copies of the toolkit follow a change once it is merged. Bump `updated` with every change.",
+  "updated": "2026-10-24",
+  "source": "https://developers.cloudflare.com/workers/static-assets/#limits",
+  "assets": {
+    "maxFiles": 20000,
+    "maxFileBytes": 26214400
+  }
+}

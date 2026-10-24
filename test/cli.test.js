@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
 import { compileGlobs, suggestSlug, validateSlug } from "../cli/lib/game.js";
+import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
 import { generatedFiles, syncPublicDir } from "../cli/lib/stage.js";
@@ -143,4 +144,47 @@ test("web build: search engines are kept out unless a public site asks to be lis
   assert.doesNotMatch(out.get("index.html"), /name="robots"/);
   assert.ok(!out.has("_headers"));
   assert.match(out.get("robots.txt"), /Allow: \//);
+});
+
+test("free plan limits: newest valid copy wins, offline falls back", async () => {
+  const dir = tmp();
+  const bundledFile = path.join(dir, "bundled.json");
+  const cacheFile = path.join(dir, "cache", "limits.json");
+  const write = (file, updated, assets) => fs.writeFileSync(file, JSON.stringify({ updated, assets }));
+  write(bundledFile, "2026-01-01", { maxFiles: 20000, maxFileBytes: 25 * 1024 ** 2 });
+  const serve = (body, ok = true) => async () => ({ ok, json: async () => body });
+  const offline = async () => {
+    throw new Error("offline");
+  };
+
+  // Shipped file is valid and the CLI falls back to it with no network.
+  const shipped = await loadLimits({ url: "off" });
+  assert.equal(shipped.from, "bundled");
+  assert.ok(parseLimits(JSON.parse(fs.readFileSync(BUNDLED_LIMITS_FILE, "utf8"))));
+
+  let res = await loadLimits({ bundledFile, cacheFile, fetchFn: offline });
+  assert.deepEqual([res.from, res.newer, res.assets.maxFiles], ["bundled", false, 20000]);
+
+  // A newer copy on main is used and cached; extra fields are dropped.
+  const remote = { updated: "2026-06-01", extra: 1, assets: { maxFiles: 15000, maxFileBytes: 10 * 1024 ** 2, other: 2 } };
+  res = await loadLimits({ bundledFile, cacheFile, fetchFn: serve(remote) });
+  assert.deepEqual([res.from, res.newer, res.assets], ["remote", true, { maxFiles: 15000, maxFileBytes: 10 * 1024 ** 2 }]);
+  assert.equal(JSON.parse(fs.readFileSync(cacheFile, "utf8")).updated, "2026-06-01");
+
+  // Offline later: the cache still beats the older bundled file.
+  res = await loadLimits({ bundledFile, cacheFile, fetchFn: serve(null, false) });
+  assert.deepEqual([res.from, res.assets.maxFiles], ["cache", 15000]);
+
+  // A bundled file newer than the cache wins (e.g. a newer toolkit).
+  write(bundledFile, "2026-09-01", { maxFiles: 30000, maxFileBytes: 25 * 1024 ** 2 });
+  res = await loadLimits({ bundledFile, cacheFile, fetchFn: offline });
+  assert.deepEqual([res.from, res.newer, res.assets.maxFiles], ["bundled", false, 30000]);
+
+  // Broken remote values are ignored.
+  for (const bad of [{ updated: "2027-01-01", assets: { maxFiles: 0, maxFileBytes: 1 } }, { updated: "soon", assets: {} }, "nope"]) {
+    res = await loadLimits({ bundledFile, fetchFn: serve(bad) });
+    assert.equal(res.from, "bundled");
+  }
+  assert.equal(parseLimits({ updated: "2026-01-01", assets: { maxFiles: 1.5, maxFileBytes: 25 * 1024 ** 2 } }), null);
+  await assert.rejects(loadLimits({ bundledFile: path.join(dir, "missing.json"), url: "off" }), /Invalid limits file/);
 });
