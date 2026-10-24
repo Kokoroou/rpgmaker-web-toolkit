@@ -116,6 +116,8 @@ export function compileGlobs(patterns) {
       else if (ch === "?") re += "[^/]";
       else re += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
     }
+    // Every metacharacter is escaped above and patterns come from the user's own config.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     return new RegExp(`^${re}$`, "i");
   });
   return (rel) => regexes.some((re) => re.test(rel));
