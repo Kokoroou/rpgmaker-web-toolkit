@@ -140,6 +140,7 @@
 .rwk-arm.mid{left:33%;top:33%;border:0;width:34%;height:34%}
 .rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-tool{width:calc(var(--u)*.66);height:calc(var(--u)*.66);border-radius:50%;font-size:calc(var(--u)*.3)}
+.rwk-tool svg{width:1.4em;height:1.4em;pointer-events:none}
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
@@ -429,7 +430,7 @@
       if (row.length) flush();
     } else {
       // Columns down the right edge, between the toolbar row and R.
-      const top = m + unit() * 0.45;
+      const top = m + unit() * 0.66 + gap;
       const bottom = vh() - (gamepadOn ? shoulderY() + unit() * 0.41 : margin() + clusterHeight()) - gap;
       let x = m;
       let y = top;
@@ -449,26 +450,35 @@
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar: hide/show, game keys, fullscreen, edit layout. Top-left in
-  // landscape; in portrait it sits between L and R.
+  // Toolbar, in two groups: ⚙ tools and ⌨ game keys on the left, fullscreen
+  // and show/hide on the right. Top corners in landscape; in portrait both
+  // groups sit on the L/R line, next to L and R.
   //---------------------------------------------------------------------------
 
-  const toolbar = el("div", "rwk-tools");
-  pad.appendChild(toolbar);
-  function addTool(label, extraClass, onTap) {
+  const toolbarLeft = el("div", "rwk-tools");
+  const toolbarRight = el("div", "rwk-tools");
+  pad.append(toolbarLeft, toolbarRight);
+  function addTool(label, extraClass, onTap, group = toolbarLeft) {
     const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
     bindPress(btn, null, () => {}, onTap);
-    toolbar.appendChild(btn);
+    group.appendChild(btn);
     return btn;
   }
 
+  const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+  const eyeIcon = (open) =>
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    EYE + (open ? "" : '<path d="M3 3l18 18"/>') + "</svg>";
+  let toggleBtn = null;
+
+  // The eye shows the current state: open while the controls are shown.
   function setHidden(hidden) {
     pad.classList.toggle("hidden", hidden);
     document.body.classList.toggle("rwk-ctl", !hidden && (gamepadOn || dpadOn));
+    toggleBtn.innerHTML = eyeIcon(!hidden);
     RWK.storage.set(HIDDEN_KEY, hidden);
     layout();
   }
-  addTool("◐", "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")));
   let panel = null;
   let backdrop = null;
   if (panelKeys.length) {
@@ -508,13 +518,15 @@
   }
 
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
-  if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen);
+  if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen, toolbarRight);
+  toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")), toolbarRight);
 
   // The ⚙ tools menu opens from the toolbar (RWK_Core adds the button with
-  // the first tool).
+  // the first tool), first on the left.
   let ready = false;
   RWK.tools.mount((label, onTap) => {
     const btn = addTool(label, "rwk-tool-more", onTap);
+    toolbarLeft.prepend(btn);
     if (ready) layout();
     return btn;
   });
@@ -555,15 +567,13 @@
   const docked = () => orientation() === "portrait" && !pad.classList.contains("hidden") && (gamepadOn || dpadOn);
 
   function layoutTools() {
-    const w = toolbar.offsetWidth;
-    const h = toolbar.offsetHeight;
-    if (docked()) {
-      toolbar.style.left = vw() / 2 + "px";
-      toolbar.style.top = vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) + "px";
-    } else {
-      toolbar.style.left = margin() + w / 2 + "px";
-      toolbar.style.top = margin() + h / 2 + "px";
-    }
+    const h = toolbarLeft.offsetHeight || toolbarRight.offsetHeight;
+    // Docked: next to L and R (their outer edge is margin + 1.8u from the side).
+    const inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
+    const top = docked() ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + h / 2;
+    toolbarLeft.style.left = inset + toolbarLeft.offsetWidth / 2 + "px";
+    toolbarRight.style.left = vw() - inset - toolbarRight.offsetWidth / 2 + "px";
+    toolbarLeft.style.top = toolbarRight.style.top = top + "px";
   }
 
   // Above the controls when docked, under the toolbar otherwise.
@@ -576,7 +586,7 @@
       panel.style.bottom = bottom + "px";
       panel.style.maxHeight = vh() - bottom - 8 + "px";
     } else {
-      const top = toolbar.offsetTop + toolbar.offsetHeight / 2 + 8;
+      const top = toolbarLeft.offsetTop + toolbarLeft.offsetHeight / 2 + 8;
       panel.style.bottom = "";
       panel.style.top = top + "px";
       panel.style.maxHeight = vh() - top - 8 + "px";
@@ -586,7 +596,7 @@
   // Top edge of the controls in the lower half of the screen.
   function controlsTop() {
     let top = vh();
-    for (const node of [toolbar, ...items.map((i) => i.el)]) {
+    for (const node of [toolbarLeft, toolbarRight, ...items.map((i) => i.el)]) {
       if (!node.offsetWidth || node.offsetTop < vh() / 2) continue; // hidden, or moved to the top
       top = Math.min(top, node.offsetTop - node.offsetHeight / 2); // offsetTop is the center (translate -50%)
     }
@@ -676,8 +686,10 @@
   window.addEventListener("pointerdown", wake, true);
   wake();
 
-  if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
-  else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
+  if (RWK.storage.get(HIDDEN_KEY, false)) {
+    pad.classList.add("hidden");
+    toggleBtn.innerHTML = eyeIcon(false);
+  } else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
   document.body.appendChild(pad);
   ready = true;
   layout();

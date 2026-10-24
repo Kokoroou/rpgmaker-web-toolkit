@@ -114,7 +114,7 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 - `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
 - In portrait the game is centered in the space above the controls.
 - ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
-- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys (tap it again to close), ⛶ fullscreen, ⚙ tools (see below).
+- Toolbar, in the top corners in landscape and next to L and R in portrait: on the left ⚙ tools (see below) and ⌨ game keys (tap it again to close); on the right ⛶ fullscreen and 👁 show / hide all the controls (the eye is crossed out while they are hidden).
 - **✥ Edit button layout** (in ⚙): drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions, ✓ saves. Saved per browser, positions per orientation.
 - The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
 
