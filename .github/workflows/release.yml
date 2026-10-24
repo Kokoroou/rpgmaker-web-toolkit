@@ -1,0 +1,36 @@
+# Release with release-please, using the shared release workflow of agent-toolkit.
+#
+# Every push to main updates a release PR ("chore(main): release x.y.z") that bumps
+# package.json / package-lock.json and CHANGELOG.md from the Conventional Commits merged
+# since the last release. Merging it tags vX.Y.Z, creates the GitHub Release and attaches
+# rpgmaker-web-toolkit-X.Y.Z.zip (the files run.ps1 needs), so a fixed version can be run
+# with $env:RWK_REF = "vX.Y.Z".
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    uses: kokoroou/agent-toolkit/.github/workflows/release.yml@v0
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    with:
+      config-file: release-please-config.json
+      manifest-file: .release-please-manifest.json
+      build-command: |
+        version=$(node -p "require('./package.json').version")
+        git archive --format=zip --prefix="rpgmaker-web-toolkit-$version/" \
+          -o "rpgmaker-web-toolkit-$version.zip" HEAD \
+          cli runtime worker package.json package-lock.json run.ps1 rwk.cmd LICENSE README.md
+      artifact-paths: rpgmaker-web-toolkit-*.zip
+    # Optional: with a GitHub App token the release PR also triggers CI.
+    secrets:
+      agent_app_id: ${{ secrets.AGENT_APP_ID }}
+      agent_app_private_key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
