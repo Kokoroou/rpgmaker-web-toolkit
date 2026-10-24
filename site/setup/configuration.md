@@ -22,6 +22,7 @@ A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed. Ever
 | Turn off quick save / load | `"quickSave": false` |
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
 | Turn off the autosave, or change how often | `"autoSave": false`, `"autoSave": { "minutes": 10 }` |
+| Keep fewer older saves, or none (saves R2 space) | `"saveHistory": { "keep": 5, "days": 14 }`, `"saveHistory": false` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |

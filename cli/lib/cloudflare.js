@@ -232,7 +232,8 @@ export function overflowRoutes(rels) {
 // Worker deploy
 //---------------------------------------------------------------------------
 
-export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false }) {
+// saveHistory: from saveHistoryConfig() (stage.js)
+export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -263,6 +264,7 @@ export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth,
       ACCESS_AUD: auth.aud || "",
       RWK_LOCKED: locked ? "1" : "0",
       RWK_INDEXABLE: indexable ? "1" : "0",
+      RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
     },
     observability: { enabled: false },
   };

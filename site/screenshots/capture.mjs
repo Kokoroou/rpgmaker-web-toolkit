@@ -60,6 +60,7 @@ await shot("edit-layout", {
   },
 });
 await shot("saves-panel", { act: (p) => openTool(p, "Saves") });
+await shot("save-history", { query: "sync=ok", act: (p) => openTool(p, "Older saves") });
 await shot("sync-conflict", { query: "sync=conflict", act: (p) => p.waitForSelector(".rwk-modal") });
 await shot("sync-recent", { query: "sync=recent", act: (p) => p.waitForSelector(".rwk-modal") });
 await shot("item-batch", { viewport: LANDSCAPE, query: "scene=items" });

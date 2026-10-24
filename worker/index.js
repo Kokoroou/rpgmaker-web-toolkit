@@ -3,7 +3,7 @@
 // overflow list (files > 25 MiB that live in R2 instead of static assets).
 
 import { AuthError, identify } from "./auth.js";
-import { handleSaves, json } from "./saves.js";
+import { handleHistory, handleSaves, json } from "./saves.js";
 
 export function createWorker({ overflow = [] } = {}) {
   const overflowSet = new Set(overflow);
@@ -36,6 +36,8 @@ async function handleApi(request, env, path) {
     if (path === "/api/me") return json({ email: user.email, gameId: env.GAME_ID });
     if (path === "/api/saves") return handleSaves(request, env, user, null);
     if (path.startsWith("/api/saves/")) return handleSaves(request, env, user, path.slice("/api/saves/".length));
+    if (path === "/api/history") return handleHistory(request, env, user, "");
+    if (path.startsWith("/api/history/")) return handleHistory(request, env, user, path.slice("/api/history/".length));
     return json({ error: "Not found" }, 404);
   } catch (err) {
     if (err instanceof AuthError) return json({ error: err.message }, err.status);

@@ -21,7 +21,7 @@ import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, suggestSlu
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
-import { generatedFiles, syncPublicDir } from "../lib/stage.js";
+import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false } = {}) {
@@ -131,6 +131,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
     indexable: isIndexable(cfg),
+    saveHistory: saveHistoryConfig(cfg.saveHistory),
   };
   const authReady = isAuthReady(cfg.auth);
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));

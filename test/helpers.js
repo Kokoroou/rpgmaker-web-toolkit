@@ -61,8 +61,8 @@ export class MemoryBucket {
     return this.#meta(key, entry);
   }
 
-  async delete(key) {
-    this.objects.delete(key);
+  async delete(keys) {
+    for (const key of [].concat(keys)) this.objects.delete(key);
   }
 
   async list({ prefix = "" } = {}) {

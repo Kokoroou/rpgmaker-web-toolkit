@@ -27,6 +27,7 @@
     gameId: "demo",
     sync: { enabled: !!SYNC },
     saveTools: true,
+    saveHistory: { keep: 10, days: 30 },
     itemBatch: true,
     controls: {
       enabled: true,
@@ -125,9 +126,20 @@
     ],
     recent: [{ name: "file1", etag: "a1", updatedAt: now - 90000, deviceId: "Android-3f9a1c2e" }],
   }[SYNC] || [];
+  const MIN = 60000;
+  const history = [
+    { name: "file1", id: "1", updatedAt: now - 40 * MIN, deviceId: "Android-3f9a1c2e", size: 48300 },
+    { name: "file1", id: "2", updatedAt: now - 26 * 60 * MIN, deviceId: "Windows-7b20d4aa", size: 47100 },
+    { name: "file2", id: "3", updatedAt: now - 3 * 60 * MIN, deviceId: "Windows-7b20d4aa", size: 46800 },
+    { name: "rwk-auto", id: "4", updatedAt: now - 20 * MIN, deviceId: "Android-3f9a1c2e", size: 48200 },
+    { name: "rwk-auto", id: "5", updatedAt: now - 38 * MIN, deviceId: "Android-3f9a1c2e", size: 48100 },
+  ];
   window.fetch = async (url, init = {}) => {
     if (url === "/api/saves" && (init.method || "GET") === "GET") {
       return new Response(JSON.stringify({ items: remoteSaves }), { headers: { "content-type": "application/json" } });
+    }
+    if (url === "/api/history") {
+      return new Response(JSON.stringify({ items: history }), { headers: { "content-type": "application/json" } });
     }
     return new Response(JSON.stringify({ etag: "new" }), { headers: { "content-type": "application/json" } });
   };
@@ -141,6 +153,7 @@
 <script src="../../runtime/RWK_Message.js"></script>
 <script src="../../runtime/RWK_Dash.js"></script>
 <script src="../../runtime/RWK_SaveTools.js"></script>
+<script src="../../runtime/RWK_SaveHistory.js"></script>
 <script src="../../runtime/RWK_ItemBatch.js"></script>
 <script src="../../runtime/RWK_Report.js"></script>
 <script>

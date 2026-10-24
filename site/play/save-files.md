@@ -13,5 +13,5 @@
 Import refuses files from the other engine, and the game's `config` and `global` files.
 
 ::: danger
-Delete cannot be undone. Export first if you may want the save back.
+With cloud saves on, a deleted save can come back from ⏸ → [Older saves](/play/saves#bring-back-an-older-save) (for 30 days by default). Otherwise Delete cannot be undone: export first if you may want the save back.
 :::
