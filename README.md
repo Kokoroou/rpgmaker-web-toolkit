@@ -204,7 +204,7 @@ This toolkit is meant for playing games **you own**, for yourself. Game files ar
 npm test          # CLI + Worker tests (node:test, no network needed)
 ```
 
-See also [docs/ROADMAP.md](docs/ROADMAP.md). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
+See also [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/IMPACT.md](docs/IMPACT.md) (impact on game developers and players, in Vietnamese). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
 
 ## License
 
