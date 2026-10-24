@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch"];
 
 // files: from collectFiles(); generated: Map<rel, string|Buffer>
 // -> { linked, copied, unchanged, removed }
@@ -81,6 +81,7 @@ export function generatedFiles(game, gameConfig) {
     sync: { enabled: !!(gameConfig.sync && gameConfig.sync.enabled) },
     controls: gameConfig.controls || null,
     saveTools: gameConfig.saveTools !== false,
+    itemBatch: gameConfig.itemBatch !== false,
   };
 
   for (const name of RUNTIME_PLUGINS) {

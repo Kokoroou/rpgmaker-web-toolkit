@@ -6,6 +6,8 @@ Publish an **RPG Maker MZ** game (MV: adapter included, not yet tested) to **Clo
 - **Cloud save sync**: sign in with the same email and continue on any device
 - **On-screen gamepad on phones** (D-pad, A/B/X/Y, L/R, like JoiPlay), plus buttons for the keys the game's plugins use (R, T, Q, E…)
 - **Save export / import / delete**: download a save slot as a normal desktop save file, change it with any save editor, import it back, or delete a slot
+- **Use several items at once**: pick a quantity in the item menu instead of using a stack one by one
+- Advanced tools sit behind a single ⚙ button, so they don't crowd the screen
 - Re-run as often as you like: later runs **upload only the files that changed** (handy for patches and translation updates)
 - **The original game folder is never modified**, and no clone is needed: the toolkit runs from a temp folder and cleans up after itself
 
@@ -69,7 +71,8 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
 | `sync.enabled` | Turns save sync on or off |
 | `auth` | `{ "mode": "access", "teamDomain", "aud" }` or `{ "mode": "none" }`. Filled in by the script |
 | `controls` | On-screen buttons, see below |
-| `saveTools` | `false` hides the 💾 save export / import / delete button (on by default) |
+| `saveTools` | `false` removes 💾 Saves (export / import / delete) from the ⚙ tools menu (on by default) |
+| `itemBatch` | `false` turns off using several items at once (on by default) |
 
 ### On-screen buttons (`controls`)
 
@@ -111,13 +114,33 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 - `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
 - In portrait the game is centered in the space above the controls.
 - ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
-- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys (tap it again to close), ⛶ fullscreen, ✥ edit the layout: drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions. Saved per browser, positions per orientation.
-- 💾 opens the save export / import / delete panel, see [Editing saves](#editing-saves).
+- Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys (tap it again to close), ⛶ fullscreen, ⚙ tools (see below).
+- **✥ Edit button layout** (in ⚙): drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions, ✓ saves. Saved per browser, positions per orientation.
 - The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
+
+## Tools menu (⚙)
+
+The advanced tools open from one ⚙ button: in the toolbar on phones, a faint button in the top-left corner on desktop.
+
+| Tool | Does |
+|---|---|
+| ✥ Edit button layout | Move or hide the on-screen buttons (only with the touch controls) |
+| 💾 Saves | Export / import / delete save slots, see [Editing saves](#editing-saves) |
+| 🎒 Use several items at once | On / off switch for [using several items at once](#using-several-items-at-once), remembered per browser |
+
+## Using several items at once
+
+Choosing a consumable item you hold more than one of in the item menu first asks **how many** to use (1 by default, up to 99). The item is then used that many times:
+
+- Items with direct effects (healing, stat growth…) are applied once per item, and stop early when one more would do nothing (an actor at full HP). Unused items are kept.
+- Items that run a **common event** run it that many times in a row. Only the last run shows its messages; the earlier runs also skip sounds and waits, so ten study books give ten times the effect and one message.
+- Items whose common event (or a common event it calls) shows choices, asks for a number or an item, transfers the player, starts a battle, opens a shop, the menu or the save screen, or ends the game are always used one at a time.
+
+It works with any MV or MZ game that uses the standard item menu, including menus restyled by plugins.
 
 ## Editing saves
 
-The 💾 button (in the toolbar on phones, a faint button in the top-left corner on desktop) lists the save slots:
+💾 **Saves** in the ⚙ tools menu lists the save slots:
 
 - **Export** downloads the slot as `file3.rmmzsave` (MV: `file3.rpgsave`), byte for byte what the desktop game writes. Open it in any RPG Maker save editor.
 - **Import** puts a file back into a slot: the desktop format, the raw bytes some editors write, or plain JSON. The save list entry (party, playtime) is refreshed, the save is uploaded to the cloud when sync is on, and the game restarts so you can load it.
@@ -130,10 +153,11 @@ A file that is not a game save of the same engine (config, global, another engin
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
-             RWK_Core            config, deviceId, toasts, dialogs
+             RWK_Core            config, deviceId, toasts, dialogs, ⚙ tools menu
              RWK_SaveSync        save sync (MZ adapter: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SaveTools       save export / import / delete (desktop save file format)
+             RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
            worker/         One Worker shared by every game
              index.js            static assets + large files from R2 (with Range) + /api
              auth.js             verifies Cloudflare Access JWTs
