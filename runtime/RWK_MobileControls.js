@@ -117,7 +117,7 @@
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
-.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-menu){display:none}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-menu):not(.rwk-tool-speed){display:none}
 .rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}
@@ -455,18 +455,18 @@
   //---------------------------------------------------------------------------
   // Toolbar, in two groups: ⏸ menu and ⌨ game keys on the left, show/hide
   // on the right. Top corners in landscape; in portrait both groups sit on
-  // the L/R line, next to L and R.
+  // the L/R line, next to L and R, or in the top corners when they do not fit.
   //---------------------------------------------------------------------------
 
   const toolbarLeft = el("div", "rwk-tools");
   const toolbarRight = el("div", "rwk-tools");
   pad.append(toolbarLeft, toolbarRight);
-  function addTool(label, extraClass, onTap, name, group = toolbarLeft) {
+  function addTool(label, extraClass, onTap, name, group = toolbarLeft, onDown = () => {}) {
     const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
     btn.setAttribute("role", "button");
     btn.setAttribute("aria-label", name);
     btn.title = name;
-    bindPress(btn, null, () => {}, onTap);
+    bindPress(btn, null, onDown, onTap);
     group.appendChild(btn);
     return btn;
   }
@@ -574,9 +574,12 @@
 
   function layoutTools() {
     const h = toolbarLeft.offsetHeight || toolbarRight.offsetHeight;
-    // Docked: next to L and R (their outer edge is margin + 1.8u from the side).
-    const inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
-    const top = docked() ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + h / 2;
+    // Docked: next to L and R (their outer edge is margin + 1.8u from the side),
+    // or in the top corners when the two groups don't fit between them.
+    let inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
+    const nextToLR = docked() && toolbarLeft.offsetWidth + toolbarRight.offsetWidth + 16 <= vw() - 2 * inset;
+    if (!nextToLR) inset = margin();
+    const top = nextToLR ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + h / 2;
     toolbarLeft.style.left = inset + toolbarLeft.offsetWidth / 2 + "px";
     toolbarRight.style.left = vw() - inset - toolbarRight.offsetWidth / 2 + "px";
     toolbarLeft.style.top = toolbarRight.style.top = top + "px";
@@ -688,10 +691,11 @@
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 
   // Lets later plugins add buttons to the toolbar (other options go in the
-  // ⏸ menu, RWK.tools, instead). side "right" puts it before the eye.
+  // ⏸ menu, RWK.tools, instead). side "right" puts it before the eye;
+  // onDown runs when the button is pressed, onTap when it is released.
   RWK.controls = {
-    addTool(label, extraClass, onTap, name, side) {
-      const btn = addTool(label, extraClass, onTap, name, side === "right" ? toolbarRight : toolbarLeft);
+    addTool(label, extraClass, onTap, name, side, onDown) {
+      const btn = addTool(label, extraClass, onTap, name, side === "right" ? toolbarRight : toolbarLeft, onDown);
       if (side === "right") toolbarRight.insertBefore(btn, toggleBtn);
       layout();
       return btn;

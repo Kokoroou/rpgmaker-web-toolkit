@@ -34,6 +34,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 |---|---|
 | `saveTools` | 💾 Saves in the ⏸ menu: exporting, importing and deleting save files |
 | `itemBatch` | Using several items at once from the item menu |
+| `fastForward` | [Fast forward](/play/speed), e.g. for a game built around timing |
 | `sync` | Cloud save sync: each browser keeps its own saves |
 
 Keys the toolkit does not know yet are ignored, so you can already list features from later versions.

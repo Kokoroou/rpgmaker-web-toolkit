@@ -94,7 +94,10 @@
     isDatabaseLoaded: () => true,
     createGameObjects() {},
   };
-  window.SceneManager = { _scene: new Scene_Map(), catchException() {}, updateScene() {} };
+  window.SceneManager = {
+    _scene: new Scene_Map(), catchException() {}, updateScene() {}, updateInputData() {},
+    isSceneChanging: () => false, isCurrentSceneStarted: () => true,
+  };
   window.AudioManager = { createBuffer() {}, audioFileExt: () => ".ogg" };
   window.WebAudio = { _context: null };
   window.StorageManager = {
@@ -130,6 +133,7 @@
 <script src="../../runtime/RWK_Core.js"></script>
 <script src="../../runtime/RWK_SaveSync.js"></script>
 <script src="../../runtime/RWK_MobileControls.js"></script>
+<script src="../../runtime/RWK_Speed.js"></script>
 <script src="../../runtime/RWK_SaveTools.js"></script>
 <script src="../../runtime/RWK_ItemBatch.js"></script>
 <script src="../../runtime/RWK_Report.js"></script>
