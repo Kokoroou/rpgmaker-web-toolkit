@@ -1,67 +1,198 @@
-# Đề xuất tính năng (tham khảo emulator và công cụ cho RPG Maker)
+# Đề xuất tính năng và thiết kế lại giao diện
 
-Tài liệu này điểm lại những tính năng hay có ở các emulator và công cụ chơi / hỗ trợ game RPG Maker hiện nay, rồi chọn ra những tính năng hợp với kiến trúc của dự án (plugin runtime chèn vào bản web + Worker + R2 + Cloudflare Access).
+Tài liệu này gồm bốn phần:
 
-## Công cụ đã tham khảo
+1. Các emulator và công cụ chơi game RPG Maker đã tham khảo.
+2. Cộng đồng người chơi dùng gì và than phiền gì nhiều nhất.
+3. Thứ tự ưu tiên thi công, xếp theo **giá trị cho người chơi**, không theo độ dễ làm.
+4. Thiết kế lại cách sắp xếp, nhóm và icon các nút.
+
+Chưa có gì ở đây được thi công.
+
+## 1. Công cụ đã tham khảo
 
 | Công cụ | Loại | Tính năng đáng chú ý |
 |---|---|---|
-| **JoiPlay** (Android) | Trình chạy RPG Maker / Ren'Py | Gamepad ảo, chỉnh phím, menu cheat, tua nhanh (gán vào nút vai), đổi font, tùy chọn hiển thị |
-| **EasyRPG Player** | Trình chạy RPG Maker 2000/2003 | Tua nhanh 2 mức (giữ nửa / giữ hết cò RT), menu Settings trong game (Video, Audio, Input, Engine), chế độ scale ảnh |
-| **RetroArch / emulator console** | Emulator | Save state / quick save, tua nhanh, rewind, chụp màn hình, shader (CRT, làm mượt pixel), remap tay cầm, profile theo game, tự lưu |
-| **MTool** | Công cụ PC cho game RPG Maker / Wolf / Ren'Py | Tăng tốc game, dịch máy trực tiếp lên màn hình, sửa switch / biến khi đang chơi, cheat, lướt thoại |
-| **Translator++, MV Translation Helper** | Công cụ dịch | Trích xuất toàn bộ text, dịch qua file riêng, áp bản dịch mà không sửa dữ liệu gốc |
+| **JoiPlay** (Android) | Trình chạy RPG Maker / Ren'Py | Gamepad ảo, chỉnh phím, menu cheat dựng sẵn cho MV (icon cây đũa), tua nhanh gán vào nút vai, dùng được save từ PC |
+| **Maldives Player** (Android) | Trình chạy RPG Maker MV | Chạy MV trên điện thoại, đối thủ trực tiếp của JoiPlay |
+| **EasyRPG Player** | Trình chạy RPG Maker 2000/2003 | Tua nhanh 2 mức (giữ nửa / giữ hết cò RT), menu Settings trong game (Video, Audio, Input, Engine) |
+| **RetroArch / emulator console** | Emulator | Quick menu (game tạm dừng khi mở), save state, tua nhanh, chụp màn hình, shader, remap tay cầm |
+| **MTool** (PC + Android) | Công cụ cho người chơi RPG Maker / Wolf / Tyrano… | Dịch máy trực tiếp khi chơi, tăng tốc cả game bằng một phím, tăng tốc đi, god mode, sửa số lượng vật phẩm. Kéo thả là chơi, không sửa file game |
+| **Translator++** | Công cụ dịch | Trích text, dịch máy rồi sửa tay, xuất bản patch |
 | **Cheat Menu (emerladCoder), Yanfly Cheat Menu, AkerCheats** | Plugin / mod cheat MV/MZ | God mode, hồi đầy, sửa EXP / chỉ số / vàng / vật phẩm, đi xuyên tường, tốc độ di chuyển, sửa switch / biến, lưu / dịch chuyển tới vị trí, lưu ở bất cứ đâu |
-| **Enhanced Debug Screen (F9), RMSE / save editor online** | Debug / sửa save | Sửa switch / biến có tìm kiếm, sửa save ngoài game (dự án đã hỗ trợ qua 💾 Saves) |
-| **Plugin battle speed / game speed toggle** | Plugin | Tăng tốc trận đánh, bỏ qua animation |
-| **Trình đọc visual novel (Ren'Py, KiriKiri…)** | Engine VN | Lịch sử hội thoại (backlog), auto-advance, skip thoại đã đọc |
-| **Playnite, LaunchBox, playlist RetroArch** | Launcher | Thư viện game có ảnh bìa, thời gian chơi, lần chơi cuối |
+| **Enhanced Debug Screen (F9), RMSE / save editor online** | Debug / sửa save | Sửa switch / biến có tìm kiếm, sửa save ngoài game (dự án đã có 💾 Saves) |
+| **Plugin quicksave, autosave, message skip, battle speed** | Plugin cho nhà làm game | Cho thấy người chơi hay đòi gì: lưu nhanh, tự lưu, lướt thoại, đánh nhanh |
+| **Trình đọc visual novel (Ren'Py, KiriKiri…)** | Engine VN | Backlog, Auto, Skip, nút Q.Save / Q.Load luôn hiện |
 
-## Bảng tính năng đề xuất
+## 2. Cộng đồng người chơi dùng gì nhiều nhất
 
-Ưu tiên: **P1** nên làm sớm (giá trị cao, công sức vừa phải), **P2** đáng làm, **P3** để sau.
-Công sức: **S** vài giờ, **M** 1–3 ngày, **L** hơn 3 ngày.
+Nguồn: Steam Discussions của RPG Maker MV, diễn đàn rpgmakerweb, bình luận itch.io trên trang game và trang plugin, diễn đàn Weight Gaming, Platinmods, trang giới thiệu và hướng dẫn JoiPlay / MTool. Không có số liệu đo lường chính thức; phần dưới là những gì **lặp lại nhiều lần** ở các nguồn đó.
 
-| # | Tính năng | Tham khảo từ | Cách tích hợp vào dự án | Ưu tiên | Công sức |
-|---|---|---|---|---|---|
-| 1 | **Tua nhanh** ×2 / ×3 / ×4 (giữ hoặc bật / tắt) | JoiPlay, EasyRPG, RetroArch, MTool | Plugin mới `RWK_Speed`: cho `SceneManager.updateMain` chạy `updateScene` N lần mỗi frame (âm thanh giữ nguyên tốc độ). Nút ⏩ trên toolbar; giữ nút = tạm tăng tốc, chạm = bật / tắt. Gán được vào nút L/R hoặc cò của tay cầm thật | P1 | S |
-| 2 | **Lướt thoại / tự chạy thoại** (skip, auto) | Trình đọc VN, MTool | Patch `Window_Message`: chế độ Skip bỏ hiệu ứng gõ chữ và tự sang trang; Auto chờ theo độ dài câu rồi sang trang. Không tự chọn hộ ở hộp lựa chọn | P1 | S |
-| 3 | **Quick save / quick load** (lưu ở bất cứ đâu khi đang ở map) | RetroArch, AkerCheats, JoiPlay | Thêm slot riêng (vd. `quick`) ghi bằng `DataManager.saveGame` kể cả khi game tắt lưu; load từ ⚙ hoặc màn hình tiêu đề. Đi qua `RWK_SaveSync` nên cũng được đồng bộ lên cloud. Chỉ cho lưu ở `Scene_Map`, cảnh báo khi đang chạy event | P1 | M |
-| 4 | **Lịch sử bản save trên cloud** (khôi phục bản cũ) | Steam Cloud, auto save state của RetroArch | Trong `worker/saves.js`: mỗi lần PUT, chép bản cũ sang `saves/<user>/<slug>/.history/<name>/<time>`, giữ N bản gần nhất. Thêm API liệt kê / khôi phục và mục "Khôi phục bản cũ" trong 💾 Saves. Chống mất dữ liệu khi save hỏng hoặc chọn nhầm bản lúc có xung đột | P1 | M |
-| 5 | **Cài như app (PWA)** + giữ màn hình sáng | Emulator trên mobile | Thêm `manifest.webmanifest` (tên, icon lấy từ `icon/` của game, `display: fullscreen`, hướng màn hình) để "Thêm vào màn hình chính". Dùng Screen Wake Lock API để màn hình không tắt khi đang chơi. Đi cùng Service Worker trong ROADMAP | P1 | S |
-| 6 | **Menu cheat** (vàng, vật phẩm, EXP / level, chỉ số, hồi đầy, god mode, thắng / thoát trận ngay) | Cheat Menu emerladCoder, Yanfly, JoiPlay, AkerCheats | Plugin `RWK_Cheats`, mặc định **tắt** (`cheats: true` trong config). Giao diện DOM giống bảng ⚙ để dùng tốt trên điện thoại. Lấy tên vật phẩm / actor từ `$dataItems`, `$dataActors` | P2 | M |
-| 7 | **Sửa switch / biến khi đang chơi** (có ô tìm theo tên) | MTool, Enhanced Debug Screen, F9 | Một tab của `RWK_Cheats`: liệt kê `$dataSystem.switches/variables` kèm giá trị hiện tại, tìm theo tên hoặc số, sửa trực tiếp. Tiện để gỡ kẹt khi event lỗi | P2 | S |
-| 8 | **Đi xuyên tường, dịch chuyển, nhớ vị trí** | Cheat Menu emerladCoder | Thuộc `RWK_Cheats`: bật `$gamePlayer.setThrough`, lưu / gọi lại (map, x, y), dịch chuyển bằng `reserveTransfer`. Có cảnh báo có thể bỏ qua event | P3 | S |
-| 9 | **Tốc độ di chuyển / luôn chạy** | Cheat Menu, plugin QoL phổ biến | Công tắc trong ⚙: luôn dash (đảo nút X), hoặc cộng thêm tốc độ di chuyển. Lưu theo trình duyệt như `itemBatch` | P2 | S |
-| 10 | **Tăng tốc trận đánh / bỏ animation** | Plugin battle speed, MTool | Patch `BattleManager` / `Spriteset_Battle`: bỏ chờ animation, tăng tốc log trận. Có thể gộp với #1 (tự tua nhanh trong trận) | P2 | M |
-| 11 | **Lịch sử hội thoại (backlog)** | Trình đọc VN | Ghi lại tên nhân vật + nội dung mỗi lần `Window_Message` hiện câu mới (bỏ mã điều khiển `\C[n]`…), xem trong một bảng cuộn. Hữu ích khi lỡ tay lướt qua thoại | P2 | M |
-| 12 | **Tay cầm thật: chỉnh phím + gán phím tắt** | JoiPlay, RetroArch, EasyRPG | Bảng chỉnh trong ⚙: bấm nút trên tay cầm Bluetooth / bàn phím để gán vào `ok`, `cancel`, phím plugin, tua nhanh, quick save. Sửa `Input.gamepadMapper` / `Input.keyMapper`, lưu theo trình duyệt | P2 | M |
-| 13 | **Chụp màn hình** | RetroArch, JoiPlay | Nút trong ⚙: `Graphics._canvas` (hoặc `renderer.extract` với WebGL) → PNG, tải về hoặc chia sẻ qua Web Share API | P3 | S |
-| 14 | **Tùy chọn hiển thị**: giữ tỉ lệ / kéo giãn / scale số nguyên, ảnh nét (pixel) hay mượt, giới hạn 30 FPS để tiết kiệm pin | RetroArch, EasyRPG, JoiPlay | CSS `image-rendering: pixelated` cho canvas, chỉnh cách tính kích thước trong `Graphics._updateCanvas`, bỏ qua 1 frame / 2 khi bật tiết kiệm pin. Có thể hiện FPS | P3 | M |
-| 15 | **Rung khi bấm nút ảo** | Emulator Android (Lemuroid…) | `navigator.vibrate(10)` trong `RWK_MobileControls`, công tắc bật / tắt | P3 | S |
-| 16 | **Đổi font** (dễ đọc hơn, hỗ trợ chữ Việt / CJK thiếu glyph) | JoiPlay | Config `font` trong CLI: thêm file font vào bản build và ghi đè `$dataSystem.advanced.mainFontFilename` (MZ) / `gamefont.css` (MV) | P3 | S |
-| 17 | **Bản dịch dạng patch** (trích text, dịch file riêng, áp lúc build) | Translator++, MV Translation Helper | Lệnh CLI `extract-text` xuất `data/*.json` thành file dịch (CSV / JSON); lần deploy sau áp bản dịch vào bản build tạm, **không** sửa game gốc. Rất hợp với cách "chỉ upload file đã đổi" | P2 | L |
-| 18 | **Dịch máy trực tiếp** | MTool | Thử nghiệm: Worker gọi Workers AI (có hạn mức miễn phí) để dịch câu thoại, cache kết quả trong R2 theo hash câu. Cần chú ý hạn mức và chất lượng; nên làm sau #17 | P3 | L |
-| 19 | **Thời gian chơi + trang thư viện game** (`/` liệt kê game, ảnh bìa, lần chơi cuối) | Playnite, LaunchBox, playlist RetroArch | Mở rộng mục "personal hub" trong ROADMAP: lấy ảnh bìa từ `img/titles1`, thời gian chơi và lần chơi cuối từ save `global` đã có trên R2 | P3 | M |
-| 20 | **Tối ưu dung lượng tải** (PNG → WebP, giảm bitrate OGG, tùy chọn) | Bộ repack game mobile | Tùy chọn CLI `optimize`: nén lại ảnh / nhạc trong bản build tạm, patch loader để đọc định dạng mới. Giảm thời gian tải trên 4G và tránh giới hạn 25 MiB. Cẩn trọng với file đã mã hóa (`.rpgmvp`, `.png_`) | P3 | L |
-| 21 | **Bảng báo lỗi dễ đọc + console trên điện thoại** | Công cụ debug mobile (eruda) | Bắt `window.onerror` / lỗi plugin, hiện tên plugin gây lỗi, nút "Thử tiếp tục" và "Sao chép log". Tùy chọn bật console nhỏ để xem lỗi trên điện thoại | P3 | S |
-
-## Không khuyến nghị
-
-| Tính năng | Tham khảo từ | Lý do |
+| Nhu cầu | Bằng chứng | Mức độ |
 |---|---|---|
-| Rewind (tua ngược) | RetroArch | Phải chụp toàn bộ trạng thái JS mỗi vài frame; game RPG Maker giữ trạng thái trong rất nhiều object, plugin và tài nguyên đang tải, nên tốn bộ nhớ và dễ lỗi. Quick save (#3) + lịch sử save (#4) đã giải quyết phần lớn nhu cầu |
-| Save state thật (chụp mọi thứ, kể cả giữa trận / giữa cảnh) | RetroArch | Cùng lý do; chỉ an toàn khi lưu bằng cơ chế save của chính game ở `Scene_Map` |
-| Chơi mạng (netplay) | RetroArch | Game RPG Maker là game một người; không đáng công sức |
-| Thành tựu kiểu RetroAchievements | RetroArch | Không có cơ sở dữ liệu thành tựu chung cho game RPG Maker |
-| Giải mã / xuất tài nguyên game | RPG Maker Decrypter | Không cần cho việc chơi (bản web đọc thẳng file mã hóa) và đi ngược mục "dùng có trách nhiệm" |
+| **Tăng tốc game** (đi lại, grind, cảnh dài) | Là tính năng tiêu đề của MTool ("tăng tốc cả game bằng một phím"), có sẵn trong JoiPlay và EasyRPG; hướng dẫn JoiPlay khuyên gán vào nút vai. Nhiều plugin "game speed toggle" | Rất cao |
+| **Lướt thoại / chạm là hiện cả câu** | Người chơi than chữ gõ quá chậm, phải chờ xong mới sang câu; người chơi lại cảnh cũ đòi nút skip; ngược lại có người đọc chậm than chữ chạy quá nhanh (cần Auto chỉnh được tốc độ). Có cả mẹo "giữ Ctrl để lướt" | Rất cao |
+| **Không mất save** | Than phiền thường gặp với bản web và điện thoại: xóa dữ liệu trình duyệt là mất save, Safari không giữ save, đổi trình duyệt là mất, không chép được save ra khỏi app Android | Rất cao |
+| **Cheat** (vàng, vật phẩm, chỉ số, god mode) | JoiPlay và MTool đều dựng sẵn; có nhiều plugin / mod cheat riêng (emerladCoder, Yanfly, AkerCheats); trang save editor online nổi tiếng | Cao |
+| **Dịch game** (chủ yếu game tiếng Nhật) | Lý do chính người ta dùng MTool; Translator++ và các hướng dẫn dịch máy được chia sẻ nhiều. Người chơi cũng chê chất lượng dịch máy, nên cần cho sửa / thay câu | Cao (với game ngoại ngữ) |
+| **Lưu ở bất cứ đâu / tự lưu** | Nhiều plugin quicksave / autosave, bình luận xin gán phím, xin tự lưu sau trận boss | Cao |
+| **Chơi trên điện thoại cho trơn tru** | JoiPlay / Maldives tồn tại chính vì nhu cầu này; than phiền máy yếu, tải chậm, phải cấp quyền mới chạy | Cao |
+| **Mở khóa gallery / sửa switch** | Thường gặp ở cộng đồng game doujin: dùng F9 / switch editor để mở phòng hồi tưởng, gỡ kẹt event | Trung bình |
+| **Đánh nhanh, luôn chạy** | Plugin battle speed, các plugin "always dash" | Trung bình (phần lớn đã được tua nhanh giải quyết) |
+| **Remap phím, tay cầm thật** | Có trong JoiPlay / RetroArch nhưng ít được nhắc trong cộng đồng RPG Maker | Thấp–trung bình |
+| **Chụp màn hình, shader, rung** | Phổ biến ở emulator console, gần như không được nhắc trong cộng đồng RPG Maker | Thấp |
 
-## Thứ tự gợi ý
+## 3. Thứ tự ưu tiên thi công
 
-1. **#1 Tua nhanh, #2 Lướt thoại, #5 PWA + giữ màn hình sáng**: nhỏ, dùng ngay mỗi ngày trên điện thoại.
-2. **#3 Quick save, #4 Lịch sử save**: dựa trên `RWK_SaveSync` / `worker/saves.js` đã có, tăng độ an toàn cho save.
-3. **#6–#9 Cheat + sửa switch / biến** gói trong một plugin `RWK_Cheats` tắt mặc định.
-4. **#11 Backlog, #12 Chỉnh phím tay cầm, #17 Bản dịch dạng patch**.
-5. Phần còn lại khi có thời gian.
+Xếp theo giá trị cho người chơi. Cột "Công sức" chỉ để tham khảo (**S** vài giờ, **M** 1–3 ngày, **L** hơn 3 ngày), không ảnh hưởng tới thứ tự.
 
-Mỗi tính năng runtime nên theo đúng mẫu của `RWK_ItemBatch`: một file `runtime/RWK_*.js`, một khóa bật / tắt trong config, một mục trong menu ⚙ (`RWK.tools.add`), và chạy được cả MZ lẫn MV.
+### Nhóm A: làm trước (người chơi dùng nhiều nhất)
+
+| Thứ tự | Tính năng | Vì sao đứng ở đây | Cách tích hợp | Công sức |
+|---|---|---|---|---|
+| 1 | **Tua nhanh** ×2 / ×3 / ×4. Chạm = bật / tắt, giữ = tạm tăng tốc. Khi đang tua, thoại tự sang câu | Nhu cầu số 1 ở mọi công cụ và cộng đồng | Plugin mới `RWK_Speed`: `SceneManager.updateMain` chạy `updateScene` N lần mỗi frame; âm thanh giữ tốc độ thường. Nút ⏩ trên thanh công cụ | S |
+| 2 | **Chế độ đọc thoại**: chạm là hiện hết câu, Auto (chỉnh được tốc độ cho người đọc chậm), Skip | Than phiền lặp lại nhiều nhất về trải nghiệm đọc | Patch `Window_Message`. Không bao giờ tự chọn hộ ở hộp lựa chọn, dừng Skip khi có lựa chọn / nhập số | S |
+| 3 | **Save an toàn**: quick save / quick load ở map (cả khi game tắt lưu), tự lưu định kỳ vào slot riêng, chỉ báo trạng thái đồng bộ, xin `navigator.storage.persist()` để trình duyệt không xóa save | Mất save là nỗi sợ lớn nhất khi chơi trên web / điện thoại; dự án đã có cloud sync nên chỉ cần cho người chơi **thấy** và **dùng nhanh** | Slot `quick` và `auto` đi qua `RWK_SaveSync`; icon đám mây trên thanh công cụ đổi theo trạng thái (đã đồng bộ / đang tải / offline / xung đột) | M |
+| 4 | **Khôi phục bản save cũ** (lịch sử trên cloud) | Lưới an toàn cuối cùng: save hỏng, chọn nhầm bản lúc xung đột, lỡ ghi đè | `worker/saves.js` chép bản cũ sang `saves/<user>/<slug>/.history/…`, giữ N bản; mục "Bản cũ" trong Saves | M |
+| 5 | **Cheat cơ bản**: vàng, vật phẩm, EXP / level, chỉ số, hồi đầy, god mode, thắng trận ngay | Có sẵn trong cả JoiPlay lẫn MTool; người chơi đã quen có nó | Plugin `RWK_Cheats`, mặc định tắt, bật bằng `cheats: true` hoặc ngay trong menu (có xác nhận). Giao diện DOM có ô tìm kiếm, lấy tên từ `$dataItems`, `$dataActors` | M |
+| 6 | **Chơi mượt trên 4G / offline**: Service Worker cache (đã có trong ROADMAP), cài như app (PWA), giữ màn hình sáng | Tải lại ảnh 10–27 MB mỗi lần mở là trải nghiệm tệ nhất trên điện thoại; màn hình tự tắt giữa đoạn thoại dài rất khó chịu | `rwk-sw.js` + `manifest.webmanifest` (icon từ `icon/` của game) + Screen Wake Lock API | M |
+
+### Nhóm B: giá trị cao cho một phần người chơi
+
+| Thứ tự | Tính năng | Vì sao | Cách tích hợp | Công sức |
+|---|---|---|---|---|
+| 7 | **Dịch game trực tiếp** + font có đủ dấu tiếng Việt | Lý do chính người ta dùng MTool; chỉ cần cho game ngoại ngữ nhưng với nhóm đó là bắt buộc | Worker dịch câu thoại / tên vật phẩm, cache trong R2 theo hash câu, dùng chung cho mọi thiết bị. Cho phép sửa câu dịch ngay trong game (người chơi chê dịch máy). Đổi font khi bật dịch | L |
+| 8 | **Cheat nâng cao**: sửa switch / biến có tìm theo tên, mở gallery, đi xuyên tường, dịch chuyển, nhớ vị trí | Gỡ kẹt event, mở phòng hồi tưởng | Các tab thêm của `RWK_Cheats` | M |
+| 9 | **Luôn chạy / tăng tốc đi** | Đỡ phải giữ X; tua nhanh không thay được khi muốn nghe nhạc ở tốc độ thường | Công tắc trong menu, lưu theo trình duyệt | S |
+| 10 | **Lịch sử hội thoại (backlog)** | Đi kèm Auto / Skip: lỡ lướt qua thì đọc lại được | Ghi tên + nội dung từ `Window_Message`, bỏ mã điều khiển | M |
+| 11 | **Báo lỗi dễ hiểu + gỡ kẹt** | Game lỗi trên điện thoại thường chỉ ra màn hình đen, người chơi không biết làm gì | Bắt `window.onerror`, hiện plugin gây lỗi, nút "Thử tiếp tục", "Về map an toàn", "Sao chép log" | S |
+| 12 | **Chỉnh phím tay cầm / bàn phím** (gán cả tua nhanh, quick save) | Hữu ích cho người dùng tay cầm Bluetooth và bàn phím | Bảng gán phím, sửa `Input.gamepadMapper` / `Input.keyMapper` | M |
+
+### Nhóm C: để sau
+
+| Thứ tự | Tính năng | Ghi chú | Công sức |
+|---|---|---|---|
+| 13 | Tăng tốc trận đánh / bỏ animation riêng | Phần lớn đã được tua nhanh (#1) giải quyết | M |
+| 14 | Bản dịch dạng patch (lệnh CLI `extract-text`, áp lúc build) | Cho người làm bản dịch, không phải người chơi thường; dùng chung dữ liệu với #7 | L |
+| 15 | Chụp màn hình + chia sẻ | Ít được nhắc | S |
+| 16 | Rung khi bấm nút ảo | Safari trên iPhone không hỗ trợ `navigator.vibrate` | S |
+| 17 | Tùy chọn hiển thị (ảnh nét pixel, scale số nguyên, giới hạn 30 FPS, hiện FPS) | Ít được nhắc; 30 FPS có ích cho pin | M |
+| 18 | Thư viện game `/` + thời gian chơi | Chỉ có ích khi có nhiều game | M |
+| 19 | Nén ảnh / nhạc lúc build | Chỉ cần khi #6 chưa đủ | L |
+
+### Không khuyến nghị
+
+| Tính năng | Lý do |
+|---|---|
+| Rewind, save state kiểu emulator | Trạng thái game RPG Maker nằm rải rác trong rất nhiều object và plugin; #3 + #4 đã đáp ứng nhu cầu |
+| Chơi mạng, thành tựu | Không có nhu cầu trong cộng đồng RPG Maker |
+| Giải mã / xuất tài nguyên game | Không cần để chơi và đi ngược mục "dùng có trách nhiệm" |
+
+## 4. Thiết kế lại các nút
+
+### Hiện tại
+
+- Thanh công cụ trái: ⚙ Tools, ⌨ Game keys. Phải: ⛶ toàn màn hình, 👁 ẩn / hiện.
+- Menu ⚙ là một danh sách phẳng: Edit button layout, Saves, Use several items at once.
+- Khi thêm tính năng ở mục 3, danh sách phẳng sẽ dài hơn 15 mục và khó tìm.
+
+### Nguyên tắc
+
+1. **Dùng nhiều thì một chạm, dùng ít thì vào menu.** Tua nhanh và trạng thái save nằm ngay trên thanh công cụ; chỉnh layout, gán phím nằm sâu trong menu (giống thanh Q.Save / Skip / Auto luôn hiện của các engine VN).
+2. **Game tạm dừng khi menu mở** (giống quick menu của RetroArch, JoiPlay). Chỉnh cheat hay đổi tốc độ không bị quái đánh trong lúc đó.
+3. **Nhóm theo việc người chơi muốn làm**, không theo plugin nào làm ra nó.
+4. **Icon nét đơn (outline) cùng một bộ**, đúng nghĩa quen thuộc. Mọi icon có nhãn chữ trong menu; trên thanh công cụ có `aria-label` và tooltip.
+5. **Không trùng nghĩa với nút của game.** Nút Y của gamepad đã có nhãn "Menu" (menu của game), nên nút của toolkit không dùng ☰ hay chữ "Menu". Chọn ⏸ (tạm dừng): người chơi hiểu ngay là game dừng lại, và cặp ⏸ ⏩ là cặp quen thuộc của trình phát media.
+6. **Vùng chạm tối thiểu 44 × 44 px**, nút nguy hiểm (xóa save, cheat) phải xác nhận, và để xa các nút hay bấm.
+
+### Thanh công cụ mới
+
+```
+Ngang (landscape)
+┌───────────────────────────────────────────────────────────────┐
+│ ⏸  ⌨                                            ☁  ⏩×2  👁 │
+│                                                               │
+│                         (màn hình game)                       │
+│   [L]                                                   [R]   │
+│   ✚ D-pad                                           Y X B A   │
+└───────────────────────────────────────────────────────────────┘
+
+Dọc (portrait)
+┌─────────────────────────────┐
+│        (màn hình game)      │
+├─────────────────────────────┤
+│ [L]  ⏸  ⌨      ☁  ⏩  👁 [R]│
+│   ✚ D-pad          Y X B A  │
+└─────────────────────────────┘
+```
+
+| Vị trí | Nút | Icon | Hành vi |
+|---|---|---|---|
+| Trái | **Tạm dừng + menu nhanh** | `pause` (⏸) | Dừng game, mở menu nhanh. Thay cho ⚙ |
+| Trái | Phím của game | `keyboard` (⌨) | Như hiện tại; chỉ hiện khi game có phím plugin |
+| Phải | **Trạng thái save** | `cloud-check` / `cloud-upload` / `cloud-off` / `cloud-alert` | Chỉ để xem, chạm để mở mục Save. Chỉ hiện khi bật sync |
+| Phải | **Tua nhanh** | `fast-forward` (⏩) + nhãn `×2` | Chạm bật / tắt, giữ để tua tạm, nhấn giữ lâu để chọn tốc độ. Sáng màu khi đang tua |
+| Phải | Ẩn / hiện nút | `eye` / `eye-off` | Như hiện tại |
+
+⛶ toàn màn hình rời khỏi thanh công cụ và vào hàng thao tác nhanh của menu; ngoài ra lần chạm đầu tiên vào game trên điện thoại sẽ hỏi có vào toàn màn hình không.
+
+Trên máy tính: nút ⏸ mờ ở góc trên trái như ⚙ hiện nay. Phím tắt đề xuất (CLI kiểm tra để không trùng phím plugin của game; tránh F2–F4 vì MZ đã dùng, tránh F5 vì là tải lại trang):
+
+| Phím | Việc |
+|---|---|
+| `F1` | Mở menu nhanh |
+| Giữ `Tab` | Tua nhanh tạm thời |
+| `` ` `` | Bật / tắt tua nhanh |
+| `F6` / `F7` | Quick save / quick load |
+
+### Menu nhanh
+
+Trên điện thoại dọc là bottom sheet, ngang là bảng trượt từ bên trái, máy tính là hộp thoại ở giữa. Hàng đầu là các ô lớn cho thao tác hay dùng, phía dưới là các nhóm.
+
+```
+┌──────────── ⏸ Tạm dừng ──────────── ✕ ┐
+│  [💾 Lưu nhanh] [📂 Tải nhanh] [⛶ Toàn màn hình] [📷 Chụp] │
+│                                                              │
+│  ▶ Chơi                                                      │
+│    Tốc độ           ( ×1 | ×2 | ×3 | ×4 )                    │
+│    Thoại            ( Thường | Auto | Skip )   Lịch sử thoại │
+│    Luôn chạy                                         [on]    │
+│    Dùng nhiều vật phẩm một lúc                       [on]    │
+│  ☁ Save              Đã đồng bộ 2 phút trước               › │
+│  🪄 Cheat                                                    › │
+│  🌐 Dịch                                             [off] › │
+│  🎮 Điều khiển                                               › │
+│  🖥 Hiển thị                                                 › │
+│  ⓘ Trợ giúp & báo lỗi                                        › │
+└──────────────────────────────────────────────────────────────┘
+```
+
+| Nhóm | Mục bên trong | Icon (tên trong bộ Lucide / Material Symbols) |
+|---|---|---|
+| Hàng thao tác nhanh | Lưu nhanh, Tải nhanh, Toàn màn hình, Chụp màn hình | `save`, `folder-open`, `maximize` / `minimize`, `camera` |
+| Chơi | Tốc độ (segmented control), Thoại (Thường / Auto / Skip, kèm thanh chỉnh tốc độ Auto), Lịch sử thoại, Luôn chạy, Dùng nhiều vật phẩm một lúc, Đánh nhanh | `gauge`, `message-square-text`, `history`, `footprints`, `package`, `swords` |
+| Save | Trạng thái đồng bộ, danh sách slot (Xuất / Nhập / Xóa như hiện tại), Bản cũ, Tự lưu (khoảng thời gian) | `cloud-check`, `download`, `upload`, `trash-2`, `history`, `timer` |
+| Cheat | Tabs: Nhóm (HP / MP / chỉ số / level / god mode), Vật phẩm & vàng, Switch & biến, Di chuyển (xuyên tường, dịch chuyển, nhớ vị trí). Chỉ hiện khi bật; lần đầu bật phải xác nhận | `wand-sparkles` (giống JoiPlay), `users`, `coins`, `toggle-right`, `map-pin` |
+| Dịch | Bật / tắt, ngôn ngữ đích, sửa câu đang hiện, đổi font | `languages`, `pencil`, `type` |
+| Điều khiển | Sửa vị trí nút (✥ như hiện tại), độ mờ, kích thước, rung, gán phím tay cầm / bàn phím, hiện khi nào (touch / luôn / không) | `move`, `blend`, `scaling`, `vibrate`, `gamepad-2` |
+| Hiển thị | Ảnh nét / mượt, kiểu scale, giới hạn FPS, hiện FPS, giữ màn hình sáng | `monitor`, `image`, `battery`, `sun` |
+| Trợ giúp & báo lỗi | Danh sách phím tắt, nhật ký lỗi, phiên bản toolkit | `info`, `bug`, `keyboard` |
+
+Gợi ý thêm:
+
+- Icon giữ cách vẽ hiện tại (SVG nét đơn theo màu chữ trong `RWK.icons`), chỉ chép thêm hình từ một bộ icon có giấy phép mở (Lucide, ISC) để nét vẽ đồng đều.
+- `RWK.tools.add` thêm trường `group` (`play`, `save`, `cheat`, `translate`, `controls`, `display`, `help`) và `quick: true` cho các ô ở hàng đầu, để mỗi plugin tự đăng ký vào đúng nhóm.
+- Nhóm nào chỉ có một mục thì mở thẳng mục đó, không qua màn hình con.
+- Nhớ nhóm mở lần trước và tốc độ tua đã chọn theo từng trình duyệt (như `itemBatch` hiện tại).
+
+## Nguồn
+
+- [JoiPlay setup guide](https://retrohandheldhq.com/posts/joiplay-setup-guide/), [JoiPlay (RPG Maker wiki)](https://rpgmaker.fandom.com/wiki/JoiPlay), [JoiPlay setup & tweaks (Platinmods)](https://platinmods.com/threads/how-to-play-rpg-maker-and-renpy-games-on-android-with-joiplay-step-by-step-guide.267047/), [JoiPlay vs Maldives Player](https://appgrooves.com/compare/android-cyou.joiplay.joiplay/android-net.miririt.maldivesplayer), [Weight Gaming: RPG Maker games on JoiPlay](https://forum.weightgaming.com/t/rpg-maker-games-playable-with-joiplay-on-android/24017)
+- [MTool](https://mtool.app/?lang=en), [Mtool: automatic translation for RPG Maker games](https://www.madinfinite.com/news/mtool-automatic-translation-for-rpgmaker-games/), [MTool alternative comparison](https://runetranslate.com/compare/mtool)
+- [Translator++](https://dreamsavior.net/translator-plusplus/), [Weight Gaming: machine translating Japanese RPG Maker games](https://forum.weightgaming.com/t/how-to-machine-translate-japanese-rpg-maker-games/10185)
+- [EasyRPG settings menu](https://wiki.easyrpg.org/user/player/settings-menu), [EasyRPG buttons](https://wiki.easyrpg.org/user/player/buttons)
+- [RPG Maker MV Cheat Menu Plugin (emerladCoder)](https://github.com/emerladCoder/RPG-Maker-MV-Cheat-Menu-Plugin), [Yanfly Cheat Menu](https://yanfly.moe/?p=6544), [AkerCheats](https://waldorf.itch.io/akercheats)
+- [Steam: skip text / fast forward in MV](https://steamcommunity.com/app/363890/discussions/0/1743355067100122391/), [rpgmakerweb: text speed](https://forums.rpgmakerweb.com/threads/feel-like-a-newb-again-but-text-speed.47654/), [rpgmakerweb: Shift skips dialogue](https://forums.rpgmakerweb.com/threads/shift-button-a-by-default-skips-dialogue-text.21916/), [Kadajah's Dialogue Skip Button](https://kadajah.itch.io/kadajahs-skiptext)
+- [rpgmakerweb: players lose their save files](https://forums.rpgmakerweb.com/threads/some-of-my-players-lose-their-save-files-when-coming-back-to-the-game.154650/), [Steam: save/load in a browser](https://steamcommunity.com/app/363890/discussions/0/483366528924992882/), [rpgmakerweb: Android save data](https://forums.rpgmakerweb.com/threads/android-save-data.117557/)
+- [Quicksave/Quickload MV](https://tamschi.itch.io/quicksave-quickload), [Xy_AutoSave](https://xyscripts.itch.io/xyautosave), [Felski Autosave](https://felski.itch.io/autosave), [HimeWorks Speed Hack](https://himeworks.com/?p=6094), [Game speed toggle plugin](https://axial-escape.itch.io/game-speed-toggle-plugin-for-rpg-maker-mv), [Carvalho Battle Speed](https://carvalhopluginsrpgmakermv.itch.io/carvalho-battle-speed-optimize-your-rpg-maker-mv-battles-like-a-pro/purchase), [Enhanced Debug Screen for MZ](https://leashagamesdev.itch.io/enhanced-debug-screen-for-rpg-maker-mz)
+- [Game accessibility guidelines](https://gameaccessibilityguidelines.com/?p=1119), [Xsolla: virtual gamepad](https://developers.xsolla.com/distribute-game/cloud-gaming/how-to/set-up-virtual-gamepad/), [Turning off touch controls on Xbox Cloud Gaming](https://inairspace.com/blogs/learn-with-inair/how-to-turn-off-touch-controls-on-xbox-cloud-gaming-for-a-better-experience)
