@@ -114,7 +114,7 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 - `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
 - In portrait the game is centered in the space above the controls.
 - ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
-- Toolbar, in the top corners in landscape and next to L and R in portrait: on the left ⚙ tools (see below) and ⌨ game keys (tap it again to close); on the right ⛶ fullscreen and 👁 show / hide all the controls (the eye is crossed out while they are hidden).
+- Toolbar, in the top corners in landscape and next to L and R in portrait: on the left ⚙ tools (see below) and ⌨ game keys (tap it again to close); on the right ⛶ fullscreen and an eye that shows / hides all the controls (the eye is crossed out while they are hidden).
 - **✥ Edit button layout** (in ⚙): drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions, ✓ saves. Saved per browser, positions per orientation.
 - The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
 
@@ -124,9 +124,9 @@ The advanced tools open from one ⚙ button: in the toolbar on phones, a faint b
 
 | Tool | Does |
 |---|---|
-| ✥ Edit button layout | Move or hide the on-screen buttons (only with the touch controls) |
-| 💾 Saves | Export / import / delete save slots, see [Editing saves](#editing-saves) |
-| 🎒 Use several items at once | On / off switch for [using several items at once](#using-several-items-at-once), remembered per browser |
+| Edit button layout | Move or hide the on-screen buttons (only with the touch controls) |
+| Saves | Export / import / delete save slots, see [Editing saves](#editing-saves) |
+| Use several items at once | On / off switch for [using several items at once](#using-several-items-at-once), remembered per browser |
 
 ## Using several items at once
 
@@ -140,7 +140,7 @@ It works with any MV or MZ game that uses the standard item menu, including menu
 
 ## Editing saves
 
-💾 **Saves** in the ⚙ tools menu lists the save slots:
+**Saves** in the ⚙ tools menu lists the save slots:
 
 - **Export** downloads the slot as `file3.rmmzsave` (MV: `file3.rpgsave`), byte for byte what the desktop game writes. Open it in any RPG Maker save editor.
 - **Import** puts a file back into a slot: the desktop format, the raw bytes some editors write, or plain JSON. The save list entry (party, playtime) is refreshed, the save is uploaded to the cloud when sync is on, and the game restarts so you can load it.

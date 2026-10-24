@@ -273,7 +273,7 @@
   //---------------------------------------------------------------------------
 
   RWK.tools.add({
-    icon: "🎒",
+    icon: RWK.icons.items,
     label: "Use several items at once",
     detail: () =>
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",

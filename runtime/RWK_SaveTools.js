@@ -313,7 +313,7 @@
     setTimeout(() => location.reload(), 600);
   }
 
-  RWK.tools.add({ icon: "💾", label: "Saves", detail: "Export, import or delete save slots", onSelect: openPanel });
+  RWK.tools.add({ icon: RWK.icons.save, label: "Saves", detail: "Export, import or delete save slots", onSelect: openPanel });
 
   RWK.saveTools = { open: openPanel };
 })();

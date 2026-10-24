@@ -465,10 +465,8 @@
     return btn;
   }
 
-  const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
-  const eyeIcon = (open) =>
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-    EYE + (open ? "" : '<path d="M3 3l18 18"/>') + "</svg>";
+  const { icons } = RWK;
+  const eyeIcon = (open) => (open ? icons.eye : icons.eyeOff);
   let toggleBtn = null;
 
   // The eye shows the current state: open while the controls are shown.
@@ -508,7 +506,7 @@
     }
     panel.appendChild(grid);
     pad.appendChild(panel);
-    addTool("⌨", "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
+    addTool(icons.keys, "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
   }
 
   function setPanel(open) {
@@ -518,7 +516,7 @@
   }
 
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
-  if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen, toolbarRight);
+  if (extrasTools.includes("fullscreen")) addTool(icons.fullscreen, "rwk-tool-fs", toggleFullscreen, toolbarRight);
   toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")), toolbarRight);
 
   // The ⚙ tools menu opens from the toolbar (RWK_Core adds the button with
@@ -547,7 +545,7 @@
       layout(); // hidden buttons show up dimmed while editing
     };
     RWK.tools.add({
-      icon: "✥",
+      icon: icons.move,
       label: "Edit button layout",
       detail: "Move the on-screen buttons, or hide the ones you never use",
       onSelect: () => {
@@ -555,8 +553,8 @@
         setEditing(true);
       },
     });
-    const doneBtn = addTool("✓", "rwk-tool-edit", () => setEditing(false));
-    const resetBtn = addTool("↺", "rwk-tool-reset", () => {
+    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false));
+    const resetBtn = addTool(icons.reset, "rwk-tool-reset", () => {
       delete saved[orientation()];
       layout();
     });
