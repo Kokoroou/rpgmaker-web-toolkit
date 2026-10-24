@@ -1,11 +1,12 @@
 # Đề xuất tính năng và thiết kế lại giao diện
 
-Tài liệu này gồm bốn phần:
+Tài liệu này gồm năm phần:
 
 1. Các emulator và công cụ chơi game RPG Maker đã tham khảo.
 2. Cộng đồng người chơi dùng gì và than phiền gì nhiều nhất.
 3. Thứ tự ưu tiên thi công, xếp theo **giá trị cho người chơi**, không theo độ dễ làm.
 4. Thiết kế lại cách sắp xếp, nhóm và icon các nút.
+5. Những gì người thiết lập game được tùy chỉnh (vd. không cho tải game về).
 
 Chưa có gì ở đây được thi công.
 
@@ -188,6 +189,91 @@ Gợi ý thêm:
 - Lần đầu mở game trên điện thoại, sau khi vào được game, hiện một dòng gợi ý nhỏ (đóng được, không hỏi lại): "Tải game về máy (820 MB) để chơi không cần mạng".
 - Nhóm nào chỉ có một mục thì mở thẳng mục đó, không qua màn hình con.
 - Nhớ nhóm mở lần trước và tốc độ tua đã chọn theo từng trình duyệt (như `itemBatch` hiện tại).
+
+## 5. Tùy chỉnh dành cho người thiết lập game
+
+"Người thiết lập" là người chạy lệnh deploy và sửa config bằng `edit-config`. "Người chơi" là những email được Cloudflare Access cho vào.
+
+### Hai tầng quyền
+
+1. **Người thiết lập** quyết định mỗi tính năng ở một trong ba mức:
+   - `false`: tắt hẳn, không hiện trong menu, không có phím tắt.
+   - `true`: người chơi bật / tắt được, dùng giá trị mặc định của toolkit.
+   - object `{ ... }`: bật, kèm giới hạn và giá trị mặc định riêng. Thêm `"lock": true` thì người chơi chỉ dùng được đúng giá trị đó, không đổi được.
+2. **Người chơi** chỉ chỉnh trong phạm vi được cho phép, lưu theo trình duyệt (như `itemBatch` hiện tại).
+
+Cách này giữ đúng kiểu của config hiện có: `saveTools: false` và `itemBatch: false` vẫn hiểu như cũ.
+
+### Gói cài sẵn khi deploy lần đầu
+
+Để không phải trả lời từng câu, CLI hỏi một câu chọn gói, sau đó vẫn sửa từng mục được bằng `edit-config`:
+
+| Gói | Dành cho | Khác với mặc định |
+|---|---|---|
+| **Thoải mái** (mặc định) | Chơi một mình hoặc với người thân | Bật mọi tính năng tiện ích; cheat và tải bản .zip vẫn tắt |
+| **Giữ nguyên trải nghiệm gốc** | Muốn chơi đúng như nhà làm game thiết kế | Tắt tua nhanh trong trận, Skip thoại, quick save khi game khóa lưu, cheat, nhập save; giữ tua nhanh ngoài trận, Auto thoại, đồng bộ save |
+| **Chia sẻ có kiểm soát** | Cho người khác chơi game của mình | Tắt tải offline, tải .zip, xuất / nhập save, cheat; giới hạn lịch sử save để tiết kiệm R2 |
+
+### Danh sách tính năng có thể tùy chỉnh
+
+Cột "Mặc định" là giá trị khi config không ghi gì (gói Thoải mái). Tên khóa là đề xuất.
+
+| Nhóm | Khóa config | Mặc định | Người thiết lập chỉnh được | Vì sao cần cho chỉnh |
+|---|---|---|---|---|
+| **Chơi offline** | `offline.download` | `true` | Tắt hẳn; giới hạn tổng dung lượng; không cho tự cập nhật khi có bản mới | Không muốn game nằm trên máy người khác; game quá nặng cho điện thoại |
+| | `offline.zip` | `false` | Bật / tắt; có kèm save hay không; chỉ cho một số email | Tải cả game ra ngoài trình duyệt là dễ thành phát tán nhất |
+| | `pwa` | `true` | Tắt; đặt tên và icon khi "Thêm vào màn hình chính" | Muốn tên ngắn hoặc icon khác icon game |
+| **Tốc độ** | `fastForward` | `{ maxSpeed: 4, inBattle: true }` | Tắt; tốc độ tối đa; có cho tua trong trận | Game có minigame / đếm giờ dễ hỏng khi tua; muốn giữ nhịp trận đánh |
+| | `battleSpeed` | `true` | Tắt | Như trên |
+| | `alwaysDash` | `true` | Tắt; khóa luôn chạy | Game có khu vực cấm chạy hoặc giải đố theo bước đi |
+| **Thoại** | `messageMode` | `{ auto: true, skip: true, skipUnreadOnly: false }` | Tắt Skip; chỉ cho Skip câu đã đọc; tốc độ Auto mặc định | Giữ trải nghiệm truyện lần chơi đầu |
+| | `backlog` | `true` | Tắt; số câu tối đa giữ lại | Giới hạn bộ nhớ trên máy yếu |
+| **Save** | `sync.enabled` (đã có) | hỏi khi deploy | Như hiện tại | — |
+| | `quickSave` | `{ ignoreSaveLock: true }` | Tắt; không cho lưu khi game đang khóa lưu | Game cố ý cấm lưu ở một số đoạn (boss, horror) |
+| | `autoSave` | `{ minutes: 5 }` | Tắt; khoảng thời gian | Giảm số lần ghi lên R2 (giới hạn 1M lần ghi / tháng) |
+| | `saveHistory` | `{ keep: 10, days: 30 }` | Tắt; số bản và số ngày giữ | Giới hạn dung lượng R2 (10 GB) |
+| | `saveTools` (đã có) | `true` | Tách riêng `export`, `import`, `delete` | Cho tải save về nhưng không cho nhập save đã sửa |
+| **Cheat** | `cheats` | `false` | Bật; chọn nhóm: `party`, `items`, `switches`, `movement`; có hỏi xác nhận lần đầu không | Ảnh hưởng cân bằng game; nên do người thiết lập chủ động bật |
+| **Vật phẩm** | `itemBatch` (đã có) | `true` | Như hiện tại; số lượng tối đa mỗi lần (hiện là 99) | — |
+| **Dịch** | `translate` | `false` | Bật; ngôn ngữ đích; dịch máy bằng gì; cho người chơi sửa câu dịch không; font thay thế | Tốn hạn mức Workers AI; người thiết lập có thể đã có bản dịch riêng |
+| **Điều khiển** | `controls` (đã có) | như hiện tại | Thêm: `remap` (cho gán phím), `vibrate`, `lockLayout` (không cho sửa vị trí nút) | Muốn mọi người dùng chung một layout đã chỉnh sẵn |
+| | `hotkeys` | `{ menu: "F1", fastForward: "Tab", quickSave: "F6", quickLoad: "F7" }` | Đổi phím; tắt từng phím | Tránh trùng phím game đang dùng (CLI cảnh báo khi trùng) |
+| **Hiển thị** | `display` | `{ fpsCap: null, pixelated: "auto", wakeLock: true }` | Khóa ảnh nét / mượt; giới hạn FPS mặc định | Game pixel art nên luôn nét; game nặng nên mặc định 30 FPS |
+| **Thanh công cụ** | `toolbar` | `["pause", "keys", "sync", "fastForward", "eye"]` | Chọn nút nào hiện và thứ tự | Gọn hơn khi tắt nhiều tính năng |
+| **Trợ giúp** | `debug` | `{ errorReport: true, console: false }` | Bật console trên điện thoại khi cần gỡ lỗi | Mặc định ẩn để người chơi không thấy rối |
+| **Người chơi** | `players` | không có | Ghi đè bất kỳ khóa nào ở trên theo email, vd. cheat và tải .zip chỉ cho email của mình | Cùng một game, người thiết lập dùng đủ tính năng còn bạn bè bị giới hạn |
+
+Ví dụ:
+
+```json
+{
+  "offline": { "download": false, "zip": false },
+  "fastForward": { "maxSpeed": 3, "inBattle": false },
+  "messageMode": { "skipUnreadOnly": true },
+  "saveTools": { "export": true, "import": false, "delete": true },
+  "cheats": false,
+  "players": {
+    "me@example.com": { "cheats": { "party": true, "items": true }, "offline": { "download": true } }
+  }
+}
+```
+
+### Chặn thật hay chỉ ẩn nút
+
+Cần nói rõ với người thiết lập mức độ mỗi lựa chọn:
+
+| Tính năng | Chặn được ở đâu | Mức độ |
+|---|---|---|
+| Tải .zip, lịch sử save, nhập save lên cloud, dịch máy | Worker (từ chối API) | **Chặn thật** |
+| Tải offline | Service Worker không cache, Worker gửi `Cache-Control: no-store` cho file lớn | **Chỉ làm khó**: người đã được Access cho vào vẫn tải từng file bằng công cụ khác được. Muốn chặn hẳn thì chỉ có cách không cho email đó vào |
+| Cheat, tua nhanh, Skip, quick save | Plugin trong trình duyệt | **Chỉ ẩn**: người biết dùng DevTools vẫn tự sửa được. Đây là chính sách trải nghiệm, không phải bảo mật |
+
+### Ảnh hưởng tới kiến trúc
+
+- Hiện config được ghi cứng vào `js/plugins.js` lúc build (`generatedFiles` trong `cli/lib/stage.js`). Các khóa chung cho mọi người vẫn đi đường này.
+- Khóa `players` cần config theo từng người: Worker đọc email từ JWT của Access rồi trả config đã gộp qua `/api/config` (mở rộng `/api/me` hiện có). `RWK_Core` đọc config này lúc khởi động, trước khi các plugin khác đọc.
+- Những khóa "chặn thật" phải được Worker kiểm tra lại, không chỉ dựa vào việc plugin ẩn nút.
+- Sửa config không cần deploy lại cả game nếu config nằm trong R2 (`rwk/games.json`) và Worker đọc trực tiếp; cần đánh giá thêm vì hiện mỗi lần sửa phải build lại.
 
 ## Nguồn
 
