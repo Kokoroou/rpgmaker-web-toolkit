@@ -79,6 +79,7 @@
   for (const name of ["Game_Temp", "Game_Interpreter", "Scene_Item", "Scene_ItemBase", "Window_Base", "Window_ShopNumber", "Window_Message", "Window_ScrollText"]) {
     window[name] = stub();
   }
+  window.ConfigManager = { alwaysDash: false, save() {} };
   window.Game_Action = { EFFECT_COMMON_EVENT: 44 };
   window.Scene_Boot = function () {};
   Scene_Boot.prototype.isReady = () => true;
@@ -135,6 +136,7 @@
 <script src="../../runtime/RWK_MobileControls.js"></script>
 <script src="../../runtime/RWK_Speed.js"></script>
 <script src="../../runtime/RWK_Message.js"></script>
+<script src="../../runtime/RWK_Dash.js"></script>
 <script src="../../runtime/RWK_SaveTools.js"></script>
 <script src="../../runtime/RWK_ItemBatch.js"></script>
 <script src="../../runtime/RWK_Report.js"></script>

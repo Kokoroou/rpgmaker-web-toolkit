@@ -46,6 +46,7 @@ export default defineConfig({
           { text: "Edit or move a save", link: "/play/save-files" },
           { text: "Fast forward", link: "/play/speed" },
           { text: "Messages: Auto and Skip", link: "/play/messages" },
+          { text: "Always dash", link: "/play/dash" },
           { text: "Use several items at once", link: "/play/items" },
         ],
       },

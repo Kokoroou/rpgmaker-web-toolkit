@@ -36,6 +36,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 | `itemBatch` | Using several items at once from the item menu |
 | `fastForward` | [Fast forward](/play/speed), e.g. for a game built around timing |
 | `messageMode` | [Message modes](/play/messages): Auto, Skip, and a tap ending pauses in the text |
+| `alwaysDash` | ⏸ → [Always dash](/play/dash). The game's own Options menu still has it unless the game removed it |
 | `sync` | Cloud save sync: each browser keeps its own saves |
 
 Keys the toolkit does not know yet are ignored, so you can already list features from later versions.

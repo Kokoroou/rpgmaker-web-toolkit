@@ -19,6 +19,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `itemBatch` | `false` turns off using several items at once | Same |
 | `fastForward` | `false` turns off [fast forward](/play/speed) | Same |
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip) | Same |
+| `alwaysDash` | `false` removes ⏸ → [Always dash](/play/dash) | Same |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
 ::: warning Changing `auth`
