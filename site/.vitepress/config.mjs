@@ -1,0 +1,63 @@
+import { defineConfig } from "vitepress";
+
+const repo = "https://github.com/Kokoroou/rpgmaker-web-toolkit";
+
+export default defineConfig({
+  title: "rpgmaker-web-toolkit",
+  description: "Publish an RPG Maker MZ / MV game to Cloudflare Workers, with cloud saves and an on-screen gamepad.",
+  base: "/rpgmaker-web-toolkit/",
+  lang: "en",
+  cleanUrls: true,
+  lastUpdated: true,
+  head: [["meta", { name: "theme-color", content: "#3c8772" }]],
+
+  themeConfig: {
+    nav: [
+      { text: "Set up", link: "/setup/requirements", activeMatch: "/setup/" },
+      { text: "Play", link: "/play/", activeMatch: "/play/" },
+      { text: "Reference", link: "/reference/commands", activeMatch: "/reference/" },
+    ],
+
+    sidebar: [
+      {
+        text: "Set up a game",
+        items: [
+          { text: "Before you start", link: "/setup/requirements" },
+          { text: "First deploy", link: "/setup/first-deploy" },
+          { text: "Protect the site and invite players", link: "/setup/access" },
+          { text: "Update the game", link: "/setup/updating" },
+          { text: "Customize the game", link: "/setup/configuration" },
+          { text: "On-screen buttons", link: "/setup/controls" },
+          { text: "Troubleshooting", link: "/setup/troubleshooting" },
+        ],
+      },
+      {
+        text: "Play",
+        items: [
+          { text: "Open and play", link: "/play/" },
+          { text: "Touch controls", link: "/play/controls" },
+          { text: "Saves on several devices", link: "/play/saves" },
+          { text: "Edit or move a save", link: "/play/save-files" },
+          { text: "Use several items at once", link: "/play/items" },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [
+          { text: "Commands", link: "/reference/commands" },
+          { text: "Config keys", link: "/reference/config" },
+          { text: "How it works", link: "/reference/how-it-works" },
+          { text: "Free plan limits", link: "/reference/limits" },
+        ],
+      },
+    ],
+
+    socialLinks: [{ icon: "github", link: repo }],
+    editLink: { pattern: `${repo}/edit/main/site/:path`, text: "Edit this page on GitHub" },
+    search: { provider: "local" },
+    outline: { level: [2, 3] },
+    footer: {
+      message: "PolyForm Noncommercial License 1.0.0. For games you own, played by you.",
+    },
+  },
+});
