@@ -1,0 +1,50 @@
+# CI: tests + coverage gate, PR title check and security scan (Semgrep + Gitleaks),
+# using the shared quality workflow of agent-toolkit.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    uses: kokoroou/agent-toolkit/.github/workflows/quality.yml@v0
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    with:
+      # The toolkit needs Node.js 24: take it from the runner's tool cache (installing it
+      # when missing) and put it first on PATH for this and every later step.
+      setup-command: |
+        node24=$(ls -d /opt/hostedtoolcache/node/24.*/x64 2>/dev/null | sort -V | tail -n 1 || true)
+        if [ -z "$node24" ]; then
+          ver=$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.version | startswith("v24."))][0].version')
+          node24="$RUNNER_TEMP/node-$ver"
+          mkdir -p "$node24"
+          curl -fsSL "https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz" | tar -xJ -C "$node24" --strip-components=1
+        fi
+        export PATH="$node24/bin:$PATH"
+        echo "$node24/bin" >>"$GITHUB_PATH"
+        node --version
+        npm ci --no-fund --no-audit
+      test-command: "" # empty: coverage-command runs the tests
+      # The last line of stdout is the total line coverage (%) from node:test.
+      coverage-command: >-
+        node --test --experimental-test-coverage "test/*.test.js" |
+        tee /dev/stderr |
+        awk -F'|' '/all files/ { gsub(/ /, "", $2); print $2 }'
+      baseline-branch: main
+      coverage-tolerance: "0"
+    secrets:
+      gitleaks_license: ${{ secrets.GITLEAKS_LICENSE }} # only for organization repos

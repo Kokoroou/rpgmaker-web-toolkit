@@ -219,6 +219,13 @@ More in the [For game creators](https://kokoroou.github.io/rpgmaker-web-toolkit/
 npm test          # CLI + Worker tests (node:test, no network needed)
 ```
 
+CI and releases use the shared workflows of [agent-toolkit](https://github.com/kokoroou/agent-toolkit) (`@v0`):
+
+- **CI** (`.github/workflows/ci.yml`) runs on every PR and push to `main`: tests on Node.js 24 with a coverage gate (no drop compared to `main`), a Conventional Commit check on the PR title, and a Semgrep + Gitleaks scan.
+- **Release** (`.github/workflows/release.yml`) uses release-please: each push to `main` opens or updates a release PR that bumps the version in `package.json` and writes `CHANGELOG.md` from the commit messages (`feat:` → minor, `fix:` → patch while on 0.x). Merging it tags `vX.Y.Z`, publishes the GitHub Release and attaches `rpgmaker-web-toolkit-X.Y.Z.zip`. Run a released version with `$env:RWK_REF = "vX.Y.Z"`.
+
+One-time setup: Settings → Actions → General → enable *Allow GitHub Actions to create and approve pull requests* (needed for the release PR). Optional: the `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` secrets of agent-toolkit's GitHub App, so the release PR also triggers CI.
+
 See also [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/IMPACT.md](docs/IMPACT.md) (impact on game developers and players, in Vietnamese). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
 
 ## License
