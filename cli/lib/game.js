@@ -98,6 +98,22 @@ export function collectFiles(game, { include = [], exclude = [] } = {}) {
   return files;
 }
 
+// MV asks phones for .m4a audio and .mp4 movies. Counts the audio and movies
+// that exist only as Ogg / WebM (plain or encrypted), with no such twin.
+const MEDIA = [
+  { kind: "audio", dir: /^audio\//i, only: /\.(ogg|rpgmvo)$/i, twin: /\.(m4a|rpgmvm)$/i },
+  { kind: "movies", dir: /^movies\//i, only: /\.webm$/i, twin: /\.mp4$/i },
+];
+export function mobileOnlyMissing(files) {
+  const out = {};
+  for (const { kind, dir, only, twin } of MEDIA) {
+    const names = (re) => new Set(files.filter((f) => dir.test(f.rel) && re.test(f.rel)).map((f) => f.rel.replace(re, "")));
+    const twins = names(twin);
+    out[kind] = [...names(only)].filter((name) => !twins.has(name)).length;
+  }
+  return out;
+}
+
 // Minimal glob: "**" crosses folders, "*" and "?" stay within one segment.
 // Patterns without "/" match the file name anywhere.
 export function compileGlobs(patterns) {
