@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.1.0...v0.2.0) (2026-10-24)
+
+
+### Features
+
+* **cli:** read the free plan limits from cli/limits.json on main ([#23](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/23)) ([e34a1af](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e34a1af6edf175ed5c372a475dd71d90ed0e29dc))
+* **cli:** warn about non-ASCII file names and end each deploy with a build report ([#28](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/28)) ([b4b87b1](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b4b87b1e513ae947fd3ae8b3e67065519a04fe3b))
+* **runtime:** add an Always dash switch to the ⏸ menu ([#32](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/32)) ([4a75037](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/4a75037f861f050f9f4c80777f8cb4f4ddb4d36a))
+* **runtime:** add an in-game problem report with audio diagnostics ([#27](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/27)) ([09238b2](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/09238b2bc0dade9a94ae1663dccf88de82433413))
+* **runtime:** add fast forward ×2 / ×3 / ×4 ([#30](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/30)) ([999e71d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/999e71d461d3b8ee830776fb29a16c23d9c31f4b))
+* **runtime:** add message modes: tap to finish, Auto, Skip ([#31](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/31)) ([3cdfe5d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/3cdfe5dd5be9fc7269128eed320d5c36dc28f993))
+* **runtime:** give several items at once when an event asks for one ([#36](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/36)) ([1154913](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1154913077e49ef3a5191127d0746e34329ecb3f))
+* **runtime:** replace the ⚙ tools list with a ⏸ menu that pauses the game ([#29](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/29)) ([7e8e34d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/7e8e34d9563842ba64626fa432a90542e1e61403))
+* **runtime:** use several items at once in battle ([#35](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/35)) ([b6458f8](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b6458f814287532b350a56678c35bc77e9aaa986))
+* **saves:** add quick save / load, autosave and a ☁ sync status icon ([#33](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/33)) ([63b0f2d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/63b0f2d114601344042bc8d68f8e3483edfc79d6))
+* **saves:** keep older saves in the cloud and restore them from the ⏸ menu ([#34](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/34)) ([66079e1](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/66079e17c3855f2b99bbb86a9b4c4adc59dfc03b))
+
+
+### Bug Fixes
+
+* **runtime:** play Ogg audio and WebM movies on phones in MV games that ship no m4a/mp4 ([#26](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/26)) ([e386f3b](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e386f3b0b0df82091b87cf3ccf8fe604cb4b14bb))
+
 ## 0.1.0 (2026-10-24)
 
 
