@@ -1,5 +1,30 @@
 Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
 
+# Additional Permission: Game Creators
+
+The licensor grants the following permission in addition to the PolyForm Noncommercial License 1.0.0 below. It adds to that license and takes nothing away from it.
+
+## Who qualifies
+
+You qualify for a game if you own the copyright in it, or if whoever owns it has given you permission to publish it. This covers, for example, the game's developers, its publisher, and translators or porters working under an agreement with them. That game is "your game" below.
+
+## What you may do
+
+1. You may use the software for any purpose, including commercial purposes, to publish, host, test, sell or give access to your game. For example: a paid or supporter-only web version, early access, a closed playtest, a free public release, or a demo.
+2. You may copy and change the software's runtime plugins (the files in `runtime/`) and distribute them inside your game, on any platform and for any purpose, including commercial purposes.
+
+## What this permission does not cover
+
+1. Using the software for games that are not your game. That use stays under the PolyForm Noncommercial License 1.0.0.
+2. Offering the software, or hosting made with it, as a service for other people's games.
+3. Selling or licensing the software itself, or a changed version of it, as a product.
+
+## Notices
+
+When you distribute the runtime plugins inside your game, keep their `Required Notice:` line and the link to this license in the plugin files. You do not have to credit the software inside the game.
+
+---
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>

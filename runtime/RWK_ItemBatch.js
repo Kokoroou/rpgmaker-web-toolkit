@@ -1,5 +1,8 @@
 //=============================================================================
 // RWK_ItemBatch.js - rpgmaker-web-toolkit
+// Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
+// License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
+// https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Use several of a consumable item at once from the item menu: pick a
 // quantity, the item is used that many times, and an item that runs a common
 // event runs it that many times in a row with only the last run's messages.
