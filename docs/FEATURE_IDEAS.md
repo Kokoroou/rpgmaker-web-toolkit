@@ -36,7 +36,7 @@ Nguồn: Steam Discussions của RPG Maker MV, diễn đàn rpgmakerweb, bình l
 | **Cheat** (vàng, vật phẩm, chỉ số, god mode) | JoiPlay và MTool đều dựng sẵn; có nhiều plugin / mod cheat riêng (emerladCoder, Yanfly, AkerCheats); trang save editor online nổi tiếng | Cao |
 | **Dịch game** (chủ yếu game tiếng Nhật) | Lý do chính người ta dùng MTool; Translator++ và các hướng dẫn dịch máy được chia sẻ nhiều. Người chơi cũng chê chất lượng dịch máy, nên cần cho sửa / thay câu | Cao (với game ngoại ngữ) |
 | **Lưu ở bất cứ đâu / tự lưu** | Nhiều plugin quicksave / autosave, bình luận xin gán phím, xin tự lưu sau trận boss | Cao |
-| **Chơi trên điện thoại cho trơn tru** | JoiPlay / Maldives tồn tại chính vì nhu cầu này; than phiền máy yếu, tải chậm, phải cấp quyền mới chạy | Cao |
+| **Chơi trên điện thoại cho trơn tru, kể cả khi không có mạng** | JoiPlay / Maldives tồn tại chính vì nhu cầu này: tải game về máy rồi chơi offline. Than phiền máy yếu, tải chậm, phải cấp quyền mới chạy | Cao |
 | **Mở khóa gallery / sửa switch** | Thường gặp ở cộng đồng game doujin: dùng F9 / switch editor để mở phòng hồi tưởng, gỡ kẹt event | Trung bình |
 | **Đánh nhanh, luôn chạy** | Plugin battle speed, các plugin "always dash" | Trung bình (phần lớn đã được tua nhanh giải quyết) |
 | **Remap phím, tay cầm thật** | Có trong JoiPlay / RetroArch nhưng ít được nhắc trong cộng đồng RPG Maker | Thấp–trung bình |
@@ -55,7 +55,7 @@ Xếp theo giá trị cho người chơi. Cột "Công sức" chỉ để tham k
 | 3 | **Save an toàn**: quick save / quick load ở map (cả khi game tắt lưu), tự lưu định kỳ vào slot riêng, chỉ báo trạng thái đồng bộ, xin `navigator.storage.persist()` để trình duyệt không xóa save | Mất save là nỗi sợ lớn nhất khi chơi trên web / điện thoại; dự án đã có cloud sync nên chỉ cần cho người chơi **thấy** và **dùng nhanh** | Slot `quick` và `auto` đi qua `RWK_SaveSync`; icon đám mây trên thanh công cụ đổi theo trạng thái (đã đồng bộ / đang tải / offline / xung đột) | M |
 | 4 | **Khôi phục bản save cũ** (lịch sử trên cloud) | Lưới an toàn cuối cùng: save hỏng, chọn nhầm bản lúc xung đột, lỡ ghi đè | `worker/saves.js` chép bản cũ sang `saves/<user>/<slug>/.history/…`, giữ N bản; mục "Bản cũ" trong Saves | M |
 | 5 | **Cheat cơ bản**: vàng, vật phẩm, EXP / level, chỉ số, hồi đầy, god mode, thắng trận ngay | Có sẵn trong cả JoiPlay lẫn MTool; người chơi đã quen có nó | Plugin `RWK_Cheats`, mặc định tắt, bật bằng `cheats: true` hoặc ngay trong menu (có xác nhận). Giao diện DOM có ô tìm kiếm, lấy tên từ `$dataItems`, `$dataActors` | M |
-| 6 | **Chơi mượt trên 4G / offline**: Service Worker cache (đã có trong ROADMAP), cài như app (PWA), giữ màn hình sáng | Tải lại ảnh 10–27 MB mỗi lần mở là trải nghiệm tệ nhất trên điện thoại; màn hình tự tắt giữa đoạn thoại dài rất khó chịu | `rwk-sw.js` + `manifest.webmanifest` (icon từ `icon/` của game) + Screen Wake Lock API | M |
+| 6 | **Tải game về máy để chơi offline** (ngay từ link, không cần cài gì): nút "Tải để chơi offline" hiện dung lượng cần tải, thanh tiến độ, tải tiếp được khi rớt mạng, cập nhật chỉ phần thay đổi khi có bản mới, xóa bản đã tải. Đi kèm cài như app (PWA) và giữ màn hình sáng | Người chơi JoiPlay / Maldives vốn quen tải game về máy để chơi lúc không có mạng (máy bay, tàu xe, 4G yếu); tải lại ảnh 10–27 MB mỗi lần mở là trải nghiệm tệ nhất trên điện thoại. Save khi offline đã được giữ lại và tự đồng bộ khi có mạng | Mở rộng mục Service Worker trong ROADMAP: CLI sinh danh sách file + hash + tổng dung lượng; `rwk-sw.js` tải toàn bộ vào Cache Storage theo lô (cả file lớn từ R2), ghi tiến độ để tải tiếp, so hash để chỉ tải file đổi. Gọi `navigator.storage.persist()` và `storage.estimate()` để báo dung lượng trống trước khi tải. Trên iPhone phải "Thêm vào màn hình chính" thì dữ liệu mới không bị Safari xóa sau 7 ngày, nên nút tải sẽ hướng dẫn bước này | L |
 
 ### Nhóm B: giá trị cao cho một phần người chơi
 
@@ -78,7 +78,8 @@ Xếp theo giá trị cho người chơi. Cột "Công sức" chỉ để tham k
 | 16 | Rung khi bấm nút ảo | Safari trên iPhone không hỗ trợ `navigator.vibrate` | S |
 | 17 | Tùy chọn hiển thị (ảnh nét pixel, scale số nguyên, giới hạn 30 FPS, hiện FPS) | Ít được nhắc; 30 FPS có ích cho pin | M |
 | 18 | Thư viện game `/` + thời gian chơi | Chỉ có ích khi có nhiều game | M |
-| 19 | Nén ảnh / nhạc lúc build | Chỉ cần khi #6 chưa đủ | L |
+| 19 | Nén ảnh / nhạc lúc build | Giảm dung lượng phải tải ở #6; chỉ cần khi game quá nặng so với bộ nhớ điện thoại | L |
+| 20 | Tải bản `.zip` của game từ link (để chơi bằng JoiPlay / Maldives / bản desktop, kèm save hiện tại) | Hữu ích khi muốn chơi ngoài trình duyệt, nhưng #6 đã đáp ứng nhu cầu offline. Worker phải ghép zip dạng stream vì game có thể vài GB; link phải giữ sau Cloudflare Access và không được tạo link công khai, để không thành phát tán game | L |
 
 ### Không khuyến nghị
 
@@ -130,7 +131,7 @@ Dọc (portrait)
 |---|---|---|---|
 | Trái | **Tạm dừng + menu nhanh** | `pause` (⏸) | Dừng game, mở menu nhanh. Thay cho ⚙ |
 | Trái | Phím của game | `keyboard` (⌨) | Như hiện tại; chỉ hiện khi game có phím plugin |
-| Phải | **Trạng thái save** | `cloud-check` / `cloud-upload` / `cloud-off` / `cloud-alert` | Chỉ để xem, chạm để mở mục Save. Chỉ hiện khi bật sync |
+| Phải | **Trạng thái save** | `cloud-check` / `cloud-upload` / `cloud-off` / `cloud-alert` | Chỉ để xem, chạm để mở mục Save. Chỉ hiện khi bật sync. Khi game đã được tải về máy, thêm chấm nhỏ `circle-check` ở góc icon; khi đang tải, icon thành vòng tiến độ |
 | Phải | **Tua nhanh** | `fast-forward` (⏩) + nhãn `×2` | Chạm bật / tắt, giữ để tua tạm, nhấn giữ lâu để chọn tốc độ. Sáng màu khi đang tua |
 | Phải | Ẩn / hiện nút | `eye` / `eye-off` | Như hiện tại |
 
@@ -159,6 +160,7 @@ Trên điện thoại dọc là bottom sheet, ngang là bảng trượt từ bê
 │    Luôn chạy                                         [on]    │
 │    Dùng nhiều vật phẩm một lúc                       [on]    │
 │  ☁ Save              Đã đồng bộ 2 phút trước               › │
+│  ⬇ Chơi offline      Đã tải 820 / 820 MB                   › │
 │  🪄 Cheat                                                    › │
 │  🌐 Dịch                                             [off] › │
 │  🎮 Điều khiển                                               › │
@@ -172,6 +174,7 @@ Trên điện thoại dọc là bottom sheet, ngang là bảng trượt từ bê
 | Hàng thao tác nhanh | Lưu nhanh, Tải nhanh, Toàn màn hình, Chụp màn hình | `save`, `folder-open`, `maximize` / `minimize`, `camera` |
 | Chơi | Tốc độ (segmented control), Thoại (Thường / Auto / Skip, kèm thanh chỉnh tốc độ Auto), Lịch sử thoại, Luôn chạy, Dùng nhiều vật phẩm một lúc, Đánh nhanh | `gauge`, `message-square-text`, `history`, `footprints`, `package`, `swords` |
 | Save | Trạng thái đồng bộ, danh sách slot (Xuất / Nhập / Xóa như hiện tại), Bản cũ, Tự lưu (khoảng thời gian) | `cloud-check`, `download`, `upload`, `trash-2`, `history`, `timer` |
+| Chơi offline | Tải về / Tạm dừng / Tiếp tục (thanh tiến độ, dung lượng cần và dung lượng trống), Cập nhật bản mới (chỉ phần thay đổi), Xóa bản đã tải, hướng dẫn "Thêm vào màn hình chính" trên iPhone, Tải bản .zip (#20) | `cloud-download`, `pause`, `refresh-cw`, `trash-2`, `square-plus`, `file-archive` |
 | Cheat | Tabs: Nhóm (HP / MP / chỉ số / level / god mode), Vật phẩm & vàng, Switch & biến, Di chuyển (xuyên tường, dịch chuyển, nhớ vị trí). Chỉ hiện khi bật; lần đầu bật phải xác nhận | `wand-sparkles` (giống JoiPlay), `users`, `coins`, `toggle-right`, `map-pin` |
 | Dịch | Bật / tắt, ngôn ngữ đích, sửa câu đang hiện, đổi font | `languages`, `pencil`, `type` |
 | Điều khiển | Sửa vị trí nút (✥ như hiện tại), độ mờ, kích thước, rung, gán phím tay cầm / bàn phím, hiện khi nào (touch / luôn / không) | `move`, `blend`, `scaling`, `vibrate`, `gamepad-2` |
@@ -182,6 +185,7 @@ Gợi ý thêm:
 
 - Icon giữ cách vẽ hiện tại (SVG nét đơn theo màu chữ trong `RWK.icons`), chỉ chép thêm hình từ một bộ icon có giấy phép mở (Lucide, ISC) để nét vẽ đồng đều.
 - `RWK.tools.add` thêm trường `group` (`play`, `save`, `cheat`, `translate`, `controls`, `display`, `help`) và `quick: true` cho các ô ở hàng đầu, để mỗi plugin tự đăng ký vào đúng nhóm.
+- Lần đầu mở game trên điện thoại, sau khi vào được game, hiện một dòng gợi ý nhỏ (đóng được, không hỏi lại): "Tải game về máy (820 MB) để chơi không cần mạng".
 - Nhóm nào chỉ có một mục thì mở thẳng mục đó, không qua màn hình con.
 - Nhớ nhóm mở lần trước và tốc độ tua đã chọn theo từng trình duyệt (như `itemBatch` hiện tại).
 
