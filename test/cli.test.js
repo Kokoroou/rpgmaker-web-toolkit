@@ -215,3 +215,16 @@ test("MV phone media: Ogg / WebM without an .m4a / .mp4 twin", () => {
   assert.deepEqual(runtimeConfig("MV").media, { oggOnly: true, webmOnly: false });
   assert.equal(runtimeConfig("MZ").media, undefined, "MZ decodes Ogg itself");
 });
+
+test("web build: runtime plugins and the toolkit version for the problem report", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} });
+  assert.ok(out.has("js/plugins/RWK_Report.js"));
+  const js = out.get("js/plugins.js");
+  const core = JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]);
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(JSON.parse(core.parameters.config).version, pkg.version);
+});
