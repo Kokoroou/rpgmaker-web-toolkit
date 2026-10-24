@@ -8,7 +8,10 @@ import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
 import { isIndexable } from "./policy.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
+
+// Shown in the in-game problem report (RWK_Report).
+const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
 
 // files: from collectFiles(); generated: Map<rel, string|Buffer>
 // -> { linked, copied, unchanged, removed }
@@ -77,6 +80,7 @@ function statOrNull(p) {
 export function generatedFiles(game, gameConfig) {
   const out = new Map();
   const runtimeConfig = {
+    version: TOOLKIT_VERSION,
     gameId: gameConfig.slug,
     engine: game.engine,
     sync: { enabled: !!(gameConfig.sync && gameConfig.sync.enabled) },
