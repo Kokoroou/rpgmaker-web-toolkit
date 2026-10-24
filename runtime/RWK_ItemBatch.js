@@ -3,9 +3,10 @@
 // Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
 // License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
-// Use several of a consumable item at once from the item menu: pick a
-// quantity, the item is used that many times, and an item that runs a common
-// event runs it that many times in a row with only the last run's messages.
+// Use several of a consumable item at once from the item menu or in battle:
+// pick a quantity, the item is used that many times, and an item that runs a
+// common event runs it that many times in a row with only the last run's
+// messages. In battle the uses all happen in the actor's one action.
 //=============================================================================
 /*:
  * @target MZ MV
@@ -22,6 +23,7 @@
   const MZ = RWK.engine === "MZ";
   const MAX = 99;
   const PREF_KEY = "rwk.itemBatch." + RWK.config.gameId;
+  const BATTLE_PREF_KEY = "rwk.itemBatch.battle." + RWK.config.gameId;
 
   //---------------------------------------------------------------------------
   // Engine adapter. Both engines reserve common events through Game_Temp and
@@ -97,9 +99,10 @@
   }
 
   const enabled = () => RWK.storage.get(PREF_KEY, true) !== false;
+  const battleEnabled = () => RWK.storage.get(BATTLE_PREF_KEY, true) !== false;
 
-  function batchMax(item) {
-    if (!enabled() || !DataManager.isItem(item) || !item.consumable) return 0;
+  function batchMax(item, inBattle = false) {
+    if (!(inBattle ? battleEnabled() : enabled()) || !DataManager.isItem(item) || !item.consumable) return 0;
     const events = item.effects.filter((e) => e.code === Game_Action.EFFECT_COMMON_EVENT);
     if (!events.every((e) => isSafeCommonEvent(e.dataId))) return 0;
     return Math.min(MAX, $gameParty.numItems(item));
@@ -123,6 +126,21 @@
     this.drawText("Use how many?", 0, 0, this.contentsWidth(), "center");
   };
 
+  // Centered and hidden, in the scene's window layer.
+  function addNumberWindow(scene) {
+    const width = engine.windowWidth();
+    const height = Math.min(Graphics.boxHeight, Window_Base.prototype.fittingHeight.call(Window_Base.prototype, 8));
+    const x = Math.floor((Graphics.boxWidth - width) / 2);
+    const y = Math.floor((Graphics.boxHeight - height) / 2);
+    const w = engine.createNumberWindow(x, y, width, height);
+    w.setHandler("ok", scene.onItemBatchOk.bind(scene));
+    w.setHandler("cancel", scene.onItemBatchCancel.bind(scene));
+    w.hide();
+    w.deactivate();
+    scene._itemBatchWindow = w;
+    scene.addWindow(w);
+  }
+
   //---------------------------------------------------------------------------
   // Item scene: ask for the quantity before the item is used (and before its
   // target is picked), then use it that many times.
@@ -131,17 +149,7 @@
   const _create = Scene_Item.prototype.create;
   Scene_Item.prototype.create = function () {
     _create.apply(this, arguments);
-    const width = engine.windowWidth();
-    const height = Math.min(Graphics.boxHeight, Window_Base.prototype.fittingHeight.call(Window_Base.prototype, 8));
-    const x = Math.floor((Graphics.boxWidth - width) / 2);
-    const y = Math.floor((Graphics.boxHeight - height) / 2);
-    const w = engine.createNumberWindow(x, y, width, height);
-    w.setHandler("ok", this.onItemBatchOk.bind(this));
-    w.setHandler("cancel", this.onItemBatchCancel.bind(this));
-    w.hide();
-    w.deactivate();
-    this._itemBatchWindow = w;
-    this.addWindow(w);
+    addNumberWindow(this);
   };
 
   const _determineItem = Scene_Item.prototype.determineItem;
@@ -218,6 +226,103 @@
   };
 
   //---------------------------------------------------------------------------
+  // Battle: ask for the quantity when the item is picked. The action then
+  // hits its targets that many times over (like an item with Repeat set),
+  // runs its common events that many times and uses up that many items.
+  //---------------------------------------------------------------------------
+
+  const _createAllWindows = Scene_Battle.prototype.createAllWindows;
+  Scene_Battle.prototype.createAllWindows = function () {
+    _createAllWindows.apply(this, arguments);
+    addNumberWindow(this);
+  };
+
+  // The quantity window counts as an input window: without this, the scene
+  // sees no window active while inputting and goes back to the actor's commands.
+  const _isAnyInputWindowActive = Scene_Battle.prototype.isAnyInputWindowActive;
+  Scene_Battle.prototype.isAnyInputWindowActive = function () {
+    return _isAnyInputWindowActive.apply(this, arguments) || !!(this._itemBatchWindow && this._itemBatchWindow.active);
+  };
+
+  // MZ time progress battles: time stops while choosing, as in the item window.
+  const _isTimeActive = Scene_Battle.prototype.isTimeActive;
+  if (_isTimeActive) {
+    Scene_Battle.prototype.isTimeActive = function () {
+      return _isTimeActive.apply(this, arguments) && !(this._itemBatchWindow && this._itemBatchWindow.active);
+    };
+  }
+
+  const _onItemOk = Scene_Battle.prototype.onItemOk;
+  Scene_Battle.prototype.onItemOk = function () {
+    const action = BattleManager.inputtingAction();
+    if (action) action._itemBatch = 0;
+    const item = this._itemWindow.item();
+    const max = batchMax(item, true);
+    if (!action || max < 2) {
+      _onItemOk.apply(this, arguments);
+      return;
+    }
+    const w = this._itemBatchWindow;
+    w.setup(item, max, 0);
+    w.show();
+    w.activate();
+  };
+
+  Scene_Battle.prototype.onItemBatchOk = function () {
+    const w = this._itemBatchWindow;
+    w.hide();
+    w.deactivate();
+    const action = BattleManager.inputtingAction();
+    _onItemOk.call(this);
+    if (action) action._itemBatch = w.number();
+  };
+
+  Scene_Battle.prototype.onItemBatchCancel = function () {
+    this._itemBatchWindow.hide();
+    this._itemBatchWindow.deactivate();
+    this._itemWindow.activate();
+  };
+
+  const batchOf = (action) => (action._itemBatch > 1 && action.isItem() ? action._itemBatch : 1);
+
+  const _numRepeats = Game_Action.prototype.numRepeats;
+  Game_Action.prototype.numRepeats = function () {
+    return _numRepeats.apply(this, arguments) * batchOf(this);
+  };
+
+  // An item's common events, once per use.
+  const _applyGlobal = Game_Action.prototype.applyGlobal;
+  Game_Action.prototype.applyGlobal = function () {
+    const times = batchOf(this);
+    if (times < 2) {
+      _applyGlobal.apply(this, arguments);
+      return;
+    }
+    const runs = [];
+    try {
+      for (let i = 0; i < times; i++) {
+        recording = [];
+        _applyGlobal.apply(this, arguments);
+        runs.push(...engine.idsOfUse(recording));
+      }
+    } finally {
+      recording = null;
+    }
+    if (runs.length) queueRuns(runs);
+  };
+
+  // Another actor may have used some of the items earlier in the turn: use
+  // only what is left. The engine uses up one item, the rest go here.
+  const _startAction = BattleManager.startAction;
+  BattleManager.startAction = function () {
+    const action = this._subject && this._subject.currentAction();
+    const times = action ? batchOf(action) : 1;
+    if (times > 1) action._itemBatch = Math.max(1, Math.min(times, $gameParty.numItems(action.item())));
+    _startAction.apply(this, arguments);
+    if (times > 1) for (let i = 1; i < action._itemBatch; i++) $gameParty.consumeItem(action.item());
+  };
+
+  //---------------------------------------------------------------------------
   // Running the common events: a run is silent when the same common event
   // runs again later, so only the last one shows its messages. Silent runs
   // also skip sounds and waits.
@@ -242,7 +347,8 @@
   Game_Interpreter.prototype.setup = function (list) {
     _setup.apply(this, arguments);
     this._itemBatchSilent = false;
-    if (pending.length && list === pending[0].list && this === $gameMap._interpreter) {
+    const runner = this === $gameMap._interpreter || this === $gameTroop._interpreter;
+    if (pending.length && list === pending[0].list && runner) {
       this._itemBatchSilent = pending.shift().silent;
     }
   };
@@ -283,5 +389,17 @@
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",
     keepOpen: true,
     onSelect: () => RWK.storage.set(PREF_KEY, !enabled()),
+  });
+
+  RWK.tools.add({
+    icon: RWK.icons.items,
+    group: "play",
+    label: "Use several items at once in battle",
+    detail: () =>
+      battleEnabled()
+        ? "On: one action can use several of an item (cheat)"
+        : "Off: one item per action, as the game intends",
+    keepOpen: true,
+    onSelect: () => RWK.storage.set(BATTLE_PREF_KEY, !battleEnabled()),
   });
 })();

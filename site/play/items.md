@@ -11,3 +11,9 @@ Choose an item you hold several of, and the game asks **how many** to use (up to
 | Its event shows choices, moves you, starts a battle, opens a shop / menu / save screen, or ends the game | Not asked: used one at a time, so nothing breaks |
 
 Turn it off or on with ⏸ → **Use several items at once** (remembered in this browser). It works with item menus restyled by plugins.
+
+## In battle
+
+The same works in battle: choose an item, pick **how many**, then its target. The actor's one action uses all of them: the target gets the effect that many times, the item's common event runs that many times, and that many items are used up. If another actor used some of the same item earlier in the turn, only what is left is used.
+
+This makes battles easier than the game intends. Turn it off or on with ⏸ → **Use several items at once in battle** (remembered in this browser).

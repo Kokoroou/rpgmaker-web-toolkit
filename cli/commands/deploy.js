@@ -33,7 +33,6 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   const game = analyzeGame(inputPath);
   log.ok(`${game.engine} · ${game.title}`);
   log.info(c.dim(game.root));
-  if (game.engine === "MV") log.warn("MV game: the adapter exists but has not been tested on a real game yet.");
   const policy = readPolicy(game);
   showPolicy(policy);
 
