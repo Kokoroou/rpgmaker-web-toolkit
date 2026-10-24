@@ -6,7 +6,9 @@
 // Use several of a consumable item at once from the item menu or in battle:
 // pick a quantity, the item is used that many times, and an item that runs a
 // common event runs it that many times in a row with only the last run's
-// messages. In battle the uses all happen in the actor's one action.
+// messages. In battle the uses all happen in the actor's one action. When an
+// event asks for an item (a gift...) and then runs a common event, that event
+// runs once per item picked, as long as each run uses one up.
 //=============================================================================
 /*:
  * @target MZ MV
@@ -24,6 +26,7 @@
   const MAX = 99;
   const PREF_KEY = "rwk.itemBatch." + RWK.config.gameId;
   const BATTLE_PREF_KEY = "rwk.itemBatch.battle." + RWK.config.gameId;
+  const EVENT_PREF_KEY = "rwk.itemBatch.event." + RWK.config.gameId;
 
   //---------------------------------------------------------------------------
   // Engine adapter. Both engines reserve common events through Game_Temp and
@@ -100,6 +103,7 @@
 
   const enabled = () => RWK.storage.get(PREF_KEY, true) !== false;
   const battleEnabled = () => RWK.storage.get(BATTLE_PREF_KEY, true) !== false;
+  const eventEnabled = () => RWK.storage.get(EVENT_PREF_KEY, true) !== false;
 
   function batchMax(item, inBattle = false) {
     if (!(inBattle ? battleEnabled() : enabled()) || !DataManager.isItem(item) || !item.consumable) return 0;
@@ -123,22 +127,22 @@
   Window_ItemBatchNumber.prototype.refresh = function () {
     Window_ShopNumber.prototype.refresh.call(this);
     this.resetTextColor();
-    this.drawText("Use how many?", 0, 0, this.contentsWidth(), "center");
+    this.drawText(this._itemBatchLabel || "Use how many?", 0, 0, this.contentsWidth(), "center");
   };
 
   // Centered and hidden, in the scene's window layer.
-  function addNumberWindow(scene) {
+  function addNumberWindow(scene, onOk, onCancel) {
     const width = engine.windowWidth();
     const height = Math.min(Graphics.boxHeight, Window_Base.prototype.fittingHeight.call(Window_Base.prototype, 8));
     const x = Math.floor((Graphics.boxWidth - width) / 2);
     const y = Math.floor((Graphics.boxHeight - height) / 2);
     const w = engine.createNumberWindow(x, y, width, height);
-    w.setHandler("ok", scene.onItemBatchOk.bind(scene));
-    w.setHandler("cancel", scene.onItemBatchCancel.bind(scene));
+    w.setHandler("ok", onOk);
+    w.setHandler("cancel", onCancel);
     w.hide();
     w.deactivate();
-    scene._itemBatchWindow = w;
     scene.addWindow(w);
+    return w;
   }
 
   //---------------------------------------------------------------------------
@@ -149,7 +153,7 @@
   const _create = Scene_Item.prototype.create;
   Scene_Item.prototype.create = function () {
     _create.apply(this, arguments);
-    addNumberWindow(this);
+    this._itemBatchWindow = addNumberWindow(this, this.onItemBatchOk.bind(this), this.onItemBatchCancel.bind(this));
   };
 
   const _determineItem = Scene_Item.prototype.determineItem;
@@ -234,7 +238,7 @@
   const _createAllWindows = Scene_Battle.prototype.createAllWindows;
   Scene_Battle.prototype.createAllWindows = function () {
     _createAllWindows.apply(this, arguments);
-    addNumberWindow(this);
+    this._itemBatchWindow = addNumberWindow(this, this.onItemBatchOk.bind(this), this.onItemBatchCancel.bind(this));
   };
 
   // The quantity window counts as an input window: without this, the scene
@@ -323,6 +327,123 @@
   };
 
   //---------------------------------------------------------------------------
+  // Events on the map: when Select Item is followed by Call Common Event (a
+  // gift, an offering...), ask how many after the item is picked, then call
+  // the common event once per item. The first run plays as usual, the others
+  // are silent. It stops as soon as a run does not use up one of the item
+  // (the event refused it, or only takes one a day) or none is left.
+  //---------------------------------------------------------------------------
+
+  let selecting = null; // { interpreter, variableId } of the Select Item waiting on an answer
+
+  // Show Text followed by Select Item sets it up from Show Text, without
+  // command104, in both engines and in message plugins.
+  const _setupItemChoice = Game_Interpreter.prototype.setupItemChoice;
+  Game_Interpreter.prototype.setupItemChoice = function (params) {
+    selecting = { interpreter: this, variableId: params[0] };
+    return _setupItemChoice.apply(this, arguments);
+  };
+
+  // The quantity window, or none outside the map.
+  const eventBatchWindow = () => SceneManager._scene._eventItemBatchWindow;
+
+  function eventBatchMax(item) {
+    if (!eventEnabled() || !item || !selecting || !eventBatchWindow()) return 0;
+    // MV and MZ both have moved past Select Item by the time it is answered.
+    const { _list: list, _index: index } = selecting.interpreter;
+    const next = list && list[index];
+    if (!next || next.code !== 117 || !isSafeCommonEvent(next.parameters[0])) return 0;
+    return Math.min(MAX, $gameParty.numItems(item));
+  }
+
+  const _createMapWindows = Scene_Map.prototype.createAllWindows;
+  Scene_Map.prototype.createAllWindows = function () {
+    _createMapWindows.apply(this, arguments);
+    const w = addNumberWindow(this, onEventBatchOk, onEventBatchCancel);
+    w._itemBatchLabel = "How many?";
+    this._eventItemBatchWindow = w;
+  };
+
+  let eventItemWindow = null; // the Select Item window waiting on the quantity
+
+  // Before the ok handler rather than in onOk, which message plugins replace
+  // in their own Select Item windows.
+  const _callOkHandler = Window_EventItem.prototype.callOkHandler;
+  Window_EventItem.prototype.callOkHandler = function () {
+    const max = eventBatchMax(this.item());
+    if (max < 2) {
+      _callOkHandler.apply(this, arguments);
+      return;
+    }
+    eventItemWindow = this;
+    this.deactivate();
+    const w = eventBatchWindow();
+    w.setup(this.item(), max, 0);
+    w.show();
+    w.activate();
+  };
+
+  function onEventBatchOk() {
+    const w = eventBatchWindow();
+    w.hide();
+    w.deactivate();
+    const itemWindow = eventItemWindow;
+    eventItemWindow = null;
+    const item = itemWindow.item();
+    const { interpreter, variableId } = selecting;
+    _callOkHandler.call(itemWindow);
+    if (w.number() > 1) {
+      interpreter._eventItemBatch = {
+        index: interpreter._index,
+        times: w.number(),
+        itemId: item.id,
+        variableId,
+        done: 0,
+        held: 0,
+      };
+    }
+  }
+
+  function onEventBatchCancel() {
+    const w = eventBatchWindow();
+    w.hide();
+    w.deactivate();
+    eventItemWindow.activate();
+    eventItemWindow = null;
+  }
+
+  // The message stays open while the quantity is chosen.
+  const _isAnySubWindowActive = Window_Message.prototype.isAnySubWindowActive;
+  Window_Message.prototype.isAnySubWindowActive = function () {
+    const w = eventBatchWindow();
+    return _isAnySubWindowActive.apply(this, arguments) || !!(w && w.active);
+  };
+
+  // Call Common Event again until the batch is done: returning false keeps the
+  // interpreter on this command, which runs again once the child has finished.
+  const _command117 = Game_Interpreter.prototype.command117;
+  Game_Interpreter.prototype.command117 = function () {
+    const batch = this._eventItemBatch;
+    if (batch && batch.index !== this._index) this._eventItemBatch = null;
+    if (!this._eventItemBatch) return _command117.apply(this, arguments);
+    const held = $gameParty.numItems($dataItems[batch.itemId]);
+    if (
+      batch.done > 0 &&
+      (held >= batch.held || held === 0 || $gameVariables.value(batch.variableId) !== batch.itemId)
+    ) {
+      this._eventItemBatch = null;
+      return true;
+    }
+    batch.held = held;
+    batch.done++;
+    _command117.apply(this, arguments);
+    if (batch.done > 1 && this._childInterpreter) this._childInterpreter._itemBatchSilent = true;
+    if (batch.done < batch.times) return false;
+    this._eventItemBatch = null;
+    return true;
+  };
+
+  //---------------------------------------------------------------------------
   // Running the common events: a run is silent when the same common event
   // runs again later, so only the last one shows its messages. Silent runs
   // also skip sounds and waits.
@@ -331,7 +452,10 @@
   let pending = []; // [{ list, silent }] in run order
 
   function queueRuns(ids) {
-    pending = ids.map((id, i) => ({ list: $dataCommonEvents[id].list, silent: ids.indexOf(id, i + 1) !== -1 }));
+    pending = ids.map((id, i) => ({
+      list: $dataCommonEvents[id].list,
+      silent: ids.indexOf(id, i + 1) !== -1,
+    }));
     engine.reserve(ids);
   }
 
@@ -341,6 +465,7 @@
     _createGameObjects.apply(this, arguments);
     pending = [];
     mvQueue = [];
+    selecting = null;
   };
 
   const _setup = Game_Interpreter.prototype.setup;
@@ -401,5 +526,17 @@
         : "Off: one item per action, as the game intends",
     keepOpen: true,
     onSelect: () => RWK.storage.set(BATTLE_PREF_KEY, !battleEnabled()),
+  });
+
+  RWK.tools.add({
+    icon: RWK.icons.items,
+    group: "play",
+    label: "Give several items at once",
+    detail: () =>
+      eventEnabled()
+        ? "On: asks how many when an event asks for an item (gifts...)"
+        : "Off: events take one item at a time",
+    keepOpen: true,
+    onSelect: () => RWK.storage.set(EVENT_PREF_KEY, !eventEnabled()),
   });
 })();

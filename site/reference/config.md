@@ -16,7 +16,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `controls` | [On-screen buttons](/setup/controls) | Yes |
 | `controls.scannedKeys` | Plugin keys already seen, so updates only ask about new ones | No need |
 | `saveTools` | `false` removes ⏸ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
-| `itemBatch` | `false` turns off using several items at once (item menu and battle) | Same |
+| `itemBatch` | `false` turns off using several items at once (item menu, battle and events that ask for an item) | Same |
 | `fastForward` | `false` turns off [fast forward](/play/speed) | Same |
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip) | Same |
 | `alwaysDash` | `false` removes ⏸ → [Always dash](/play/dash) | Same |
