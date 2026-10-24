@@ -33,7 +33,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 | Key | Turns off |
 |---|---|
 | `saveTools` | 💾 Saves in the ⏸ menu: exporting, importing and deleting save files |
-| `itemBatch` | Using several items at once, from the item menu and in battle |
+| `itemBatch` | Using several items at once, from the item menu, in battle and when an event asks for an item |
 | `fastForward` | [Fast forward](/play/speed), e.g. for a game built around timing |
 | `messageMode` | [Message modes](/play/messages): Auto, Skip, and a tap ending pauses in the text |
 | `alwaysDash` | ⏸ → [Always dash](/play/dash). The game's own Options menu still has it unless the game removed it |
