@@ -5,7 +5,7 @@ Publish an **RPG Maker MZ** game (MV: adapter included, not yet tested) to **Clo
 - Play in a browser anywhere: `https://<game-name>.<username>.workers.dev`
 - **Cloud save sync**: sign in with the same email and continue on any device
 - **On-screen gamepad on phones** (D-pad, A/B/X/Y, L/R, like JoiPlay), plus buttons for the keys the game's plugins use (R, T, Q, E…)
-- **Save export / import**: download a save slot as a normal desktop save file, change it with any save editor, and import it back
+- **Save export / import / delete**: download a save slot as a normal desktop save file, change it with any save editor, import it back, or delete a slot
 - Re-run as often as you like: later runs **upload only the files that changed** (handy for patches and translation updates)
 - **The original game folder is never modified**, and no clone is needed: the toolkit runs from a temp folder and cleans up after itself
 
@@ -69,7 +69,7 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
 | `sync.enabled` | Turns save sync on or off |
 | `auth` | `{ "mode": "access", "teamDomain", "aud" }` or `{ "mode": "none" }`. Filled in by the script |
 | `controls` | On-screen buttons, see below |
-| `saveTools` | `false` hides the 💾 save export / import button (on by default) |
+| `saveTools` | `false` hides the 💾 save export / import / delete button (on by default) |
 
 ### On-screen buttons (`controls`)
 
@@ -112,7 +112,7 @@ The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y b
 - In portrait the game is centered in the space above the controls.
 - ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
 - Toolbar (top-left in landscape, between L and R in portrait): ◐ hide/show, ⌨ game keys (tap it again to close), ⛶ fullscreen, ✥ edit the layout: drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions. Saved per browser, positions per orientation.
-- 💾 opens the save export / import panel, see [Editing saves](#editing-saves).
+- 💾 opens the save export / import / delete panel, see [Editing saves](#editing-saves).
 - The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
 
 ## Editing saves
@@ -121,6 +121,7 @@ The 💾 button (in the toolbar on phones, a faint button in the top-left corner
 
 - **Export** downloads the slot as `file3.rmmzsave` (MV: `file3.rpgsave`), byte for byte what the desktop game writes. Open it in any RPG Maker save editor.
 - **Import** puts a file back into a slot: the desktop format, the raw bytes some editors write, or plain JSON. The save list entry (party, playtime) is refreshed, the save is uploaded to the cloud when sync is on, and the game restarts so you can load it.
+- **Delete** empties the slot after a confirmation. With sync on, the cloud copy is deleted too, so the slot disappears on every device. Export first if you may want it back.
 
 A file that is not a game save of the same engine (config, global, another engine) is refused.
 
@@ -132,7 +133,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_Core            config, deviceId, toasts, dialogs
              RWK_SaveSync        save sync (MZ adapter: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
-             RWK_SaveTools       save export / import (desktop save file format)
+             RWK_SaveTools       save export / import / delete (desktop save file format)
            worker/         One Worker shared by every game
              index.js            static assets + large files from R2 (with Range) + /api
              auth.js             verifies Cloudflare Access JWTs
