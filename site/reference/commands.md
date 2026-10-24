@@ -25,5 +25,6 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 |---|---|
 | `$env:RWK_REF = "v1.0.0"` | Runs that tag or branch instead of `main` |
 | `$env:RWK_DEBUG = "1"` | Prints full error details |
+| `$env:RWK_LIMITS_URL = "off"` | Uses only the [free plan limits](/reference/limits#when-cloudflare-changes-them) shipped with the toolkit (or another URL to read them from) |
 
 From a clone, `.\rwk.cmd` takes the same commands. See [CONTRIBUTING.md](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/CONTRIBUTING.md).

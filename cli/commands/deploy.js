@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_BUCKET, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
+import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
 import {
   deployWorker,
   ensureBucket,
@@ -17,7 +17,8 @@ import {
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
-import { MAX_ASSET_BYTES, MAX_ASSET_FILES, analyzeGame, collectFiles, suggestSlug, validateSlug } from "../lib/game.js";
+import { analyzeGame, collectFiles, suggestSlug, validateSlug } from "../lib/game.js";
+import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
@@ -88,15 +89,18 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
 
   //-------------------------------------------------------------------------
   log.step("Preparing the web build");
+  const limits = await loadLimits({ cacheFile: LIMITS_CACHE_FILE });
+  const { maxFiles, maxFileBytes } = limits.assets;
+  if (limits.newer) log.info(c.dim(`Free plan limits updated on ${limits.updated}: ${maxFiles} files, ${formatMiB(maxFileBytes)} each`));
   const buildDir = createBuildDir(game.root, cfg.slug);
   const files = collectFiles(game, cfg);
-  const overflow = files.filter((f) => f.size > MAX_ASSET_BYTES);
-  const assets = files.filter((f) => f.size <= MAX_ASSET_BYTES);
+  const overflow = files.filter((f) => f.size > maxFileBytes);
+  const assets = files.filter((f) => f.size <= maxFileBytes);
   const generated = generatedFiles(game, applyPolicy(cfg, policy));
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over 25 MiB go to R2)`);
-  if (assetCount > MAX_ASSET_FILES) throw tooManyFiles(assets, assetCount);
+  log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} go to R2)`);
+  if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
 
   const publicDir = path.join(buildDir, "public");
   const stats = syncPublicDir(publicDir, assets, generated);
@@ -189,7 +193,11 @@ function editInNotepad(cfg) {
   }
 }
 
-function tooManyFiles(assets, count) {
+function formatMiB(bytes) {
+  return `${+(bytes / 1024 ** 2).toFixed(1)} MiB`;
+}
+
+function tooManyFiles(assets, count, max) {
   const byTop = new Map();
   for (const f of assets) {
     const top = f.rel.split("/")[0];
@@ -197,7 +205,7 @@ function tooManyFiles(assets, count) {
   }
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
-    `The web build has ${count} files, over the Workers limit of ${MAX_ASSET_FILES} (free plan).\n` +
+    `The web build has ${count} files, over the Workers limit of ${max} (free plan).\n` +
       `${lines.join("\n")}\nAdd exclude patterns (edit-config command, e.g. "data-tw/**") and run again.`
   );
 }

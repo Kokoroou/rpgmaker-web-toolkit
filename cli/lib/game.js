@@ -4,9 +4,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const MAX_ASSET_BYTES = 25 * 1024 * 1024; // Workers static assets per-file limit
-export const MAX_ASSET_FILES = 20000; // Workers free plan, per version
-
 // Top-level folders a browser build needs.
 const WEB_DIRS = new Set(["audio", "css", "data", "effects", "fonts", "icon", "img", "js", "movies"]);
 const WEB_DIR_PATTERNS = [/^data[-_].+/i]; // translated data, e.g. data-en

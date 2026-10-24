@@ -10,7 +10,8 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - Docs site: `cd site && npm ci && npm run dev`
 
 ## Layout
-- `cli/` — Node CLI run by `run.ps1` / `rwk.cmd`: analyzes the game, stages a web build, drives wrangler
+- `cli/` — Node CLI run by `run.ps1` / `rwk.cmd`: analyzes the game, stages a web build, drives wrangler.
+  Free plan limits are in `cli/limits.json` (fetched from `main` at each deploy): change them there and bump `updated`
 - `runtime/` — `RWK_*.js` plugins injected into the game's web build (run in the browser, MZ and MV)
 - `worker/` — the Cloudflare Worker shared by every game (assets, Access JWT, save API)
 - `test/` — tests for `cli/` and `worker/`

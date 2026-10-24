@@ -1,6 +1,7 @@
 // Per-game configs live in R2 (see loadGameConfigs in cloudflare.js), so the
 // toolkit itself can run from a throwaway folder. The only local state is the
-// chosen Cloudflare account, kept next to wrangler's own login in the profile.
+// chosen Cloudflare account, kept next to wrangler's own login in the profile,
+// and the last downloaded free plan limits (see limits.js).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -8,7 +9,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SETTINGS_FILE = path.join(process.env.APPDATA || os.homedir(), "rpgmaker-web-toolkit", "settings.json");
+const STATE_DIR = path.join(process.env.APPDATA || os.homedir(), "rpgmaker-web-toolkit");
+const SETTINGS_FILE = path.join(STATE_DIR, "settings.json");
+export const LIMITS_CACHE_FILE = path.join(STATE_DIR, "limits.json");
 
 export const DEFAULT_BUCKET = "rpgmaker-web-toolkit";
 
