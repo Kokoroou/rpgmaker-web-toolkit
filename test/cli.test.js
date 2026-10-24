@@ -101,9 +101,10 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(parsePolicy({}).problems.length, 1);
 
   const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
-  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, sync: false } }));
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, sync: false } }));
   assert.equal(locked.saveTools, false);
   assert.equal(locked.fastForward, false);
+  assert.equal(locked.messageMode, false);
   assert.equal(locked.sync.enabled, false);
   assert.equal(cfg.sync.enabled, true, "the stored config is left alone");
   assert.equal(applyPolicy(cfg, null), cfg);
@@ -240,6 +241,7 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} });
   assert.ok(out.has("js/plugins/RWK_Report.js"));
   assert.ok(out.has("js/plugins/RWK_Speed.js"));
+  assert.ok(out.has("js/plugins/RWK_Message.js"));
   const js = out.get("js/plugins.js");
   const core = JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]);
   const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));

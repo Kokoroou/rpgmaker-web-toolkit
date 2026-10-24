@@ -7,6 +7,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_SaveSync        save sync (MZ: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_Speed           fast forward: the scene updates 2–4 times per frame
+             RWK_Message         message modes: tap to finish, Auto, Skip (Window_Message)
              RWK_SaveTools       save export / import / delete (desktop save file format)
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Report          problem report: latest errors, audio state, files that failed to load
