@@ -1,239 +1,66 @@
 # rpgmaker-web-toolkit
 
-Publish an **RPG Maker MZ or MV** game to **Cloudflare Workers on the free plan** with a single command:
+Put an **RPG Maker MZ or MV** game online with one command, on **Cloudflare Workers' free plan**. Play it in any browser, with cloud saves and an on-screen gamepad on phones.
 
-- Play in a browser anywhere: `https://<game-name>.<username>.workers.dev`
-- **Cloud save sync**: sign in with the same email and continue on any device
-- **On-screen gamepad on phones** (D-pad, A/B/X/Y, L/R, like JoiPlay), plus buttons for the keys the game's plugins use (R, T, Q, E…)
-- **Save export / import / delete**: download a save slot as a normal desktop save file, change it with any save editor, import it back, or delete a slot
-- **Use several items at once**: pick a quantity in the item menu instead of using a stack one by one
-- Advanced tools sit behind a single ⚙ button, so they don't crowd the screen
-- Re-run as often as you like: later runs **upload only the files that changed** (handy for patches and translation updates)
-- **The original game folder is never modified**, and no clone is needed: the toolkit runs from a temp folder and cleans up after itself
+<p align="center">
+  <img src="site/public/img/controls-landscape.png" width="520" alt="A game on a phone in landscape, with the on-screen gamepad">
+  <img src="site/public/img/controls-portrait.png" width="160" alt="The same game in portrait">
+</p>
 
-Windows only for now.
-
-**User guide: https://kokoroou.github.io/rpgmaker-web-toolkit/** (setting up a game, inviting players, updating, playing on a phone, troubleshooting).
+**📖 User guide: https://kokoroou.github.io/rpgmaker-web-toolkit/**
 
 ## Quick start
 
-The only requirement is [Node.js](https://nodejs.org) 24+ (LTS, or `winget install OpenJS.NodeJS.LTS`).
-
-Open **PowerShell** and paste:
+Windows with [Node.js](https://nodejs.org) 24+. In PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
 ```
 
-The script asks for the game folder (drag and drop the folder into the window). It downloads the toolkit to a temp folder, installs wrangler, runs, then **deletes** the temp folder. From `cmd` instead of PowerShell:
+Drop the game folder in, answer a few questions, and get a link:
 
-```bat
-powershell -NoProfile -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex"
-```
+<img src="site/public/img/first-deploy.png" width="600" alt="A first deploy in PowerShell">
 
-On the first run the script will:
+Step by step: [Before you start][requirements] → [First deploy][first-deploy] → [Protect the site][access].
 
-1. Open a browser to log in to Cloudflare (once per machine). The login asks only for `account:read`, `user:read`, `workers:write` and `workers_scripts:write`, and is kept in its own wrangler profile (`rpgmaker-web-toolkit`), separate from any `wrangler login` you already have.
-2. Analyze the game (MZ/MV, plugins, special keys) and ask a few questions: site name, whether to enable save sync, a label for each on-screen button.
-   The answers are stored **in R2** (`rwk/games.json` in the bucket), not on the machine.
-3. Upload files larger than 25 MiB to R2, then deploy the Worker with all the game files.
-4. Walk you through enabling **Cloudflare Access** (email login). Until it is enabled the site stays **locked** and nobody can open it.
-5. Offer to upload the saves already on the machine (the `save/` folder) to the cloud.
+## Features
 
-When a patch comes out: copy it over the game folder and run the same command again. Only changed files are uploaded. If the new version uses new keys, the script offers to add buttons for them.
-
-On another machine: download the game, run the same command and log in to the same Cloudflare account. The config comes from R2, so there are no questions to answer again.
-
-What stays on the machine: the toolkit's wrangler profile (remove it with `npx wrangler auth delete rpgmaker-web-toolkit`), the chosen account (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) and the npm cache (makes later runs faster). The build folder lives in `<game drive>:\.rwk-build\` so it can hard-link the game files instead of copying them, and it is deleted when the run ends.
-
-### Other commands
-
-To pass arguments, call the script as a scriptblock:
-
-```powershell
-$rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk "D:\Games\My Game"                 # deploy without the path prompt
-& $rwk import-saves "D:\Games\My Game"    # upload local saves again (overwrites same-name cloud saves)
-& $rwk edit-config "D:\Games\My Game"     # edit the config (buttons, exclude…) in Notepad
-& $rwk help
-```
-
-Set `$env:RWK_REF = "v1.0.0"` to run a fixed tag or branch instead of `main`.
-
-When working on the toolkit itself, clone the repo and use `rwk.cmd` with the same commands.
-
-## Game config (`edit-config`)
-
-| Key | Meaning |
+| | |
 |---|---|
-| `slug` | Worker name, becomes `<slug>.<username>.workers.dev` |
-| `fingerprint` | Identifies the game on later runs (MZ: `advanced.gameId`, MV: game title) |
-| `include` | Non-standard top-level folders/files to publish (e.g. `"live2d"`), or globs of files to keep despite the excludes (e.g. `"img/**/*.psd"`) |
-| `exclude` | Globs to skip, e.g. `"data-tw/**"`. `*.zip *.rar *.7z *.psd *.bak *.log` and hidden files are skipped by default |
-| `sync.enabled` | Turns save sync on or off |
-| `auth` | `{ "mode": "access", "teamDomain", "aud" }` or, for a public site, `{ "mode": "none", "basis", "since" }`. Filled in by the script |
-| `indexable` | `true` lets search engines list a public site (asked when the site is made public). Everything else sends `noindex` |
-| `controls` | On-screen buttons, see below |
-| `saveTools` | `false` removes 💾 Saves (export / import / delete) from the ⚙ tools menu (on by default) |
-| `itemBatch` | `false` turns off using several items at once (on by default) |
+| <img src="site/public/img/sync-conflict.png" width="150" alt=""> | **Cloud saves.** Same email, any device. Offline saves upload later, and two devices never silently overwrite each other. [More][saves] |
+| <img src="site/public/img/game-keys.png" width="150" alt=""> | **Touch controls.** D-pad, A/B/X/Y and L/R like JoiPlay, plus buttons for the keys the game's plugins use. Players can move or hide any button. [More][controls] |
+| <img src="site/public/img/saves-panel.png" width="150" alt=""> | **Save files.** Export a slot as a desktop save, edit it, import it back, or delete it. [More][save-files] |
+| <img src="site/public/img/item-batch.png" width="150" alt=""> | **Several items at once.** Use 10 potions in one go. [More][items] |
+| <img src="site/public/img/locked-page.png" width="150" alt=""> | **Private by default.** Locked until Cloudflare Access (email login) is on. [More][access] |
 
-### On-screen buttons (`controls`)
-
-```json
-"controls": {
-  "enabled": true,
-  "showOn": "touch",
-  "gamepad": true,
-  "dpad": true,
-  "opacity": 0.35,
-  "scale": 1,
-  "extras": ["fullscreen", "editLayout"],
-  "buttons": [
-    { "key": "t", "label": "T", "hint": "Quest journal" },
-    { "key": "r", "label": "Inspect", "pin": true },
-    { "label": "Popup", "keys": [{ "key": "f", "label": "F" }, "e", "q"] }
-  ]
-}
-```
-
-The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A/B/X/Y bottom-right, L/R above them. The buttons press the same keys RPG Maker maps a real controller to:
-
-| Button | Key | Does |
-|---|---|---|
-| A | `ok` | Confirm, talk, interact |
-| B | `cancel` | Back / close |
-| X | `shift` | Dash (hold) |
-| Y | `menu` | Open the menu |
-| L / R | `pageup` / `pagedown` | Previous / next page (switch actor in menus) |
-
-- `gamepad`: A/B/X/Y and L/R. `dpad`: the D-pad (slide your thumb to change direction). Either can be `false`.
-- `buttons` are extra keys the game's plugins use. They live in the **⌨ Game keys** panel of the toolbar, each with its `hint`
-  (filled from the description of the plugin that reads the key), so they don't crowd the screen.
-  `"pin": true` keeps a button on screen as a keycap (portrait: above L/R; landscape: down the right edge); so do groups, and all buttons when `gamepad` is `false`.
-  Buttons for keys the gamepad already presses (`ok`, `escape`, `pageup`…) are hidden while `gamepad` is on.
-- `key` is an RPG Maker logical key name or a key name a plugin registers itself (`r`, `t`…).
-  A numeric keyCode also works; its name is then looked up in `Input.keyMapper`.
-- An entry with `keys` is a **button group**: tap it to open its sub-buttons.
-- `showOn`: `touch` (touch devices only), `always` or `never`. `scale` multiplies the button size.
-- In portrait the game is centered in the space above the controls.
-- ⛶ fullscreen also turns a landscape game sideways (where the browser allows locking the orientation).
-- Toolbar, in the top corners in landscape and next to L and R in portrait: on the left ⚙ tools (see below) and ⌨ game keys (tap it again to close); on the right ⛶ fullscreen and an eye that shows / hides all the controls (the eye is crossed out while they are hidden).
-- **✥ Edit button layout** (in ⚙): drag buttons to new positions, − hides a button you never use (such as L/R), + brings it back; ↺ resets the positions, ✓ saves. Saved per browser, positions per orientation.
-- The controls fade after a few seconds without a touch, so the game stays easy to see; the next touch brings them back.
-
-## Tools menu (⚙)
-
-The advanced tools open from one ⚙ button: in the toolbar on phones, a faint button in the top-left corner on desktop.
-
-| Tool | Does |
-|---|---|
-| Edit button layout | Move or hide the on-screen buttons (only with the touch controls) |
-| Saves | Export / import / delete save slots, see [Editing saves](#editing-saves) |
-| Use several items at once | On / off switch for [using several items at once](#using-several-items-at-once), remembered per browser |
-
-## Using several items at once
-
-Choosing a consumable item you hold more than one of in the item menu first asks **how many** to use (1 by default, up to 99). The item is then used that many times:
-
-- Items with direct effects (healing, stat growth…) are applied once per item, and stop early when one more would do nothing (an actor at full HP). Unused items are kept.
-- Items that run a **common event** run it that many times in a row. Only the last run shows its messages; the earlier runs also skip sounds and waits, so ten study books give ten times the effect and one message.
-- Items whose common event (or a common event it calls) shows choices, asks for a number or an item, transfers the player, starts a battle, opens a shop, the menu or the save screen, or ends the game are always used one at a time.
-
-It works with any MV or MZ game that uses the standard item menu, including menus restyled by plugins.
-
-## Editing saves
-
-**Saves** in the ⚙ tools menu lists the save slots:
-
-- **Export** downloads the slot as `file3.rmmzsave` (MV: `file3.rpgsave`), byte for byte what the desktop game writes. Open it in any RPG Maker save editor.
-- **Import** puts a file back into a slot: the desktop format, the raw bytes some editors write, or plain JSON. The save list entry (party, playtime) is refreshed, the save is uploaded to the cloud when sync is on, and the game restarts so you can load it.
-- **Delete** empties the slot after a confirmation. With sync on, the cloud copy is deleted too, so the slot disappears on every device. Export first if you may want it back.
-
-A file that is not a game save of the same engine (config, global, another engine) is refused.
-
-## Architecture
-
-```
-run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
-           runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
-             RWK_Core            config, deviceId, toasts, dialogs, ⚙ tools menu, web build label
-             RWK_SaveSync        save sync (MZ adapter: localforage, MV: localStorage)
-             RWK_MobileControls  on-screen buttons, driven through Input._currentState
-             RWK_SaveTools       save export / import / delete (desktop save file format)
-             RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
-           worker/         One Worker shared by every game
-             index.js            static assets + large files from R2 (with Range) + /api
-             auth.js             verifies Cloudflare Access JWTs
-             saves.js            save API, ETag-based overwrite protection
-             players.js          counts the emails that save (rwk/players/<slug>.json)
-```
-
-**Storage.** Static files live in Workers Static Assets (free, unmetered bandwidth, up to 20,000 files and 25 MiB per file). Only files over 25 MiB go to R2. All games share one R2 bucket, `rpgmaker-web-toolkit`:
-
-```
-rwk/games.json                     config for every game (keyed by fingerprint)
-assets/<slug>/<path>               files > 25 MiB
-assets/<slug>/.rwk-manifest.json   hashes of those files, so only changed ones are re-uploaded
-saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
-```
-
-**Save sync.**
-
-- When the game boots (before the engine reads any save), the plugin compares local saves with the cloud copies and takes the newer one. If a save changed in both places, the player chooses which copy to keep.
-- Each time the game writes a save, the plugin uploads it after about a second, with `If-Match` so it never overwrites another device's changes.
-- While offline, saves stay on the device and are uploaded once the connection is back.
-- If another device saved within the last 5 minutes, the game warns the player so two devices do not overwrite each other.
-
-**Security.** Cloudflare Access blocks every request at the network edge. The Worker also verifies the JWT signature itself to learn the player's email. Preview URLs are disabled (`preview_urls: false`) because they fall outside Access protection.
-
-## Free plan limits to know
-
-| Service | Limit | Notes |
-|---|---|---|
-| Workers Static Assets | 20,000 files, 25 MiB per file | Over 20,000 files, use `exclude` (e.g. drop unused languages) |
-| Workers requests | 100,000/day | Only `/api/*` and R2-served files count; static files do not |
-| R2 | 10 GB, 1M writes, 10M reads per month | Enabling R2 requires a payment method on the account, even on the free tier |
-| Cloudflare Access | 50 users | Plenty for personal use |
-| `wrangler r2 object put` | About 300 MiB per file | Larger files fail to upload |
+Updates upload only the files that changed ([updating][updating]). The game folder is never modified ([how it works][how]).
 
 ## Responsible use
 
-This toolkit is meant for playing a game **you own**, on your own devices. Game files are copyrighted by their creators.
+For playing a game **you own**, on your own devices. A public or widely shared site is redistribution, which only the game's creators can allow. Creators can say what they allow with a [hosting policy][policy], and may use the toolkit for anything with their own games: see [For game creators][creators].
 
-- Keep Cloudflare Access enabled. A public site, or one shared with many people, is redistribution of the game, and only its creators can allow it. Even sharing with friends is outside "private use" in most countries' copyright law.
-- Making a site public asks why it may be public (you made the game, or its creators allow it). Sites are kept out of search engines unless a public site asks to be listed.
-- Each deploy reminds you how many emails have saves for the game.
-- You are responsible for what you publish on your Cloudflare account. Cloudflare handles copyright takedown requests for Workers.
+## More
 
-## For game creators
-
-- **Hosting policy.** Ship an `rwk-policy.json` with your game and the toolkit follows it: no web copies (`"hosting": "none"`), personal copies only (`"personal"`), copies shared with invited people (`"shared"`) or public sites (`"public"`), and features you turn off (`"features": { "saveTools": false }`). See the [Hosting policy](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy) page.
-- **Web copies are labelled.** `index.html` carries `<meta name="generator" content="rpgmaker-web-toolkit">`, and the console and the engine's error screen say the copy is not an official release, so bugs in the toolkit's plugins are reported here, not to you.
-- **Use it for your own game, commercially too.** The license's *Game Creators* permission lets you use the toolkit for any purpose with a game you own or publish: playtests, a paid or supporter-only web version, a public release. You may also ship the plugins in `runtime/` inside your own game.
-
-More in the [For game creators](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/) guide.
-
-## Development
-
-```powershell
-npm test          # CLI + Worker tests (node:test, no network needed)
-```
-
-CI and releases use the shared workflows of [agent-toolkit](https://github.com/kokoroou/agent-toolkit) (`@v0`):
-
-- **CI** (`.github/workflows/ci.yml`) runs on every PR and push to `main`: tests on Node.js 24 with a coverage gate (no drop compared to `main`), a Conventional Commit check on the PR title, and a Semgrep + Gitleaks scan.
-- **Release** (`.github/workflows/release.yml`) uses release-please: each push to `main` opens or updates a release PR that bumps the version in `package.json` and writes `CHANGELOG.md` from the commit messages (`feat:` → minor, `fix:` → patch while on 0.x). Merging it tags `vX.Y.Z`, publishes the GitHub Release and attaches `rpgmaker-web-toolkit-X.Y.Z.zip`. Run a released version with `$env:RWK_REF = "vX.Y.Z"`.
-
-One-time setup: Settings → Actions → General → enable *Allow GitHub Actions to create and approve pull requests* (needed for the release PR). Optional: the `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY` secrets of agent-toolkit's GitHub App, so the release PR also triggers CI.
-
-See also [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/IMPACT.md](docs/IMPACT.md) (impact on game developers and players, in Vietnamese). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
+- [Commands][commands] · [Config keys][config] · [Free plan limits][limits] · [Troubleshooting][troubleshooting]
+- Working on the toolkit: [CONTRIBUTING.md](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Impact (Vietnamese)](docs/IMPACT.md)
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE) with an additional **Game Creators** permission:
+[PolyForm Noncommercial 1.0.0](LICENSE), plus a **Game Creators** permission: use it freely for noncommercial purposes. For a game you own or publish with its owner's permission, any use is allowed, commercial included, and so is shipping the `runtime/` plugins inside it. Hosting other people's games for money, offering it as a hosting service, or selling the toolkit is not.
 
-- Anyone may use the toolkit for personal and other noncommercial purposes.
-- People who own a game, or publish it with its owner's permission, may use the toolkit for that game for any purpose, including commercial use, and may ship the `runtime/` plugins inside it.
-- Hosting games that are not yours for money, offering the toolkit as a hosting service, or selling the toolkit itself is not permitted.
-
-See [LICENSE](LICENSE) for the exact terms.
+<!-- Each link goes to the published page of a file in site/ -->
+[requirements]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/requirements
+[first-deploy]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/first-deploy
+[access]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/access
+[updating]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/updating
+[troubleshooting]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/troubleshooting
+[saves]: https://kokoroou.github.io/rpgmaker-web-toolkit/play/saves
+[controls]: https://kokoroou.github.io/rpgmaker-web-toolkit/play/controls
+[save-files]: https://kokoroou.github.io/rpgmaker-web-toolkit/play/save-files
+[items]: https://kokoroou.github.io/rpgmaker-web-toolkit/play/items
+[commands]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/commands
+[config]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/config
+[limits]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/limits
+[how]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/how-it-works
+[creators]: https://kokoroou.github.io/rpgmaker-web-toolkit/creators/
+[policy]: https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy

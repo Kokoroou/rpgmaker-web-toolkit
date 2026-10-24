@@ -211,3 +211,31 @@
 .VPHome .vp-doc tr td:first-child {
   font-weight: 500;
 }
+
+/* Screenshots: phone-sized, side by side when there is room */
+
+.vp-doc .shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+.vp-doc .shots p {
+  margin: 0;
+}
+
+.vp-doc img.shot {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+}
+
+.vp-doc img.portrait {
+  width: min(210px, calc(50vw - 32px));
+}
+
+.vp-doc img.landscape {
+  width: 100%;
+  max-width: 440px;
+}

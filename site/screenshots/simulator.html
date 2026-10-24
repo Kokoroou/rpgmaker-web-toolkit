@@ -1,0 +1,331 @@
+<!doctype html>
+<!--
+  A stand-in RPG Maker MZ game for the guide's screenshots (see capture.mjs).
+  The engine is stubbed and the map is drawn by hand, but the toolkit's UI is
+  the real thing: the page loads runtime/RWK_*.js exactly as a web build does.
+  Query: ?scene=map|items &touch=1 &sync=conflict|recent|ok
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo game</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #gameCanvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<script>
+  const params = new URLSearchParams(location.search);
+  const SCENE = params.get("scene") || "map";
+  const SYNC = params.get("sync") || "";
+  localStorage.clear();
+
+  //--- RWK config, as the CLI writes it into the build's js/plugins.js
+  const CONFIG = {
+    gameId: "demo",
+    sync: { enabled: !!SYNC },
+    saveTools: true,
+    itemBatch: true,
+    controls: {
+      enabled: true,
+      showOn: params.get("touch") === "0" ? "touch" : "always",
+      gamepad: true,
+      dpad: true,
+      opacity: 0.35,
+      scale: 1,
+      extras: ["fullscreen", "editLayout"],
+      buttons: [
+        { key: "t", label: "T", hint: "Quest journal" },
+        { key: "m", label: "M", hint: "World map" },
+        { key: "c", label: "C", hint: "Crafting" },
+        { key: "h", label: "H", hint: "Hide the message window" },
+        { key: "r", label: "Inspect", pin: true },
+        { label: "Popup", keys: [{ key: "f", label: "F" }, "e", "q"] },
+      ],
+    },
+  };
+
+  //--- Engine stubs: just what the plugins touch
+  const W = 816, H = 624;
+  window.Utils = { RPGMAKER_NAME: "MZ" };
+  window.PluginManager = { parameters: () => ({ config: JSON.stringify(CONFIG) }) };
+  window.Graphics = {
+    width: W, height: H, boxWidth: W, boxHeight: H, _width: W, _height: H, _realScale: 1,
+    _updateRealScale() { this._realScale = Math.min(innerWidth / W, innerHeight / H); },
+    _updateAllElements() {
+      this._updateRealScale();
+      const c = this._canvas;
+      if (!c) return;
+      c.style.width = W * this._realScale + "px";
+      c.style.height = H * this._realScale + "px";
+    },
+    printError() {},
+    _canvas: null,
+  };
+  window.Bitmap = function () {};
+  Bitmap.prototype._createBaseTexture = function () {};
+  window.Input = { _currentState: {}, keyMapper: {}, update() {}, clear() {} };
+  window.LZString = {};
+  window.Rectangle = function () {};
+
+  // Classes the item plugin patches: any method it wraps exists as a no-op.
+  const stub = () => {
+    const C = function () {};
+    C.prototype = new Proxy({}, { get: (t, k) => (k in t ? t[k] : function () {}) });
+    return C;
+  };
+  for (const name of ["Game_Temp", "Game_Interpreter", "Scene_Item", "Scene_ItemBase", "Window_Base", "Window_ShopNumber"]) {
+    window[name] = stub();
+  }
+  window.Game_Action = { EFFECT_COMMON_EVENT: 44 };
+  window.Scene_Boot = function () {};
+  Scene_Boot.prototype.isReady = () => true;
+  window.Scene_Map = function () {};
+
+  const now = Date.now();
+  const SLOTS = { 0: "0:42:10", 1: "12:05:31", 2: "11:58:02", 3: "3:20:47" };
+  window.$dataSystem = { optAutosave: true };
+  window.DataManager = {
+    maxSavefiles: () => 7,
+    savefileExists: (id) => id in SLOTS,
+    savefileInfo: (id) => ({ playtime: SLOTS[id], timestamp: now - id * 86400000 - 3600000 }),
+    isDatabaseLoaded: () => true,
+    createGameObjects() {},
+  };
+  window.SceneManager = { _scene: new Scene_Map() };
+  window.StorageManager = {
+    isLocalMode: () => false,
+    forageKey: (name) => "rmmzsave.demo." + name,
+    saveZip() {}, remove() {},
+    updateForageKeys: () => Promise.resolve(),
+  };
+  window.localforage = {
+    keys: async () => ["global", "file1", "file2"].map((n) => "rmmzsave.demo." + n),
+    getItem: async () => "save",
+    setItem: async () => {},
+    removeItem: async () => {},
+  };
+
+  // The save API, as the Worker would answer it.
+  const remoteSaves = {
+    ok: [],
+    conflict: [
+      { name: "file1", etag: "a1", updatedAt: now - 2 * 3600000, deviceId: "Android-3f9a1c2e" },
+      { name: "file2", etag: "b2", updatedAt: now - 26 * 3600000, deviceId: "Android-3f9a1c2e" },
+    ],
+    recent: [{ name: "file1", etag: "a1", updatedAt: now - 90000, deviceId: "Android-3f9a1c2e" }],
+  }[SYNC] || [];
+  window.fetch = async (url, init = {}) => {
+    if (url === "/api/saves" && (init.method || "GET") === "GET") {
+      return new Response(JSON.stringify({ items: remoteSaves }), { headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ etag: "new" }), { headers: { "content-type": "application/json" } });
+  };
+  if (SYNC === "ok") localforage.keys = async () => [];
+</script>
+<script src="../../runtime/RWK_Core.js"></script>
+<script src="../../runtime/RWK_SaveSync.js"></script>
+<script src="../../runtime/RWK_MobileControls.js"></script>
+<script src="../../runtime/RWK_SaveTools.js"></script>
+<script src="../../runtime/RWK_ItemBatch.js"></script>
+<script>
+  //--- The "game": a hand-drawn map or item menu on the canvas
+  const canvas = document.createElement("canvas");
+  canvas.id = "gameCanvas";
+  canvas.width = W;
+  canvas.height = H;
+  document.body.appendChild(canvas);
+  Graphics._canvas = canvas;
+  Graphics._updateAllElements();
+  addEventListener("resize", () => Graphics._updateAllElements());
+  const g = canvas.getContext("2d");
+  const T = 48;
+
+  // Deterministic noise so every capture looks the same.
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+  function grass(x, y) {
+    g.fillStyle = "#5fa04e";
+    g.fillRect(x, y, T, T);
+    for (let i = 0; i < 7; i++) {
+      g.fillStyle = rnd() > 0.5 ? "#6fb35a" : "#528f43";
+      g.fillRect(x + Math.floor(rnd() * 11) * 4, y + Math.floor(rnd() * 11) * 4, 4, 4);
+    }
+  }
+  function path(x, y) {
+    g.fillStyle = "#c9a76a";
+    g.fillRect(x, y, T, T);
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = rnd() > 0.5 ? "#d8b97e" : "#b8955a";
+      g.fillRect(x + Math.floor(rnd() * 11) * 4, y + Math.floor(rnd() * 11) * 4, 4, 4);
+    }
+  }
+  function water(x, y, t) {
+    g.fillStyle = "#3a78c8";
+    g.fillRect(x, y, T, T);
+    g.fillStyle = "#5b98e0";
+    g.fillRect(x + 8 + (t % 2) * 16, y + 12, 12, 4);
+    g.fillRect(x + 24 - (t % 2) * 12, y + 32, 12, 4);
+  }
+  function tree(x, y) {
+    g.fillStyle = "#6b4423";
+    g.fillRect(x + 20, y + 30, 8, 18);
+    g.fillStyle = "#2f6b2f";
+    g.fillRect(x + 6, y + 6, 36, 28);
+    g.fillRect(x + 12, y, 24, 36);
+    g.fillStyle = "#3f8a3a";
+    g.fillRect(x + 12, y + 6, 12, 10);
+  }
+  function flower(x, y, c) {
+    g.fillStyle = c;
+    g.fillRect(x + 16, y + 16, 6, 6);
+    g.fillRect(x + 30, y + 28, 6, 6);
+  }
+  function house(x, y) {
+    g.fillStyle = "#a23b2c";
+    for (let i = 0; i < 4; i++) g.fillRect(x - 12 + i * 12, y + 36 - i * 12, 4 * T + 24 - i * 24, 12);
+    g.fillRect(x + 24, y - 12, 3 * T - 48, 12);
+    g.fillStyle = "#7d2a1f";
+    g.fillRect(x - 12, y + 44, 4 * T + 24, 4);
+    g.fillStyle = "#e8d7b0";
+    g.fillRect(x, y + 48, 4 * T, 2 * T);
+    g.fillStyle = "#8a5a33";
+    g.fillRect(x + 1.5 * T, y + 48 + T * 0.75, T, T * 1.25);
+    g.fillStyle = "#cfa36b";
+    g.fillRect(x + 1.5 * T + 30, y + 48 + T * 1.3, 6, 6);
+    g.fillStyle = "#6fa8dc";
+    g.fillRect(x + 14, y + 64, 32, 28);
+    g.fillRect(x + 4 * T - 46, y + 64, 32, 28);
+    g.fillStyle = "#e8d7b0";
+    g.fillRect(x + 28, y + 64, 4, 28);
+    g.fillRect(x + 4 * T - 32, y + 64, 4, 28);
+  }
+  function hero(x, y, hair, cloth) {
+    g.fillStyle = "rgba(0,0,0,.25)";
+    g.fillRect(x + 10, y + 42, 28, 6);
+    g.fillStyle = hair;
+    g.fillRect(x + 12, y + 2, 24, 10);
+    g.fillRect(x + 10, y + 6, 4, 14);
+    g.fillRect(x + 34, y + 6, 4, 14);
+    g.fillStyle = "#f3c9a0";
+    g.fillRect(x + 14, y + 10, 20, 14);
+    g.fillStyle = "#222";
+    g.fillRect(x + 18, y + 15, 4, 4);
+    g.fillRect(x + 26, y + 15, 4, 4);
+    g.fillStyle = cloth;
+    g.fillRect(x + 12, y + 24, 24, 14);
+    g.fillRect(x + 8, y + 26, 4, 10);
+    g.fillRect(x + 36, y + 26, 4, 10);
+    g.fillStyle = "#3b2c25";
+    g.fillRect(x + 14, y + 38, 8, 6);
+    g.fillRect(x + 26, y + 38, 8, 6);
+  }
+
+  function drawMap() {
+    const cols = W / T, rows = Math.ceil(H / T);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * T, y = r * T;
+        if (c >= 12 && r >= 8) water(x, y, c + r);
+        else if (c === 7 || (r === 7 && c < 12)) path(x, y);
+        else grass(x, y);
+      }
+    }
+    house(2 * T, 1 * T);
+    for (const [c, r] of [[0, 0], [0, 4], [9, 0], [11, 1], [13, 0], [15, 2], [16, 5], [10, 4], [1, 10], [3, 11], [0, 8]]) tree(c * T, r * T);
+    for (const [c, r, col] of [[9, 9, "#f2e35b"], [10, 10, "#f07ca8"], [4, 9, "#f2e35b"], [13, 5, "#f07ca8"]]) flower(c * T, r * T, col);
+    hero(7 * T, 8 * T, "#6b3f1f", "#3d5fc4");
+    hero(9 * T, 6 * T, "#d8d0c0", "#8a3fa8");
+    // Message window, MZ style
+    windowBox(16, H - 180, W - 32, 164);
+    g.fillStyle = "#fff";
+    g.font = "26px 'DejaVu Sans', sans-serif";
+    g.fillText("Elder Mira", 44, H - 138);
+    g.fillText("The bridge to the east washed away last night.", 44, H - 98);
+    g.fillText("Could you check on the ferryman for me?", 44, H - 62);
+  }
+
+  function windowBox(x, y, w, h, alpha = 0.88) {
+    const grad = g.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, `rgba(28,40,110,${alpha})`);
+    grad.addColorStop(1, `rgba(14,20,64,${alpha})`);
+    g.fillStyle = grad;
+    g.fillRect(x, y, w, h);
+    g.strokeStyle = "#e8ecff";
+    g.lineWidth = 3;
+    g.strokeRect(x + 2, y + 2, w - 4, h - 4);
+  }
+
+  function drawItems() {
+    g.fillStyle = "#24305e";
+    g.fillRect(0, 0, W, H);
+    g.font = "24px 'DejaVu Sans', sans-serif";
+    windowBox(0, 0, W, 96);
+    g.fillStyle = "#fff";
+    g.fillText("A book of old lore. Raises INT by 1.", 24, 56);
+    windowBox(0, 96, W, 64);
+    ["Item", "Weapon", "Armor", "Key Item"].forEach((t, i) => {
+      if (!i) { g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(12, 108, 186, 40); }
+      g.fillStyle = "#fff";
+      g.fillText(t, 24 + i * 200, 136);
+    });
+    windowBox(0, 160, W, H - 160);
+    const list = [["Potion", 27], ["Hi-Potion", 6], ["Antidote", 4], ["Study Book", 30], ["Ether", 9], ["Phoenix Down", 2]];
+    list.forEach(([name, n], i) => {
+      const x = 24 + (i % 2) * 396, y = 204 + Math.floor(i / 2) * 44;
+      if (i === 3) { g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(x - 10, y - 30, 380, 40); }
+      g.fillStyle = "#fff";
+      g.fillText(name, x + 36, y);
+      g.textAlign = "right";
+      g.fillText(":" + String(n).padStart(2, " "), x + 360, y);
+      g.textAlign = "left";
+      g.fillStyle = ["#e05050", "#e09050", "#60c060", "#c0a060", "#5090e0", "#e0c060"][i];
+      g.fillRect(x + 4, y - 22, 24, 24);
+    });
+    // The toolkit's quantity window: 456 wide, 8 lines high, centered
+    const bw = 456, bh = 8 * 36 + 24, bx = (W - bw) / 2, by = (H - bh) / 2;
+    g.fillStyle = "rgba(0,0,0,.35)";
+    g.fillRect(0, 160, W, H - 160);
+    windowBox(bx, by, bw, bh, 1);
+    g.fillStyle = "#fff";
+    g.textAlign = "center";
+    g.fillText("Use how many?", W / 2, by + 44);
+    g.textAlign = "left";
+    g.fillStyle = "#c0a060";
+    g.fillRect(bx + 24, by + 112, 24, 24);
+    g.fillStyle = "#fff";
+    g.fillText("Study Book", bx + 60, by + 134);
+    g.fillText("×", bx + bw - 120, by + 134);
+    g.fillStyle = "rgba(255,255,255,.18)";
+    g.fillRect(bx + bw - 92, by + 104, 68, 40);
+    g.fillStyle = "#fff";
+    g.textAlign = "right";
+    g.fillText("10", bx + bw - 36, by + 134);
+    g.textAlign = "center";
+    ["−10", "−1", "+1", "+10", "OK"].forEach((t, i) => {
+      const x = bx + 36 + i * 80;
+      g.fillStyle = "rgba(255,255,255,.14)";
+      g.fillRect(x, by + 196, 64, 48);
+      g.strokeStyle = "rgba(255,255,255,.6)";
+      g.lineWidth = 2;
+      g.strokeRect(x, by + 196, 64, 48);
+      g.fillStyle = "#fff";
+      g.fillText(t, x + 32, by + 228);
+    });
+    g.textAlign = "left";
+  }
+
+  (SCENE === "items" ? drawItems : drawMap)();
+
+  // Boot the way the engine would, so save sync runs its startup check.
+  if (SYNC) {
+    const boot = new Scene_Boot();
+    const tick = () => (boot.isReady() ? null : setTimeout(tick, 50));
+    tick();
+  }
+</script>
+</body>
+</html>

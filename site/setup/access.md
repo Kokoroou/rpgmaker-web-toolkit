@@ -1,65 +1,38 @@
 # Protect the site and invite players
 
-The toolkit uses **Cloudflare Access** (part of Cloudflare Zero Trust, free for up to 50 users). Every visitor has to sign in with an email you allowed before the game even loads, and each email gets its own saves.
+**Cloudflare Access** (free for 50 users) asks every visitor for an allowed email before the game loads. Each email gets its own saves.
 
 ## Turn on Access
 
-At the end of the first deploy, the toolkit asks:
+At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit opens the game's settings in the Cloudflare dashboard:
 
-```
-? Option
-  › Cloudflare Access: email login, saves tied to the email (recommended)
-    No protection: a public site anyone can open, everyone shares saves
-    Later (keep the site locked)
-```
+1. **Domains & Routes** → **workers.dev** row → turn on **Cloudflare Access**.
+2. First time with Zero Trust? Pick a **team name** and the **Free** plan.
+3. Back in PowerShell, press **Enter**. Once Access is detected, the game is published unlocked.
 
-Choose **Cloudflare Access**. The toolkit opens the game's settings page in the Cloudflare dashboard. There:
+It can take a minute; choose **Check again** if needed. Chose **Later**? The site stays [locked](/setup/first-deploy#lock-protect-play); run the deploy again when ready.
 
-1. Under **Domains & Routes**, find the **workers.dev** row and turn on **Cloudflare Access**.
-2. If this is your first time using Zero Trust, Cloudflare asks you to choose a **team name** and a plan. Pick the **Free** plan.
-3. Go back to PowerShell and press **Enter**. The toolkit checks the site and, once Access is detected, publishes the game again unlocked.
-
-Changes can take about a minute to apply. If the check fails, choose **Check again**.
-
-::: details Access is on but the toolkit does not detect it
+::: details The toolkit does not detect Access
 Choose **Enter the team domain and AUD manually**:
 
-- **Team domain**: `<team name>.cloudflareaccess.com`. It is shown in the Zero Trust settings, and in the address bar of the login page you see when you open the game.
-- **AUD tag**: Zero Trust → Access → Applications → the game's application. Its details show the *Application Audience (AUD) Tag*, a long hex string.
-:::
-
-::: tip Choosing "Later"
-The site stays locked and nobody can open it. Run the same deploy command again when you are ready; it picks up where you left off.
+- **Team domain**: `<team name>.cloudflareaccess.com` (in the address bar of the login page).
+- **AUD tag**: Zero Trust → Access → Applications → the game → *Application Audience (AUD) Tag*.
 :::
 
 ## Invite players
 
-By default, **only your Cloudflare account's email** can sign in. To let other people in, or another email of yours:
+Only your Cloudflare account's email can sign in at first. To add someone:
 
-1. Open [Cloudflare Zero Trust](https://one.dash.cloudflare.com) → **Access** → **Applications**.
-2. Open the game's application (named after the Worker).
-3. Go to **Policies** and edit the allow policy.
-4. Under **Include**, add a rule **Emails** with each person's email. Save.
+1. [Zero Trust](https://one.dash.cloudflare.com) → **Access** → **Applications** → the game.
+2. **Policies** → edit the allow policy → **Include** → **Emails** → add theirs. Save.
 
-Every game you publish has its own application, so you can allow different people per game.
+They sign in as in [Open and play](/play/). Each game has its own list, and each email its own saves.
 
-::: warning Saves belong to the email
-Each email has its own saves. A friend who signs in with their email starts their own game; they never see or overwrite yours.
-:::
+Every deploy prints how many emails have saves. Sharing a copy widely is redistribution, so it warns above 5 (above 1 if the creator asked for [personal copies](/creators/policy)).
 
-## How players sign in
+## A public site (no protection)
 
-When someone opens the link, Cloudflare shows a login page:
-
-1. They type their email.
-2. Cloudflare emails them a one-time code (if their email is allowed).
-3. They type the code and the game opens.
-
-The login lasts for a while (the session length set on the application), then they sign in again. See [Open and play](/play/).
-
-## No protection
-
-**No protection** makes the site public: anyone with the link can play, and **everyone shares the same saves**. A public site is redistribution of the game, so the toolkit asks why it may be public:
+`2) No protection` lets anyone with the link play, and **everyone shares one set of saves**. It is only for games you may redistribute, so the toolkit asks why:
 
 ```
 ? Why may this game be public?
@@ -68,27 +41,10 @@ The login lasts for a while (the session length set on the application), then th
      3) Neither: keep the site locked and use Cloudflare Access instead
 ```
 
-Then it asks whether search engines may list the site (no by default). The answer is kept in the game's settings (`auth.basis`, `indexable`).
+Then whether search engines may list it (no by default; otherwise every site sends `noindex`). A creator's [hosting policy](/creators/policy) can rule this option out.
 
-- If the game's creator ships a [hosting policy](/creators/policy) that keeps the game private, *No protection* is not offered, and a site that was public is locked until Access is on.
-- Sites that were public before this question existed are asked once on the next deploy.
+## If Access gets turned off
 
-::: tip Search engines
-Unless a public site asks to be listed, every site sends `X-Robots-Tag: noindex` and a `robots.txt` that keeps crawlers out, so it does not show up in search results.
-:::
-
-## How many people play
-
-Each deploy shows how many emails have saves for the game. Sharing your copy with many people is redistribution, so the toolkit warns above 5 emails, or above 1 when the game's creator asked for personal copies only.
-
-## Checking the protection later
-
-Every deploy checks that Access still protects the site. If it was turned off in the dashboard, the deploy warns:
-
-```
-Cloudflare Access is NO LONGER protecting the site!
-```
-
-Turn it back on as in [Turn on Access](#turn-on-access), step 1.
+Every deploy checks. If it says `Cloudflare Access is NO LONGER protecting the site!`, redo step 1 above.
 
 **Next:** [Update the game](/setup/updating)

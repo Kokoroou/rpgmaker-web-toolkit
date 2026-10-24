@@ -1,61 +1,29 @@
 # Before you start
 
-You need four things. The first deploy takes about 15 minutes, most of it in the Cloudflare dashboard. After that, updates are a single command.
+About 15 minutes the first time, mostly in the Cloudflare dashboard. After that, every update is one command.
 
-## 1. A Windows PC
+| You need | |
+|---|---|
+| A **Windows** PC with PowerShell | Only to publish. Players use any browser, on any device |
+| **Node.js 24+** | [nodejs.org](https://nodejs.org) (LTS), or `winget install OpenJS.NodeJS.LTS`, then reopen PowerShell |
+| A free **Cloudflare** account | [Sign up](https://dash.cloudflare.com/sign-up), then turn on the two things below |
+| The **game** folder | The one with `Game.exe` (or its `www/` subfolder) |
 
-The toolkit runs from **PowerShell** on Windows. macOS and Linux are not supported yet.
+## In the Cloudflare dashboard
 
-You only need the PC to publish and update the game. Players open it in any browser, on any device.
+1. **Workers & Pages**: pick a *workers.dev subdomain* (your username, for example). Games live at `https://<game>.<subdomain>.workers.dev`.
+2. **R2 Object Storage**: enable it. It holds saves, settings and files over 25 MiB. Cloudflare asks for a payment method even on the free tier; normal use stays free ([limits](/reference/limits)).
 
-## 2. Node.js 24 or newer
+Forgot one? The deploy stops, prints the link and waits.
 
-Install the LTS version from [nodejs.org](https://nodejs.org), or run this in PowerShell:
+## Which games
 
-```powershell
-winget install OpenJS.NodeJS.LTS
-```
-
-Close and reopen PowerShell afterwards, then check:
-
-```powershell
-node --version   # v24.x or newer
-```
-
-## 3. A Cloudflare account
-
-A free account at [dash.cloudflare.com](https://dash.cloudflare.com/sign-up) is enough. Before the first deploy, turn on two things once:
-
-### A workers.dev subdomain
-
-Your games will live at `https://<game>.<subdomain>.workers.dev`.
-
-1. Open the dashboard and go to **Workers & Pages**.
-2. If it asks you to pick a subdomain, choose one (your username, for example).
-
-If you skip this, the deploy stops with *"The account has no workers.dev subdomain yet"* and tells you where to go.
-
-### R2 storage
-
-R2 stores the saves, the game's settings and any file larger than 25 MiB.
-
-1. Open **R2 Object Storage** in the dashboard.
-2. Click to enable it. Cloudflare asks for a payment method even on the free tier (10 GB free per month). Normal use stays inside the free tier; see [Free plan limits](/reference/limits).
-
-If R2 is not enabled yet, the toolkit notices, prints the link to the R2 page and waits for you.
-
-## 4. The game
-
-| Engine | Status |
+| Engine | |
 |---|---|
 | RPG Maker **MZ** | Supported |
 | RPG Maker **MV** | Supported |
-| RPG Maker XP, VX, VX Ace, 2000, 2003 | Not supported (they are not web engines) |
+| XP, VX, VX Ace, 2000, 2003 | Not supported (not web engines) |
 
-Use the folder that contains `Game.exe`. The toolkit looks for `index.html` and a `js/` folder there, or in its `www/` subfolder (MV), so either folder works.
-
-::: tip Encrypted games work as is
-Games whose images and audio are encrypted (`.rpgmvp`, `.png_`, `.ogg_`…) work without any change: the browser build reads them the same way the desktop game does.
-:::
+Encrypted images and audio (`.rpgmvp`, `.png_`, `.ogg_`…) work as they are.
 
 **Next:** [First deploy](/setup/first-deploy)

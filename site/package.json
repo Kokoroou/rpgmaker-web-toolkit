@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "screenshots": "node screenshots/capture.mjs"
   },
   "devDependencies": {
     "@fontsource-variable/ibm-plex-sans": "5.3.0",

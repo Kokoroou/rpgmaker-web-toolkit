@@ -16,7 +16,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - `test/` — tests for `cli/` and `worker/`
 - `site/` — VitePress user guide, published to GitHub Pages by `docs.yml`
 
-Details: README → Architecture.
+Details: `site/reference/how-it-works.md`. Contributor setup: `CONTRIBUTING.md`.
 
 ## Branches, PRs and commits
 `main` is protected: every change goes through a PR, merged with **squash** only, and CI
