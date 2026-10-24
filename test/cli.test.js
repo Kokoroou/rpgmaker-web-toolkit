@@ -4,11 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
-import { compileGlobs, mobileOnlyMissing, suggestSlug, validateSlug } from "../cli/lib/game.js";
+import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
 import { generatedFiles, syncPublicDir } from "../cli/lib/stage.js";
+import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
 
@@ -187,6 +188,20 @@ test("free plan limits: newest valid copy wins, offline falls back", async () =>
   }
   assert.equal(parseLimits({ updated: "2026-01-01", assets: { maxFiles: 1.5, maxFileBytes: 25 * 1024 ** 2 } }), null);
   await assert.rejects(loadLimits({ bundledFile: path.join(dir, "missing.json"), url: "off" }), /Invalid limits file/);
+});
+
+test("analyze: non-ASCII file names", () => {
+  const files = ["img/pictures/大图.png", "audio/se/Cursor.ogg", "audio/bgm/Café.ogg", "index.html"].map((rel) => ({ rel }));
+  assert.deepEqual(nonAsciiPaths(files), ["img/pictures/大图.png", "audio/bgm/Café.ogg"]);
+});
+
+test("warnings are kept for the build report", (t) => {
+  t.mock.method(console, "log", () => {});
+  const before = warnings.length;
+  log.warn("first");
+  log.info("not a warning");
+  log.warn("second");
+  assert.deepEqual(warnings.slice(before), ["first", "second"]);
 });
 
 test("MV phone media: Ogg / WebM without an .m4a / .mp4 twin", () => {

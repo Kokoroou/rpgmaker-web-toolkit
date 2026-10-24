@@ -17,12 +17,12 @@ import {
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
-import { analyzeGame, collectFiles, mobileOnlyMissing, suggestSlug, validateSlug } from "../lib/game.js";
+import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../lib/game.js";
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
-import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
+import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false } = {}) {
   if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path");
@@ -102,6 +102,11 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} go to R2)`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
   if (game.engine === "MV") warnMobileMedia(files);
+  const oddNames = nonAsciiPaths(files);
+  if (oddNames.length) {
+    const shown = oddNames.slice(0, 3).join(", ") + (oddNames.length > 3 ? ", …" : "");
+    log.warn(`${oddNames.length} file name(s) have non-ASCII characters (${shown}). If a picture or sound is missing in the browser, check these first.`);
+  }
 
   const publicDir = path.join(buildDir, "public");
   const stats = syncPublicDir(publicDir, assets, generated);
@@ -110,10 +115,11 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   if (stats.copied) log.info(c.dim("Hard links were not possible (different drive, or the drive root is not writable), so files were copied."));
 
   //-------------------------------------------------------------------------
+  let r2 = null;
   if (overflow.length) {
     log.step("Large files on R2");
-    const res = await syncOverflow({ bucket, slug: cfg.slug, files: overflow });
-    log.ok(`Uploaded ${res.uploaded}, unchanged ${res.unchanged}, removed ${res.removed}`);
+    r2 = await syncOverflow({ bucket, slug: cfg.slug, files: overflow });
+    log.ok(`Uploaded ${r2.uploaded}, unchanged ${r2.unchanged}, removed ${r2.removed}`);
   }
 
   //-------------------------------------------------------------------------
@@ -155,6 +161,16 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   if (syncOn && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, bucket, email, false);
   await saveGameConfig();
   if (cfg.auth.mode === "access") await checkPlayers(bucket, cfg, policy);
+
+  log.step("Build report");
+  log.info(`${files.length} files, ${formatBytes(totalBytes)}`);
+  if (r2) log.info(`${overflow.length} file(s) over ${formatMiB(maxFileBytes)} on R2 (uploaded ${r2.uploaded}, unchanged ${r2.unchanged})`);
+  if (warnings.length) {
+    log.info(`${warnings.length} warning(s) during this run:`);
+    for (const w of warnings) log.info(`  ${c.yellow("!")} ${w}`);
+  } else {
+    log.ok("No warnings");
+  }
 
   console.log(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
   log.info("The game's config is stored in R2: on another machine, log in to the same Cloudflare account and run the command again.");

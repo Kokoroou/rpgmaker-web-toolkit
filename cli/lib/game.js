@@ -98,6 +98,13 @@ export function collectFiles(game, { include = [], exclude = [] } = {}) {
   return files;
 }
 
+// Paths with non-ASCII characters (Chinese, Japanese, accented letters…).
+// They often work, but a name saved in another Unicode form or encoded
+// differently by a plugin is a common cause of a missing picture or sound.
+export function nonAsciiPaths(files) {
+  return files.map((f) => f.rel).filter((rel) => /[^\x20-\x7e]/.test(rel));
+}
+
 // MV asks phones for .m4a audio and .mp4 movies. Counts the audio and movies
 // that exist only as Ogg / WebM (plain or encrypted), with no such twin.
 const MEDIA = [

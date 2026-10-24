@@ -10,11 +10,17 @@ export const c = {
   cyan: color(36),
 };
 
+// Every warning of the run, repeated in the deploy's build report.
+export const warnings = [];
+
 export const log = {
   step: (msg) => console.log(`\n${c.cyan("▶")} ${c.bold(msg)}`),
   info: (msg) => console.log(`  ${msg}`),
   ok: (msg) => console.log(`  ${c.green("✓")} ${msg}`),
-  warn: (msg) => console.log(`  ${c.yellow("!")} ${msg}`),
+  warn: (msg) => {
+    warnings.push(msg);
+    console.log(`  ${c.yellow("!")} ${msg}`);
+  },
   error: (msg) => console.error(`${c.red("✗")} ${msg}`),
 };
 
