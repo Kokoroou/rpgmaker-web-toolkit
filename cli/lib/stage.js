@@ -9,7 +9,7 @@ import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing } from "./game.js";
 import { isIndexable } from "./policy.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_Speed", "RWK_Message", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -91,6 +91,7 @@ export function generatedFiles(game, gameConfig, files = []) {
     itemBatch: gameConfig.itemBatch !== false,
     fastForward: gameConfig.fastForward !== false,
     messageMode: gameConfig.messageMode !== false,
+    alwaysDash: gameConfig.alwaysDash !== false,
   };
   if (game.engine === "MV") {
     const missing = mobileOnlyMissing(files);
