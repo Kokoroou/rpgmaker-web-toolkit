@@ -17,7 +17,7 @@ Windows only for now.
 
 ## Quick start
 
-The only requirement is [Node.js](https://nodejs.org) 20+ (LTS, or `winget install OpenJS.NodeJS.LTS`).
+The only requirement is [Node.js](https://nodejs.org) 24+ (LTS, or `winget install OpenJS.NodeJS.LTS`).
 
 Open **PowerShell** and paste:
 

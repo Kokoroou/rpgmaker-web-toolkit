@@ -8,7 +8,7 @@ The toolkit runs from **PowerShell** on Windows. macOS and Linux are not support
 
 You only need the PC to publish and update the game. Players open it in any browser, on any device.
 
-## 2. Node.js 20 or newer
+## 2. Node.js 24 or newer
 
 Install the LTS version from [nodejs.org](https://nodejs.org), or run this in PowerShell:
 
@@ -19,7 +19,7 @@ winget install OpenJS.NodeJS.LTS
 Close and reopen PowerShell afterwards, then check:
 
 ```powershell
-node --version   # v20.x or newer
+node --version   # v24.x or newer
 ```
 
 ## 3. A Cloudflare account
