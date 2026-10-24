@@ -14,6 +14,7 @@ test("locked mode blocks everything", async () => {
   const res = await call(env, "/index.html");
   assert.equal(res.status, 503);
   assert.equal(res.headers.get("x-rwk-locked"), "1");
+  assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.equal((await call(env, "/api/saves")).status, 503);
 });
 
@@ -74,6 +75,9 @@ test("overflow files come from R2 with range support, others from assets", async
   let res = await call(env, "/img/parallaxes/%E5%A4%A7%E5%9B%BE.png_");
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "0123456789");
+  assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
+  res = await call({ ...env, RWK_INDEXABLE: "1" }, "/img/parallaxes/%E5%A4%A7%E5%9B%BE.png_");
+  assert.equal(res.headers.get("x-robots-tag"), null);
 
   res = await call(env, "/img/parallaxes/%E5%A4%A7%E5%9B%BE.png_", { headers: { range: "bytes=2-5" } });
   assert.equal(res.status, 206);
@@ -111,4 +115,18 @@ test("Access JWT verification checks signature, audience and expiry", async () =
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test("the Worker counts the emails that save, once each", async () => {
+  const env = makeEnv({ GAME_ID: "count-game" });
+  const players = async () => {
+    const obj = await env.BUCKET.get("rwk/players/count-game.json");
+    return obj ? JSON.parse(new TextDecoder().decode(await obj.arrayBuffer())) : {};
+  };
+  await call(env, "/api/saves/file1", { method: "PUT", body: "x", headers: { "if-none-match": "*" } });
+  await call(env, "/api/saves/file2", { method: "PUT", body: "x", headers: { "if-none-match": "*" } });
+  assert.equal(Object.keys(await players()).length, 1);
+  // A rejected save does not count.
+  await call({ ...env, GAME_ID: "other-count" }, "/api/saves/file1", { method: "PUT", body: "x", headers: { "if-match": "stale" } });
+  assert.equal(await env.BUCKET.get("rwk/players/other-count.json"), null);
 });

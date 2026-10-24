@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
+import { isIndexable } from "./policy.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch"];
 
@@ -102,14 +103,23 @@ export function generatedFiles(game, gameConfig) {
       "\n"
   );
 
+  // Lets the game's creator, and anyone reading a bug report, tell this
+  // build apart from an official release.
+  const indexable = isIndexable(gameConfig);
   const indexHtml = fs.readFileSync(path.join(game.root, "index.html"), "utf8");
   if (!indexHtml.includes("rwk.webmanifest")) {
     const head =
       '<link rel="manifest" href="rwk.webmanifest">\n' +
       '<meta name="mobile-web-app-capable" content="yes">\n' +
-      '<meta name="theme-color" content="#000000">\n';
+      '<meta name="theme-color" content="#000000">\n' +
+      '<meta name="generator" content="rpgmaker-web-toolkit">\n' +
+      (indexable ? "" : '<meta name="robots" content="noindex, nofollow">\n');
     out.set("index.html", indexHtml.replace(/<\/head>/i, `${head}</head>`));
   }
+  // Static asset responses never reach the Worker, so the header comes from
+  // the assets' _headers file.
+  out.set("robots.txt", indexable ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n");
+  if (!indexable) out.set("_headers", "/*\n  X-Robots-Tag: noindex, nofollow\n");
   const iconExists = fs.existsSync(path.join(game.root, "icon", "icon.png"));
   out.set(
     "rwk.webmanifest",

@@ -140,6 +140,12 @@ export async function saveGameConfigs(bucket, configs) {
   await r2PutJson(bucket, CONFIGS_KEY, configs);
 }
 
+// { [sha256(email)]: first save time }, kept by the Worker (worker/players.js).
+export async function loadPlayers(bucket, slug) {
+  const raw = await r2Get(bucket, `rwk/players/${slug}.json`);
+  return raw ? JSON.parse(raw.toString("utf8")) : {};
+}
+
 //---------------------------------------------------------------------------
 // Overflow assets (> 25 MiB) mirrored to R2, only when their hash changes
 //---------------------------------------------------------------------------
@@ -226,7 +232,7 @@ export function overflowRoutes(rels) {
 // Worker deploy
 //---------------------------------------------------------------------------
 
-export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth, locked, toolkitRoot }) {
+export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -256,6 +262,7 @@ export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth,
       ACCESS_TEAM_DOMAIN: auth.teamDomain || "",
       ACCESS_AUD: auth.aud || "",
       RWK_LOCKED: locked ? "1" : "0",
+      RWK_INDEXABLE: indexable ? "1" : "0",
     },
     observability: { enabled: false },
   };

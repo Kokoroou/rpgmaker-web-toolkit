@@ -7,13 +7,15 @@
 //   DELETE /api/saves/:name    If-Match: <etag> (optional)          -> 204 | 412
 
 import { userHash } from "./auth.js";
+import { recordPlayer } from "./players.js";
 
 const NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const MAX_SAVE_BYTES = 8 * 1024 * 1024;
 
 export async function handleSaves(request, env, user, name) {
   if (!env.BUCKET) return json({ error: "Cloud save is disabled for this game" }, 501);
-  const prefix = `saves/${await userHash(user.email)}/${env.GAME_ID}/`;
+  const hash = await userHash(user.email);
+  const prefix = `saves/${hash}/${env.GAME_ID}/`;
 
   if (name === null) {
     if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -25,8 +27,11 @@ export async function handleSaves(request, env, user, name) {
   switch (request.method) {
     case "GET":
       return getSave(env.BUCKET, key);
-    case "PUT":
-      return putSave(request, env.BUCKET, key);
+    case "PUT": {
+      const res = await putSave(request, env.BUCKET, key);
+      if (res.status === 200) await recordPlayer(env, hash);
+      return res;
+    }
     case "DELETE":
       return deleteSave(request, env.BUCKET, key);
     default:
