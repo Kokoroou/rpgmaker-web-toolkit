@@ -4,7 +4,7 @@
 //
 //   {
 //     "hosting": "personal" | "shared" | "public" | "none",
-//     "features": { "saveTools": false, "itemBatch": false, "sync": false },
+//     "features": { "saveTools": false, "itemBatch": false, "fastForward": false, "sync": false },
 //     "message": "Shown to whoever publishes the game",
 //     "contact": "https://example.com/contact"
 //   }
@@ -15,7 +15,7 @@ import path from "node:path";
 export const POLICY_FILE = "rwk-policy.json";
 export const HOSTING_LEVELS = ["none", "personal", "shared", "public"];
 // Features a policy can force off, mapped to how the game config spells them.
-const FEATURE_KEYS = ["saveTools", "itemBatch", "sync"];
+const FEATURE_KEYS = ["saveTools", "itemBatch", "fastForward", "sync"];
 
 // -> null (no policy file) | { hosting, features, message, contact, file, problems }
 export function readPolicy(game) {
@@ -66,6 +66,7 @@ export function applyPolicy(cfg, policy) {
   const out = { ...cfg };
   if (policy.features.saveTools === false) out.saveTools = false;
   if (policy.features.itemBatch === false) out.itemBatch = false;
+  if (policy.features.fastForward === false) out.fastForward = false;
   if (policy.features.sync === false) out.sync = { ...cfg.sync, enabled: false };
   return out;
 }

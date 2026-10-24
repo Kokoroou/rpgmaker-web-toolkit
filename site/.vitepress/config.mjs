@@ -44,6 +44,7 @@ export default defineConfig({
           { text: "Touch controls", link: "/play/controls" },
           { text: "Saves on several devices", link: "/play/saves" },
           { text: "Edit or move a save", link: "/play/save-files" },
+          { text: "Fast forward", link: "/play/speed" },
           { text: "Use several items at once", link: "/play/items" },
         ],
       },

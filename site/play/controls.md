@@ -26,6 +26,7 @@ The controls fade after a few seconds without a touch. Touch the screen and they
 |---|---|
 | ⏸ | Pauses the game and opens the [menu](/play/#controls-and-tools): full screen, saves, button layout… |
 | ⌨ | **Game keys**: the game's extra keys, with what each one does |
+| ⏩ ×2 | [Fast forward](/play/speed): tap to turn on or off, hold to speed up only while held. Stays when the controls are hidden |
 | 👁 | Hide / show all the controls |
 
 ![The ⌨ Game keys panel](/img/game-keys.png){.shot .portrait}

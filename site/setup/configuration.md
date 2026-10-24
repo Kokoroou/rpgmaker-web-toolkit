@@ -16,6 +16,7 @@ A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed. Ever
 |---|---|
 | Remove ⏸ → Saves | `"saveTools": false` |
 | Turn off using several items at once | `"itemBatch": false` |
+| Turn off fast forward | `"fastForward": false` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |

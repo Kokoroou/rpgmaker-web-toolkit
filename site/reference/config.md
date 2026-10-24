@@ -17,6 +17,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `controls.scannedKeys` | Plugin keys already seen, so updates only ask about new ones | No need |
 | `saveTools` | `false` removes ⏸ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
 | `itemBatch` | `false` turns off using several items at once | Same |
+| `fastForward` | `false` turns off [fast forward](/play/speed) | Same |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
 ::: warning Changing `auth`
