@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 52" width="640" height="520" shape-rendering="crispEdges" role="img" aria-label="A phone running an RPG with on-screen buttons, and a cloud that syncs its saves">
+  <!-- cloud: saves sync -->
+  <g>
+    <rect x="41" y="4" width="10" height="1" fill="#2a347a"/>
+    <rect x="39" y="5" width="2" height="1" fill="#2a347a"/>
+    <rect x="51" y="5" width="2" height="1" fill="#2a347a"/>
+    <rect x="38" y="6" width="1" height="2" fill="#2a347a"/>
+    <rect x="53" y="6" width="2" height="1" fill="#2a347a"/>
+    <rect x="55" y="7" width="2" height="1" fill="#2a347a"/>
+    <rect x="35" y="8" width="3" height="1" fill="#2a347a"/>
+    <rect x="57" y="8" width="1" height="5" fill="#2a347a"/>
+    <rect x="34" y="9" width="1" height="4" fill="#2a347a"/>
+    <rect x="35" y="13" width="22" height="1" fill="#2a347a"/>
+    <rect x="41" y="5" width="10" height="1" fill="#ffffff"/>
+    <rect x="39" y="6" width="14" height="2" fill="#ffffff"/>
+    <rect x="53" y="7" width="2" height="1" fill="#ffffff"/>
+    <rect x="35" y="9" width="22" height="4" fill="#e6e9ff"/>
+    <rect x="38" y="8" width="19" height="1" fill="#ffffff"/>
+    <rect x="35" y="12" width="22" height="1" fill="#c9cff3"/>
+    <!-- up / down arrows -->
+    <rect x="42" y="7" width="1" height="1" fill="#c88a12"/>
+    <rect x="41" y="8" width="3" height="1" fill="#c88a12"/>
+    <rect x="42" y="9" width="1" height="3" fill="#c88a12"/>
+    <rect x="49" y="7" width="1" height="3" fill="#3d4fc4"/>
+    <rect x="48" y="10" width="3" height="1" fill="#3d4fc4"/>
+    <rect x="49" y="11" width="1" height="1" fill="#3d4fc4"/>
+  </g>
+  <!-- sync dots between cloud and phone -->
+  <rect x="45" y="16" width="1" height="1" fill="#8d9bff"/>
+  <rect x="45" y="18" width="1" height="1" fill="#8d9bff"/>
+
+  <!-- phone body -->
+  <rect x="3" y="20" width="58" height="28" fill="#2a347a"/>
+  <rect x="2" y="21" width="60" height="26" fill="#2a347a"/>
+  <rect x="4" y="21" width="56" height="1" fill="#3d4fc4"/>
+  <rect x="3" y="46" width="58" height="1" fill="#1b2150"/>
+
+  <!-- screen -->
+  <rect x="15" y="23" width="34" height="22" fill="#1b2150"/>
+  <rect x="16" y="24" width="32" height="20" fill="#7aa2ff"/>
+  <rect x="16" y="24" width="32" height="3" fill="#5c86f0"/>
+  <!-- hills and ground -->
+  <rect x="16" y="32" width="32" height="12" fill="#3f9b52"/>
+  <rect x="16" y="31" width="8" height="1" fill="#3f9b52"/>
+  <rect x="18" y="30" width="4" height="1" fill="#3f9b52"/>
+  <rect x="36" y="31" width="12" height="1" fill="#3f9b52"/>
+  <rect x="39" y="30" width="7" height="1" fill="#3f9b52"/>
+  <rect x="16" y="33" width="32" height="1" fill="#57b56a"/>
+  <!-- tree -->
+  <rect x="41" y="27" width="4" height="3" fill="#2b7a3d"/>
+  <rect x="40" y="28" width="6" height="2" fill="#2b7a3d"/>
+  <rect x="42" y="30" width="2" height="3" fill="#7a4a24"/>
+  <!-- hero -->
+  <rect x="25" y="28" width="3" height="2" fill="#7a4a24"/>
+  <rect x="25" y="30" width="3" height="1" fill="#f5c9a0"/>
+  <rect x="24" y="31" width="5" height="2" fill="#c0392b"/>
+  <rect x="25" y="33" width="1" height="1" fill="#1b2150"/>
+  <rect x="27" y="33" width="1" height="1" fill="#1b2150"/>
+  <!-- chest -->
+  <rect x="32" y="31" width="4" height="3" fill="#c88a12"/>
+  <rect x="32" y="32" width="4" height="1" fill="#7a4a24"/>
+  <rect x="33" y="32" width="2" height="1" fill="#f2c14e"/>
+  <!-- message window -->
+  <rect x="17" y="36" width="30" height="7" fill="#ffffff"/>
+  <rect x="18" y="37" width="28" height="5" fill="#2a347a"/>
+  <rect x="20" y="38" width="14" height="1" fill="#e6e9ff"/>
+  <rect x="20" y="40" width="9" height="1" fill="#e6e9ff"/>
+  <rect x="43" y="40" width="1" height="1" fill="#f2c14e"/>
+  <rect x="42" y="39" width="3" height="1" fill="#f2c14e"/>
+
+  <!-- d-pad -->
+  <rect x="7" y="29" width="3" height="11" fill="#141938"/>
+  <rect x="3" y="33" width="11" height="3" fill="#141938"/>
+  <rect x="8" y="30" width="1" height="1" fill="#c9cff3"/>
+  <rect x="8" y="38" width="1" height="1" fill="#c9cff3"/>
+  <rect x="4" y="34" width="1" height="1" fill="#c9cff3"/>
+  <rect x="12" y="34" width="1" height="1" fill="#c9cff3"/>
+
+  <!-- A / B / X / Y -->
+  <rect x="55" y="29" width="3" height="3" fill="#f2c14e"/>
+  <rect x="55" y="36" width="3" height="3" fill="#e5484d"/>
+  <rect x="51" y="32" width="3" height="3" fill="#8d9bff"/>
+  <rect x="59" y="32" width="2" height="3" fill="#57b56a"/>
+  <rect x="55" y="29" width="1" height="1" fill="#fff4cc"/>
+  <rect x="51" y="32" width="1" height="1" fill="#e6e9ff"/>
+
+  <!-- L / R -->
+  <rect x="6" y="19" width="6" height="1" fill="#141938"/>
+  <rect x="52" y="19" width="6" height="1" fill="#141938"/>
+</svg>
