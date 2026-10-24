@@ -517,6 +517,27 @@
     changed();
   }
 
+  //---------------------------------------------------------------------------
+  // Save history (Worker /api/history), for RWK_SaveHistory
+  //---------------------------------------------------------------------------
+
+  // -> [{ name, id, updatedAt, deviceId, size }], newest first
+  async function history() {
+    const res = await api("GET", "history");
+    if (!res.ok) throw new Error("history: " + res.status);
+    return (await res.json()).items;
+  }
+
+  // Puts a copy back in the cloud, then on this device: it replaces this
+  // device's copy of that save, uploaded or not.
+  async function restore(name, id) {
+    const res = await api("POST", "history/" + encodeURIComponent(name) + "/" + encodeURIComponent(id));
+    if (!res.ok) throw new Error("restore " + name + ": " + res.status);
+    pending.delete(name);
+    await download(name);
+    changed();
+  }
+
   // Upload whatever is waiting now, e.g. from the ⏸ menu.
   function syncNow() {
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
@@ -537,8 +558,12 @@
 
   // saved(name): a save the engine's hooks above do not see (MV toolkit slots).
   // hush(): the next upload shows no toast (autosaves).
+  // label(name): a save's name for the player.
   RWK.saveSync = {
     flush,
+    history,
+    restore,
+    label,
     meta,
     syncNow,
     status,

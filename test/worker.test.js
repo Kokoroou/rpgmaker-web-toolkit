@@ -130,3 +130,100 @@ test("the Worker counts the emails that save, once each", async () => {
   await call({ ...env, GAME_ID: "other-count" }, "/api/saves/file1", { method: "PUT", body: "x", headers: { "if-match": "stale" } });
   assert.equal(await env.BUCKET.get("rwk/players/other-count.json"), null);
 });
+
+test("save history: copies before overwrites and deletes, restore, limits", async () => {
+  const env = makeEnv({ RWK_SAVE_HISTORY: JSON.stringify({ keep: 3, days: 30 }) });
+  const realNow = Date.now;
+  let clock = Date.UTC(2026, 9, 1);
+  Date.now = () => clock;
+  const MIN = 60 * 1000;
+  const put = (name, body, etag, device = "pc") =>
+    call(env, "/api/saves/" + name, {
+      method: "PUT",
+      body,
+      headers: { "x-rwk-device": device, ...(etag ? { "if-match": etag } : { "if-none-match": "*" }) },
+    }).then((res) => res.json());
+  const history = async () => (await (await call(env, "/api/history")).json()).items;
+  try {
+    let { etag } = await put("file1", "v1");
+    assert.deepEqual(await history(), [], "a new save has no older copy");
+
+    clock += MIN;
+    ({ etag } = await put("file1", "v2", etag));
+    let items = await history();
+    assert.equal(items.length, 1, "the first overwrite keeps the original");
+    assert.deepEqual([items[0].name, items[0].deviceId, items[0].size], ["file1", "pc", 2]);
+    assert.match(items[0].id, /^\d{13}$/);
+
+    clock += MIN;
+    ({ etag } = await put("file1", "v3", etag));
+    assert.equal((await history()).length, 1, "same device within 15 minutes: no new copy");
+
+    clock += MIN;
+    ({ etag } = await put("file1", "v4", etag, "phone"));
+    assert.equal((await history()).length, 2, "another device replacing the save: a copy");
+
+    clock += 16 * MIN;
+    ({ etag } = await put("file1", "v5", etag, "phone"));
+    items = await history();
+    assert.equal(items.length, 3, "15 minutes later: a copy");
+    assert.ok(items[0].updatedAt > items[1].updatedAt && items[1].updatedAt > items[2].updatedAt, "newest first");
+
+    // config and global get no history.
+    let g = await put("global", "g1");
+    clock += 20 * MIN;
+    g = await put("global", "g2", g.etag);
+    assert.ok((await history()).every((i) => i.name === "file1"));
+    assert.equal((await call(env, "/api/history/global/" + items[0].id, { method: "POST" })).status, 400);
+
+    // Restore the oldest copy (v1): the save being replaced (v5) is kept, the oldest copy past `keep` goes.
+    clock += MIN;
+    const oldest = items[2];
+    let res = await call(env, `/api/history/file1/${oldest.id}`, { method: "POST", headers: { "x-rwk-device": "tablet" } });
+    assert.equal(res.status, 200);
+    const restored = await res.json();
+    res = await call(env, "/api/saves/file1");
+    assert.equal(await res.text(), "v1");
+    assert.equal(res.headers.get("etag"), restored.etag);
+    assert.equal(res.headers.get("x-rwk-device"), "tablet");
+    items = await history();
+    assert.equal(items.length, 3, "keep: 3");
+    assert.equal(items[0].deviceId, "phone", "the replaced save is the newest copy");
+    assert.ok(!items.some((i) => i.id === oldest.id), "the oldest copy was pruned");
+
+    // Deleting keeps a copy; the copy can bring the save back.
+    clock += MIN;
+    assert.equal((await call(env, "/api/saves/file1", { method: "DELETE" })).status, 204);
+    items = await history();
+    assert.equal(items[0].deviceId, "tablet");
+    assert.equal((await call(env, `/api/history/file1/${items[0].id}`, { method: "POST" })).status, 200);
+    assert.equal(await (await call(env, "/api/saves/file1")).text(), "v1");
+
+    // Copies older than `days` expire.
+    clock += 31 * 24 * 60 * MIN;
+    assert.deepEqual(await history(), []);
+
+    assert.equal((await call(env, "/api/history/file1/0000000000001", { method: "POST" })).status, 404);
+    assert.equal((await call(env, "/api/history/file1/abc", { method: "POST" })).status, 400);
+    assert.equal((await call(env, "/api/history/file1/0000000000001/x", { method: "POST" })).status, 400);
+    assert.equal((await call(env, "/api/history/file1/0000000000001")).status, 405);
+    assert.equal((await call(env, "/api/history", { method: "POST" })).status, 405);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("save history can be turned off", async () => {
+  const env = makeEnv({ RWK_SAVE_HISTORY: "off" });
+  let res = await call(env, "/api/saves/file1", { method: "PUT", body: "a", headers: { "if-none-match": "*" } });
+  const { etag } = await res.json();
+  await call(env, "/api/saves/file1", { method: "PUT", body: "b", headers: { "if-match": etag } });
+  await call(env, "/api/saves/file1", { method: "DELETE" });
+  assert.equal([...env.BUCKET.objects.keys()].filter((k) => k.startsWith("history/")).length, 0);
+  res = await call(env, "/api/history");
+  assert.equal(res.status, 404);
+  assert.equal((await call({ ...env, BUCKET: undefined }, "/api/history")).status, 501);
+  // Without the setting (or with a broken one) the defaults apply.
+  assert.equal((await call(makeEnv(), "/api/history")).status, 200);
+  assert.equal((await call(makeEnv({ RWK_SAVE_HISTORY: "{" }), "/api/history")).status, 200);
+});

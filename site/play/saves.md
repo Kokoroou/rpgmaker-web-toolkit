@@ -36,6 +36,16 @@ On a phone, ☁ in the toolbar shows where your saves are; tap it for the ⏸ me
 | **The cloud has a newer save** | Another device updated the slot you just saved. **Overwrite cloud** keeps yours; **Later** asks again next time the game opens |
 | **Login expired** | Reload the page and sign in. Saves made in the meantime are kept and upload after the reload |
 
+## Bring back an older save
+
+![⏸ → Older saves](/img/save-history.png){.shot .portrait}
+
+The cloud keeps older copies of your saves: one when a save is overwritten (at most every 15 minutes, or when another device saves over it) and one when it is deleted. By default up to 10 per save, for 30 days.
+
+Tap ⏸ → **Older saves**, pick a copy, then **Restore**. It replaces that save on every device, and the game restarts. The save it replaced is kept in the list, so you can change your mind.
+
+Use it when a save is broken, when you picked the wrong copy above, or when you saved over the wrong slot. It needs an internet connection.
+
 ::: tip Good habits
 Play on one device at a time, use the same email everywhere, and keep a second slot before a boss.
 :::

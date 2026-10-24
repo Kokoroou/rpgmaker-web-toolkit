@@ -11,12 +11,13 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_Message         message modes: tap to finish, Auto, Skip (Window_Message)
              RWK_Dash            always dash switch (ConfigManager.alwaysDash)
              RWK_SaveTools       save export / import / delete (desktop save file format)
+             RWK_SaveHistory     older saves from the cloud: list and restore
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
              index.js            static files + large files from R2 (with Range) + /api
              auth.js             verifies Cloudflare Access logins (JWT)
-             saves.js            save API, with ETag overwrite protection
+             saves.js            save API, with ETag overwrite protection, and save history
              players.js          counts the emails that save, for the deploy's reminder
 ```
 
@@ -40,6 +41,8 @@ rwk/games.json                       settings of every game (keyed by fingerprin
 assets/<slug>/<path>                 files over 25 MiB
 assets/<slug>/.rwk-manifest.json     hashes of those files
 saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
+history/<sha256(email)>/<slug>/<name>/<time>
+                                     older copies of those saves (not config and global)
 rwk/players/<slug>.json              hashes of the emails that saved, with the first save time
 ```
 
@@ -48,6 +51,8 @@ Saves are stored under a hash of the email, never the email itself.
 ## Save sync
 
 At boot, before the engine reads a save, the plugin keeps the newer of each local / cloud pair and asks when both changed. Each save uploads about a second later with `If-Match`, so it never silently overwrites another device. What players see: [Saves on several devices](/play/saves).
+
+Before the Worker overwrites or deletes a save, it copies the old one to `history/`: at most once per 15 minutes per save, unless another device or a delete replaces it. It then drops copies past `saveHistory` (`keep` per save, `days` old). Restoring copies one back over the save, after keeping the save it replaces.
 
 ## Security
 

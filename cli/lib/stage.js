@@ -9,7 +9,7 @@ import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing } from "./game.js";
 import { isIndexable } from "./policy.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -90,6 +90,15 @@ function autoSaveConfig(value) {
   return { minutes: minutes >= 1 ? Math.min(60, minutes) : 5 };
 }
 
+// saveHistory: false | true | { keep, days } -> false | { keep: 1..50, default 10; days: 1..365, default 30 }
+// The Worker enforces it (RWK_SAVE_HISTORY); the ⏸ menu only shows the entry.
+export function saveHistoryConfig(value) {
+  if (value === false) return false;
+  const keep = Math.round(Number(value && value.keep));
+  const days = Math.round(Number(value && value.days));
+  return { keep: keep >= 1 ? Math.min(50, keep) : 10, days: days >= 1 ? Math.min(365, days) : 30 };
+}
+
 // Files the toolkit adds to / overrides in the web build.
 // files: from collectFiles(), for the MV phone audio / movie check.
 export function generatedFiles(game, gameConfig, files = []) {
@@ -107,6 +116,7 @@ export function generatedFiles(game, gameConfig, files = []) {
     alwaysDash: gameConfig.alwaysDash !== false,
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
+    saveHistory: saveHistoryConfig(gameConfig.saveHistory),
   };
   if (game.engine === "MV") {
     const missing = mobileOnlyMissing(files);

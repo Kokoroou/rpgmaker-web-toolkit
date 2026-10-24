@@ -3,12 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { overflowRoutes } from "../cli/lib/cloudflare.js";
+import { overflowRoutes, writeWorkerProject } from "../cli/lib/cloudflare.js";
 import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { generatedFiles, syncPublicDir } from "../cli/lib/stage.js";
+import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -247,6 +247,7 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   assert.ok(out.has("js/plugins/RWK_Message.js"));
   assert.ok(out.has("js/plugins/RWK_Dash.js"));
   assert.ok(out.has("js/plugins/RWK_SafeSaves.js"));
+  assert.ok(out.has("js/plugins/RWK_SaveHistory.js"));
   const js = out.get("js/plugins.js");
   const core = JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]);
   const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -272,4 +273,30 @@ test("web build: quick save and autosave settings", () => {
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: 10 } }).autoSave, { minutes: 10 });
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: 999 } }).autoSave, { minutes: 60 });
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: "x" } }).autoSave, { minutes: 5 });
+});
+
+test("save history settings reach the plugin and the Worker", () => {
+  assert.deepEqual(saveHistoryConfig(undefined), { keep: 10, days: 30 });
+  assert.deepEqual(saveHistoryConfig(true), { keep: 10, days: 30 });
+  assert.equal(saveHistoryConfig(false), false);
+  assert.deepEqual(saveHistoryConfig({ keep: 3 }), { keep: 3, days: 30 });
+  assert.deepEqual(saveHistoryConfig({ keep: 500, days: 9999 }), { keep: 50, days: 365 });
+  assert.deepEqual(saveHistoryConfig({ keep: 0, days: "x" }), { keep: 10, days: 30 });
+
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const js = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {}, saveHistory: { keep: 5 } }).get("js/plugins.js");
+  const runtime = JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  assert.deepEqual(runtime.saveHistory, { keep: 5, days: 30 });
+
+  const vars = (saveHistory) => {
+    const buildDir = tmp();
+    const project = { buildDir, slug: "g", bucket: "b", overflowRels: [], auth: {}, locked: false, saveHistory };
+    const file = writeWorkerProject({ ...project, toolkitRoot: path.join(import.meta.dirname, "..") });
+    return JSON.parse(fs.readFileSync(file, "utf8")).vars;
+  };
+  assert.equal(vars({ keep: 5, days: 30 }).RWK_SAVE_HISTORY, '{"keep":5,"days":30}');
+  assert.equal(vars(false).RWK_SAVE_HISTORY, "off");
 });
