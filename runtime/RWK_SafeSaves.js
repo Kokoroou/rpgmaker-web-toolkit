@@ -193,7 +193,7 @@
       if (!quiet) RWK.toast("Quick saved", "info", 1500);
       return true;
     } catch (e) {
-      console.error("[RWK] save to " + name + " failed", e);
+      console.error("[RWK] save to %s failed", name, e);
       RWK.toast("Could not save: " + (e && e.message ? e.message : e), "error", 5000);
       return false;
     } finally {
@@ -210,7 +210,7 @@
       DataManager.extractSaveContents(contents);
       if (DataManager.correctDataErrors) DataManager.correctDataErrors();
     } catch (e) {
-      console.error("[RWK] load from " + name + " failed", e);
+      console.error("[RWK] load from %s failed", name, e);
       RWK.toast("Could not load the save. Reload the page if the game misbehaves.", "error", 6000);
       return;
     } finally {
