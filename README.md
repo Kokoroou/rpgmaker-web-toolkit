@@ -71,7 +71,8 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
 | `include` | Non-standard top-level folders/files to publish (e.g. `"live2d"`), or globs of files to keep despite the excludes (e.g. `"img/**/*.psd"`) |
 | `exclude` | Globs to skip, e.g. `"data-tw/**"`. `*.zip *.rar *.7z *.psd *.bak *.log` and hidden files are skipped by default |
 | `sync.enabled` | Turns save sync on or off |
-| `auth` | `{ "mode": "access", "teamDomain", "aud" }` or `{ "mode": "none" }`. Filled in by the script |
+| `auth` | `{ "mode": "access", "teamDomain", "aud" }` or, for a public site, `{ "mode": "none", "basis", "since" }`. Filled in by the script |
+| `indexable` | `true` lets search engines list a public site (asked when the site is made public). Everything else sends `noindex` |
 | `controls` | On-screen buttons, see below |
 | `saveTools` | `false` removes 💾 Saves (export / import / delete) from the ⚙ tools menu (on by default) |
 | `itemBatch` | `false` turns off using several items at once (on by default) |
@@ -155,7 +156,7 @@ A file that is not a game save of the same engine (config, global, another engin
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
-             RWK_Core            config, deviceId, toasts, dialogs, ⚙ tools menu
+             RWK_Core            config, deviceId, toasts, dialogs, ⚙ tools menu, web build label
              RWK_SaveSync        save sync (MZ adapter: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SaveTools       save export / import / delete (desktop save file format)
@@ -164,6 +165,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              index.js            static assets + large files from R2 (with Range) + /api
              auth.js             verifies Cloudflare Access JWTs
              saves.js            save API, ETag-based overwrite protection
+             players.js          counts the emails that save (rwk/players/<slug>.json)
 ```
 
 **Storage.** Static files live in Workers Static Assets (free, unmetered bandwidth, up to 20,000 files and 25 MiB per file). Only files over 25 MiB go to R2. All games share one R2 bucket, `rpgmaker-web-toolkit`:
@@ -196,7 +198,20 @@ saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
 
 ## Responsible use
 
-This toolkit is meant for playing games **you own**, for yourself. Game files are copyrighted by their creators. Keep Cloudflare Access enabled and do not share the link publicly: a site anyone can open is redistribution of the game.
+This toolkit is meant for playing a game **you own**, on your own devices. Game files are copyrighted by their creators.
+
+- Keep Cloudflare Access enabled. A public site, or one shared with many people, is redistribution of the game, and only its creators can allow it. Even sharing with friends is outside "private use" in most countries' copyright law.
+- Making a site public asks why it may be public (you made the game, or its creators allow it). Sites are kept out of search engines unless a public site asks to be listed.
+- Each deploy reminds you how many emails have saves for the game.
+- You are responsible for what you publish on your Cloudflare account. Cloudflare handles copyright takedown requests for Workers.
+
+## For game creators
+
+- **Hosting policy.** Ship an `rwk-policy.json` with your game and the toolkit follows it: no web copies (`"hosting": "none"`), personal copies only (`"personal"`), copies shared with invited people (`"shared"`) or public sites (`"public"`), and features you turn off (`"features": { "saveTools": false }`). See the [Hosting policy](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy) page.
+- **Web copies are labelled.** `index.html` carries `<meta name="generator" content="rpgmaker-web-toolkit">`, and the console and the engine's error screen say the copy is not an official release, so bugs in the toolkit's plugins are reported here, not to you.
+- **Use it for your own game, commercially too.** The license's *Game Creators* permission lets you use the toolkit for any purpose with a game you own or publish: playtests, a paid or supporter-only web version, a public release. You may also ship the plugins in `runtime/` inside your own game.
+
+More in the [For game creators](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/) guide.
 
 ## Development
 
@@ -204,8 +219,14 @@ This toolkit is meant for playing games **you own**, for yourself. Game files ar
 npm test          # CLI + Worker tests (node:test, no network needed)
 ```
 
-See also [docs/ROADMAP.md](docs/ROADMAP.md). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
+See also [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/IMPACT.md](docs/IMPACT.md) (impact on game developers and players, in Vietnamese). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE). Free for personal and other noncommercial use; commercial use is not permitted.
+[PolyForm Noncommercial License 1.0.0](LICENSE) with an additional **Game Creators** permission:
+
+- Anyone may use the toolkit for personal and other noncommercial purposes.
+- People who own a game, or publish it with its owner's permission, may use the toolkit for that game for any purpose, including commercial use, and may ship the `runtime/` plugins inside it.
+- Hosting games that are not yours for money, offering the toolkit as a hosting service, or selling the toolkit itself is not permitted.
+
+See [LICENSE](LICENSE) for the exact terms.

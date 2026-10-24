@@ -16,6 +16,7 @@ export default defineConfig({
       { text: "Set up", link: "/setup/requirements", activeMatch: "/setup/" },
       { text: "Play", link: "/play/", activeMatch: "/play/" },
       { text: "Reference", link: "/reference/commands", activeMatch: "/reference/" },
+      { text: "Game creators", link: "/creators/", activeMatch: "/creators/" },
     ],
 
     sidebar: [
@@ -50,6 +51,13 @@ export default defineConfig({
           { text: "Free plan limits", link: "/reference/limits" },
         ],
       },
+      {
+        text: "Game creators",
+        items: [
+          { text: "For game creators", link: "/creators/" },
+          { text: "Hosting policy", link: "/creators/policy" },
+        ],
+      },
     ],
 
     socialLinks: [{ icon: "github", link: repo }],
@@ -57,7 +65,7 @@ export default defineConfig({
     search: { provider: "local" },
     outline: { level: [2, 3] },
     footer: {
-      message: "PolyForm Noncommercial License 1.0.0. For games you own, played by you.",
+      message: "PolyForm Noncommercial License 1.0.0, plus any use by game creators for their own games. For games you own, played by you.",
     },
   },
 });

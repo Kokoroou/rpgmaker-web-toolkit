@@ -6,7 +6,8 @@ import { test } from "node:test";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
 import { compileGlobs, suggestSlug, validateSlug } from "../cli/lib/game.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
-import { syncPublicDir } from "../cli/lib/stage.js";
+import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
+import { generatedFiles, syncPublicDir } from "../cli/lib/stage.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
 
@@ -86,4 +87,60 @@ test("syncPublicDir never writes through hard links into the game folder", () =>
   assert.equal(fs.readFileSync(path.join(src, "img", "a.png"), "utf8"), "AAA");
   assert.equal(fs.readFileSync(path.join(pub, "img", "a.png"), "utf8"), "GEN");
   assert.ok(!fs.existsSync(path.join(pub, "img", "b.png")));
+});
+
+test("creator policy: parsing, strict fallback, feature locks", () => {
+  const p = parsePolicy({ hosting: "shared", features: { saveTools: false, itemBatch: true, cheats: false }, message: " Hi " });
+  assert.equal(p.hosting, "shared");
+  assert.deepEqual(p.features, { saveTools: false });
+  assert.equal(p.message, "Hi");
+  assert.deepEqual(p.problems, []);
+  assert.equal(parsePolicy({ hosting: "everyone" }).hosting, "personal");
+  assert.equal(parsePolicy({}).problems.length, 1);
+
+  const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, sync: false } }));
+  assert.equal(locked.saveTools, false);
+  assert.equal(locked.sync.enabled, false);
+  assert.equal(cfg.sync.enabled, true, "the stored config is left alone");
+  assert.equal(applyPolicy(cfg, null), cfg);
+
+  assert.ok(allowsPublic(null));
+  assert.ok(allowsPublic(parsePolicy({ hosting: "public" })));
+  assert.ok(!allowsPublic(parsePolicy({ hosting: "shared" })));
+});
+
+test("readPolicy looks in the web root and the game folder", () => {
+  const folder = tmp();
+  const root = path.join(folder, "www");
+  fs.mkdirSync(root);
+  assert.equal(readPolicy({ folder, root }), null);
+  fs.writeFileSync(path.join(folder, "rwk-policy.json"), '{"hosting":"none"}');
+  assert.equal(readPolicy({ folder, root }).hosting, "none");
+  fs.writeFileSync(path.join(root, "rwk-policy.json"), "{not json");
+  const bad = readPolicy({ folder, root });
+  assert.equal(bad.hosting, "personal");
+  assert.equal(bad.problems.length, 1);
+});
+
+test("web build: search engines are kept out unless a public site asks to be listed", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head><title>G</title></head><body></body></html>");
+  const game = { root, engine: "MZ", title: "G" };
+  const cfg = { slug: "g", sync: { enabled: false } };
+
+  let out = generatedFiles(game, cfg);
+  assert.match(out.get("index.html"), /name="generator" content="rpgmaker-web-toolkit"/);
+  assert.match(out.get("index.html"), /name="robots" content="noindex, nofollow"/);
+  assert.match(out.get("_headers"), /X-Robots-Tag: noindex/);
+  assert.match(out.get("robots.txt"), /Disallow: \//);
+
+  // Public without a stated reason is never listed.
+  assert.ok(!isIndexable({ ...cfg, auth: { mode: "none" }, indexable: true }));
+  out = generatedFiles(game, { ...cfg, auth: { mode: "none", basis: "author" }, indexable: true });
+  assert.doesNotMatch(out.get("index.html"), /name="robots"/);
+  assert.ok(!out.has("_headers"));
+  assert.match(out.get("robots.txt"), /Allow: \//);
 });

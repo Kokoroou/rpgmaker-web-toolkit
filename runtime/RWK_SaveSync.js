@@ -1,5 +1,8 @@
 //=============================================================================
 // RWK_SaveSync.js - rpgmaker-web-toolkit
+// Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
+// License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
+// https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Mirrors browser saves to the cloud (Worker /api/saves) so one account can
 // continue the same game on any device.
 //=============================================================================

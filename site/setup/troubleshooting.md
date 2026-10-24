@@ -25,6 +25,10 @@ Usually a network problem while downloading the toolkit's dependencies. Run the 
 | `No index.html + js/ in …` | Use the folder that contains `Game.exe` (or its `www` subfolder). XP, VX and VX Ace games are not supported |
 | `Unknown engine` | Only MZ (`js/rmmz_core.js`) and MV (`js/rpg_core.js`) games are supported |
 
+### "The game's creator does not allow publishing this game as a website"
+
+The game ships an `rwk-policy.json` with `"hosting": "none"`. The toolkit respects it and stops. Play the desktop version, or ask the creator (the contact is printed above the error). See [Hosting policy](/creators/policy).
+
 ## Cloudflare
 
 ### "R2 is not enabled for this account"
@@ -73,6 +77,10 @@ Wait a minute after turning Access on, then choose **Check again**. If it keeps 
 
 Access was turned off in the dashboard. Turn it on again: the game's Worker → **Settings** → **Domains & Routes** → **workers.dev** row.
 
+### "N different emails have saves for this game"
+
+A reminder, not an error: sharing your copy with many people is redistribution of the game. Remove emails you did not mean to allow from the Access policy ([Invite players](/setup/access#invite-players)). The count includes every email that ever saved, so a removed email still counts.
+
 ### A friend cannot sign in or never gets the code
 
 Their email is not in the application's policy. Add it ([Invite players](/setup/access#invite-players)). Cloudflare does not send a code to emails that are not allowed.
@@ -90,6 +98,8 @@ The device has no connection. Play normally; saves upload when it is back online
 ### The game shows a black screen or an error
 
 Check that the desktop version works with the same files. Then reload the page; if the error mentions a plugin, that plugin may not support browsers. Report it on [GitHub Issues](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues) with the game's engine and the error text.
+
+If the desktop version does not have the error, it comes from the web copy, so report it here and **not to the game's creator**. The error screen says so too.
 
 ### Saves disappeared after clearing the browser data
 

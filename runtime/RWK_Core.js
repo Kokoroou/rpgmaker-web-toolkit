@@ -1,5 +1,8 @@
 //=============================================================================
 // RWK_Core.js - rpgmaker-web-toolkit
+// Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
+// License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
+// https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Generated into the web build by the CLI. Do not add to the original game.
 //=============================================================================
 /*:
@@ -330,6 +333,32 @@
     shield(overlay);
     document.body.appendChild(overlay);
   }
+
+  //---------------------------------------------------------------------------
+  // Say this is a player-made web build, so a bug in the toolkit's plugins is
+  // not reported to the game's creator as a bug in their game.
+  //---------------------------------------------------------------------------
+
+  const ISSUES_URL = "https://github.com/Kokoroou/rpgmaker-web-toolkit/issues";
+  console.info(
+    "[rpgmaker-web-toolkit] This is a web build made with rpgmaker-web-toolkit, not an official release of the game. " +
+      `Problems with the touch controls, cloud saves or other toolkit features: ${ISSUES_URL}`
+  );
+
+  const _printError = Graphics.printError;
+  Graphics.printError = function () {
+    _printError.apply(this, arguments);
+    const printer = this._errorPrinter;
+    if (!printer || printer.querySelector(".rwk-error-note")) return;
+    const note = document.createElement("div");
+    note.className = "rwk-error-note";
+    note.style.cssText = "margin-top:16px;font:13px/1.4 system-ui,sans-serif;color:#bbb;text-shadow:none";
+    note.textContent =
+      "This copy runs in a browser through rpgmaker-web-toolkit, not the official release. " +
+      "Before reporting this error to the game's creator, check that it also happens in the desktop version. " +
+      `Otherwise report it at ${ISSUES_URL}`;
+    printer.appendChild(note);
+  };
 
   window.RWK = {
     config,

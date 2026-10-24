@@ -11,6 +11,7 @@ import {
   importSaves,
   listSaveFiles,
   loadGameConfigs,
+  loadPlayers,
   probeAccess,
   saveGameConfigs,
   syncOverflow,
@@ -18,6 +19,7 @@ import {
 } from "../lib/cloudflare.js";
 import { MAX_ASSET_BYTES, MAX_ASSET_FILES, analyzeGame, collectFiles, suggestSlug, validateSlug } from "../lib/game.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
+import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause } from "../lib/ui.js";
 
@@ -31,6 +33,8 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   log.ok(`${game.engine} · ${game.title}`);
   log.info(c.dim(game.root));
   if (game.engine === "MV") log.warn("MV game: the adapter exists but has not been tested on a real game yet.");
+  const policy = readPolicy(game);
+  showPolicy(policy);
 
   const settings = loadSettings();
   const { email, account } = await connect(settings);
@@ -67,11 +71,20 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
     return;
   }
 
+  // The creator can turn sync off; the stored config keeps the deployer's choice.
+  const syncOn = applyPolicy(cfg, policy).sync.enabled;
   if (importOnly) {
+    if (!syncOn) {
+      log.warn("The game's creator turned cloud save sync off for this game.");
+      return;
+    }
     await offerSaveImport(game, cfg, bucket, email, true);
     await saveGameConfig();
     return;
   }
+
+  await checkPublic(cfg, policy);
+  await saveGameConfig();
 
   //-------------------------------------------------------------------------
   log.step("Preparing the web build");
@@ -79,13 +92,14 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   const files = collectFiles(game, cfg);
   const overflow = files.filter((f) => f.size > MAX_ASSET_BYTES);
   const assets = files.filter((f) => f.size <= MAX_ASSET_BYTES);
-  const generated = generatedFiles(game, cfg);
+  const generated = generatedFiles(game, applyPolicy(cfg, policy));
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over 25 MiB go to R2)`);
   if (assetCount > MAX_ASSET_FILES) throw tooManyFiles(assets, assetCount);
 
-  const stats = syncPublicDir(path.join(buildDir, "public"), assets, generated);
+  const publicDir = path.join(buildDir, "public");
+  const stats = syncPublicDir(publicDir, assets, generated);
   log.ok(`Temporary build ready (${stats.linked} hard links, ${stats.copied} copies)`);
   log.info(c.dim(buildDir));
   if (stats.copied) log.info(c.dim("Hard links were not possible (different drive, or the drive root is not writable), so files were copied."));
@@ -105,6 +119,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
     bucket,
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
+    indexable: isIndexable(cfg),
   };
   const authReady = isAuthReady(cfg.auth);
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
@@ -112,9 +127,14 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   await saveGameConfig();
 
   if (!authReady) {
-    await setupAuth(cfg, account);
+    await setupAuth(cfg, account, policy);
     await saveGameConfig();
     if (isAuthReady(cfg.auth)) {
+      // A public site that asked to be listed needs the files without noindex.
+      if (isIndexable(cfg)) {
+        project.indexable = true;
+        syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy)));
+      }
       log.step("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
     } else {
@@ -127,8 +147,9 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   }
 
   //-------------------------------------------------------------------------
-  if (cfg.sync.enabled && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, bucket, email, false);
+  if (syncOn && isAuthReady(cfg.auth)) await offerSaveImport(game, cfg, bucket, email, false);
   await saveGameConfig();
+  if (cfg.auth.mode === "access") await checkPlayers(bucket, cfg, policy);
 
   console.log(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
   log.info("The game's config is stored in R2: on another machine, log in to the same Cloudflare account and run the command again.");
@@ -281,17 +302,18 @@ async function addNewKeys(game, cfg) {
 // Access protection
 //---------------------------------------------------------------------------
 
-async function setupAuth(cfg, account) {
+async function setupAuth(cfg, account, policy) {
   log.step("Access protection");
   log.info("The site is locked for now. Choose how to protect it:");
-  const mode = await choose("Option", [
-    { label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" },
-    { label: "No protection: anyone with the link can play, and everyone shares saves", value: "none" },
-    { label: "Later (keep the site locked)", value: "later" },
-  ]);
+  const options = [{ label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" }];
+  if (allowsPublic(policy)) options.push({ label: "No protection: a public site anyone can open, everyone shares saves", value: "none" });
+  else log.info(c.dim("A public site is not offered: the game's creator asks that it stays private."));
+  options.push({ label: "Later (keep the site locked)", value: "later" });
+  const mode = await choose("Option", options);
   if (mode === "later") return;
   if (mode === "none") {
-    if (await confirm("Really make the site public?", false)) cfg.auth = { mode: "none" };
+    const auth = await askPublic(cfg, policy);
+    if (auth) cfg.auth = auth;
     return;
   }
 
@@ -329,6 +351,86 @@ async function setupAuth(cfg, account) {
       return;
     }
   }
+}
+
+// A public site hands the game to anyone with the link, which is the game
+// creator's call. Ask why it may be public, and keep the answer.
+async function askPublic(cfg, policy) {
+  let basis;
+  if (policy && policy.hosting === "public") {
+    log.ok(`The game's creator allows public hosting (${POLICY_FILE}).`);
+    basis = "creator-policy";
+  } else {
+    log.warn("A public site is redistribution of the game: only the people who hold its rights may decide that.");
+    basis = await choose("Why may this game be public?", [
+      { label: "I made this game, or I publish it for the people who made it", value: "author" },
+      { label: "Its creators allow anyone to host it publicly (its license or their written permission says so)", value: "permission" },
+      { label: "Neither: keep the site locked and use Cloudflare Access instead", value: null },
+    ]);
+    if (!basis) return null;
+  }
+  cfg.indexable = await confirm("Let search engines list the site?", false);
+  return { mode: "none", basis, since: new Date().toISOString().slice(0, 10) };
+}
+
+// Public sites from before the question existed, or whose game now ships a
+// policy that wants it private.
+async function checkPublic(cfg, policy) {
+  if (cfg.auth.mode !== "none") return;
+  if (!allowsPublic(policy)) {
+    log.warn("The game's creator asks that the site stays private, so it will no longer be public.");
+    log.info("The site is locked until Cloudflare Access is on (the next step).");
+    cfg.auth = {};
+    delete cfg.indexable;
+    return;
+  }
+  if (cfg.auth.basis) return;
+  log.step("Public site");
+  log.info("This site is public. The toolkit now asks why, once.");
+  const auth = await askPublic(cfg, policy);
+  if (!auth) {
+    log.info("The site is locked until Cloudflare Access is on (the next step).");
+    delete cfg.indexable;
+  }
+  cfg.auth = auth || {};
+}
+
+function showPolicy(policy) {
+  if (!policy) return;
+  log.step("The game creator's hosting policy");
+  log.info(`${path.basename(policy.file)}: the creator ${c.bold(describeHosting(policy.hosting))}.`);
+  for (const problem of policy.problems) log.warn(`${problem}; treated as "personal".`);
+  if (policy.message) log.info(`“${policy.message}”`);
+  if (policy.contact) log.info(`Contact: ${policy.contact}`);
+  const off = Object.keys(policy.features);
+  if (off.length) log.info(`Turned off by the creator: ${off.join(", ")}`);
+  if (policy.hosting === "none") {
+    throw new Error(
+      "The game's creator does not allow publishing this game as a website, so the toolkit stops here.\n" +
+        "If you published it before, delete that Worker in the Cloudflare dashboard (Workers & Pages → the game → Settings → Delete)."
+    );
+  }
+}
+
+// How many emails have saves for this game, recorded by the Worker.
+const SHARE_WARN_AT = 5;
+async function checkPlayers(bucket, cfg, policy) {
+  let players;
+  try {
+    players = await loadPlayers(bucket, cfg.slug);
+  } catch {
+    return; // Only a reminder: never fail a deploy over it.
+  }
+  const count = Object.keys(players).length;
+  if (!count) return;
+  const limit = policy && policy.hosting === "personal" ? 1 : policy && policy.hosting === "shared" ? Infinity : SHARE_WARN_AT;
+  if (count <= limit) {
+    log.info(c.dim(`${count} email(s) have saves for this game.`));
+    return;
+  }
+  log.warn(`${count} different emails have saves for this game.`);
+  if (limit === 1) log.info("The game's creator asked that this copy is for your own use only. Remove the other emails from the Access policy.");
+  else log.info("Sharing your copy with many people is redistribution of the game. Keep it to yourself and your household, or ask the creator.");
 }
 
 function openBrowser(url) {

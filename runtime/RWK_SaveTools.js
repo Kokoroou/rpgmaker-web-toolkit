@@ -1,5 +1,8 @@
 //=============================================================================
 // RWK_SaveTools.js - rpgmaker-web-toolkit
+// Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
+// License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
+// https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Export a save slot as a desktop save file (file3.rmmzsave / file3.rpgsave)
 // so an external save editor can change it, import the edited file back, or
 // delete a slot.

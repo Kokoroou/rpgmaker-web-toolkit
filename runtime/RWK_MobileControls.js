@@ -1,5 +1,8 @@
 //=============================================================================
 // RWK_MobileControls.js - rpgmaker-web-toolkit
+// Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
+// License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
+// https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // On-screen gamepad (D-pad, A/B/X/Y, L/R) plus a panel of extra keys the
 // game's plugins use. Works on MZ and MV by driving Input._currentState, the
 // same state the keyboard handler sets.

@@ -9,7 +9,7 @@ At the end of the first deploy, the toolkit asks:
 ```
 ? Option
   › Cloudflare Access: email login, saves tied to the email (recommended)
-    No protection: anyone with the link can play, and everyone shares saves
+    No protection: a public site anyone can open, everyone shares saves
     Later (keep the site locked)
 ```
 
@@ -59,7 +59,27 @@ The login lasts for a while (the session length set on the application), then th
 
 ## No protection
 
-**No protection** makes the site public: anyone with the link can play, and **everyone shares the same saves**. Only use it for a game you are allowed to share publicly, such as your own game.
+**No protection** makes the site public: anyone with the link can play, and **everyone shares the same saves**. A public site is redistribution of the game, so the toolkit asks why it may be public:
+
+```
+? Why may this game be public?
+     1) I made this game, or I publish it for the people who made it
+     2) Its creators allow anyone to host it publicly (its license or their written permission says so)
+     3) Neither: keep the site locked and use Cloudflare Access instead
+```
+
+Then it asks whether search engines may list the site (no by default). The answer is kept in the game's settings (`auth.basis`, `indexable`).
+
+- If the game's creator ships a [hosting policy](/creators/policy) that keeps the game private, *No protection* is not offered, and a site that was public is locked until Access is on.
+- Sites that were public before this question existed are asked once on the next deploy.
+
+::: tip Search engines
+Unless a public site asks to be listed, every site sends `X-Robots-Tag: noindex` and a `robots.txt` that keeps crawlers out, so it does not show up in search results.
+:::
+
+## How many people play
+
+Each deploy shows how many emails have saves for the game. Sharing your copy with many people is redistribution, so the toolkit warns above 5 emails, or above 1 when the game's creator asked for personal copies only.
 
 ## Checking the protection later
 

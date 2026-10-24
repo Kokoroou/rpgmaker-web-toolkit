@@ -20,7 +20,10 @@ export function createWorker({ overflow = [] } = {}) {
       const rel = path.slice(1);
       if (overflowSet.has(rel) && env.BUCKET) {
         const res = await serveOverflow(request, env, rel);
-        if (res) return res;
+        if (res) {
+          if (env.RWK_INDEXABLE !== "1") res.headers.set("x-robots-tag", "noindex, nofollow");
+          return res;
+        }
       }
       return env.ASSETS.fetch(request);
     },
@@ -85,12 +88,17 @@ function safeDecode(pathname) {
 
 function lockedPage() {
   const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Setting up</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Setting up</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111;color:#ddd;font:16px/1.5 system-ui,sans-serif;padding:16px}main{max-width:32rem}</style>
 </head><body><main><h1>This game is being set up</h1>
 <p>The site stays locked until access protection is enabled. Finish the setup in the terminal, then reload this page.</p></main></body></html>`;
   return new Response(html, {
     status: 503,
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-rwk-locked": "1" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "x-rwk-locked": "1",
+      "x-robots-tag": "noindex, nofollow",
+    },
   });
 }
