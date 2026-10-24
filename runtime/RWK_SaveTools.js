@@ -42,7 +42,6 @@
   function describe(info) {
     if (!info) return "";
     const parts = [];
-    if (info.title) parts.push(info.title);
     if (info.playtime) parts.push(info.playtime);
     if (info.timestamp) parts.push(new Date(info.timestamp).toLocaleString());
     return parts.join(" · ");
