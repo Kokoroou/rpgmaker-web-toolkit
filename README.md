@@ -13,6 +13,8 @@ Publish an **RPG Maker MZ** game (MV: adapter included, not yet tested) to **Clo
 
 Windows only for now.
 
+**User guide: https://kokoroou.github.io/rpgmaker-web-toolkit/** (setting up a game, inviting players, updating, playing on a phone, troubleshooting).
+
 ## Quick start
 
 The only requirement is [Node.js](https://nodejs.org) 20+ (LTS, or `winget install OpenJS.NodeJS.LTS`).
@@ -66,7 +68,7 @@ When working on the toolkit itself, clone the repo and use `rwk.cmd` with the sa
 |---|---|
 | `slug` | Worker name, becomes `<slug>.<username>.workers.dev` |
 | `fingerprint` | Identifies the game on later runs (MZ: `advanced.gameId`, MV: game title) |
-| `include` | Non-standard folders/files to publish (e.g. `"live2d"`, or a glob like `"extra/**"`) |
+| `include` | Non-standard top-level folders/files to publish (e.g. `"live2d"`), or globs of files to keep despite the excludes (e.g. `"img/**/*.psd"`) |
 | `exclude` | Globs to skip, e.g. `"data-tw/**"`. `*.zip *.rar *.7z *.psd *.bak *.log` and hidden files are skipped by default |
 | `sync.enabled` | Turns save sync on or off |
 | `auth` | `{ "mode": "access", "teamDomain", "aud" }` or `{ "mode": "none" }`. Filled in by the script |
@@ -202,7 +204,7 @@ This toolkit is meant for playing games **you own**, for yourself. Game files ar
 npm test          # CLI + Worker tests (node:test, no network needed)
 ```
 
-See also [docs/ROADMAP.md](docs/ROADMAP.md).
+See also [docs/ROADMAP.md](docs/ROADMAP.md). The user guide's source is in `site/` (VitePress): `cd site && npm ci && npm run dev`.
 
 ## License
 

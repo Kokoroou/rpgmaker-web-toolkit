@@ -1,3 +1,5 @@
 node_modules/
 .wrangler/
 *.log
+site/.vitepress/dist/
+site/.vitepress/cache/
