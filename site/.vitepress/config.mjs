@@ -43,6 +43,7 @@ export default defineConfig({
           { text: "Open and play", link: "/play/" },
           { text: "Touch controls", link: "/play/controls" },
           { text: "Saves on several devices", link: "/play/saves" },
+          { text: "Quick save and autosave", link: "/play/quick-save" },
           { text: "Edit or move a save", link: "/play/save-files" },
           { text: "Fast forward", link: "/play/speed" },
           { text: "Messages: Auto and Skip", link: "/play/messages" },

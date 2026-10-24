@@ -36,7 +36,7 @@ Or tap ⏸ → **Full screen** in the game. It also turns a landscape game sidew
 | Phone or tablet | The on-screen gamepad: [Touch controls](/play/controls) |
 | PC | Keyboard or a controller, as in the desktop game |
 | ⏩ | [Fast forward](/play/speed) ×2 / ×3 / ×4 |
-| ⏸ Menu | Full screen, [message modes](/play/messages) (Auto, Skip), [always dash](/play/dash), [move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items), [report a problem](#report-a-problem) |
+| ⏸ Menu | Full screen, [quick save / load](/play/quick-save), [message modes](/play/messages) (Auto, Skip), [always dash](/play/dash), [move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items), [report a problem](#report-a-problem) |
 
 The game pauses while the ⏸ menu is open, sound included; ✕, Esc or a tap outside it resumes. On a PC, ⏸ is a faint button in the top-left corner, or press **F1**. Options the person who set up the game turned off are missing.
 

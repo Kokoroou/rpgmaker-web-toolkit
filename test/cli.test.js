@@ -101,11 +101,13 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(parsePolicy({}).problems.length, 1);
 
   const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
-  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, sync: false } }));
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, quickSave: false, autoSave: false, sync: false } }));
   assert.equal(locked.saveTools, false);
   assert.equal(locked.fastForward, false);
   assert.equal(locked.messageMode, false);
   assert.equal(locked.alwaysDash, false);
+  assert.equal(locked.quickSave, false);
+  assert.equal(locked.autoSave, false);
   assert.equal(locked.sync.enabled, false);
   assert.equal(cfg.sync.enabled, true, "the stored config is left alone");
   assert.equal(applyPolicy(cfg, null), cfg);
@@ -244,8 +246,30 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   assert.ok(out.has("js/plugins/RWK_Speed.js"));
   assert.ok(out.has("js/plugins/RWK_Message.js"));
   assert.ok(out.has("js/plugins/RWK_Dash.js"));
+  assert.ok(out.has("js/plugins/RWK_SafeSaves.js"));
   const js = out.get("js/plugins.js");
   const core = JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]);
   const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(JSON.parse(core.parameters.config).version, pkg.version);
+});
+
+test("web build: quick save and autosave settings", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const runtimeConfig = (extra) => {
+    const js = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {}, ...extra }).get("js/plugins.js");
+    return JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  };
+  const defaults = runtimeConfig({});
+  assert.deepEqual(defaults.quickSave, { ignoreSaveLock: true });
+  assert.deepEqual(defaults.autoSave, { minutes: 5 });
+  const off = runtimeConfig({ quickSave: false, autoSave: false });
+  assert.equal(off.quickSave, false);
+  assert.equal(off.autoSave, false);
+  assert.deepEqual(runtimeConfig({ quickSave: { ignoreSaveLock: false } }).quickSave, { ignoreSaveLock: false });
+  assert.deepEqual(runtimeConfig({ autoSave: { minutes: 10 } }).autoSave, { minutes: 10 });
+  assert.deepEqual(runtimeConfig({ autoSave: { minutes: 999 } }).autoSave, { minutes: 60 });
+  assert.deepEqual(runtimeConfig({ autoSave: { minutes: "x" } }).autoSave, { minutes: 5 });
 });

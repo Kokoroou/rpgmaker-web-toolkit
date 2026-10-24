@@ -6,6 +6,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_Core            config, device id, toasts, dialogs, ⏸ menu, web build label
              RWK_SaveSync        save sync (MZ: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
+             RWK_SafeSaves       quick save / load and autosave in slots of their own, ☁ sync state, storage.persist()
              RWK_Speed           fast forward: the scene updates 2–4 times per frame
              RWK_Message         message modes: tap to finish, Auto, Skip (Window_Message)
              RWK_Dash            always dash switch (ConfigManager.alwaysDash)

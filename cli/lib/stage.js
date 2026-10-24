@@ -9,7 +9,7 @@ import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing } from "./game.js";
 import { isIndexable } from "./policy.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -77,6 +77,19 @@ function statOrNull(p) {
   }
 }
 
+// quickSave: false | true | { ignoreSaveLock } -> false | { ignoreSaveLock }
+function quickSaveConfig(value) {
+  if (value === false) return false;
+  return { ignoreSaveLock: !(value && value.ignoreSaveLock === false) };
+}
+
+// autoSave: false | true | { minutes } -> false | { minutes: 1..60, default 5 }
+function autoSaveConfig(value) {
+  if (value === false) return false;
+  const minutes = Math.round(Number(value && value.minutes));
+  return { minutes: minutes >= 1 ? Math.min(60, minutes) : 5 };
+}
+
 // Files the toolkit adds to / overrides in the web build.
 // files: from collectFiles(), for the MV phone audio / movie check.
 export function generatedFiles(game, gameConfig, files = []) {
@@ -92,6 +105,8 @@ export function generatedFiles(game, gameConfig, files = []) {
     fastForward: gameConfig.fastForward !== false,
     messageMode: gameConfig.messageMode !== false,
     alwaysDash: gameConfig.alwaysDash !== false,
+    quickSave: quickSaveConfig(gameConfig.quickSave),
+    autoSave: autoSaveConfig(gameConfig.autoSave),
   };
   if (game.engine === "MV") {
     const missing = mobileOnlyMissing(files);

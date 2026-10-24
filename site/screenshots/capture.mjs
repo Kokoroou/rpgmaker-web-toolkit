@@ -49,7 +49,7 @@ const openTool = async (page, label) => {
 await shot("controls-portrait");
 await shot("controls-landscape", { viewport: LANDSCAPE });
 await shot("game-keys", { act: (p) => tap(p, ".rwk-tool-keys") });
-await shot("tools-menu", { act: (p) => tap(p, ".rwk-tool-menu") });
+await shot("tools-menu", { query: "sync=ok", act: (p) => tap(p, ".rwk-tool-menu") });
 await shot("edit-layout", {
   viewport: LANDSCAPE,
   act: async (p) => {

@@ -27,7 +27,8 @@
   const META_KEY = "rwk.sync." + RWK.config.gameId;
 
   //---------------------------------------------------------------------------
-  // Engine adapters: map engine storage to generic names (config, global, fileN)
+  // Engine adapters: map engine storage to generic names (config, global,
+  // fileN, and the toolkit's own slots rwk-quick / rwk-auto from RWK_SafeSaves)
   //---------------------------------------------------------------------------
 
   const adapters = {
@@ -96,6 +97,12 @@
         const m = /^file(\d+)$/.exec(name);
         return m ? Number(m[1]) : null;
       },
+      // localStorage key, or null for names that are not saves
+      keyOf(name) {
+        if (/^rwk-[a-z]+$/.test(name)) return "RPG " + name;
+        const id = this.idOf(name);
+        return id === null ? null : StorageManager.webStorageKey(id);
+      },
       async listLocal() {
         const names = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -103,23 +110,23 @@
           if (key === "RPG Config") names.push("config");
           else if (key === "RPG Global") names.push("global");
           else {
-            const m = /^RPG File(\d+)$/.exec(key);
-            if (m) names.push("file" + m[1]);
+            const m = /^RPG (?:File(\d+)|(rwk-[a-z]+))$/.exec(key);
+            if (m) names.push(m[2] || "file" + m[1]);
           }
         }
         return names;
       },
       async read(name) {
-        const id = this.idOf(name);
-        return id === null ? null : localStorage.getItem(StorageManager.webStorageKey(id));
+        const key = this.keyOf(name);
+        return key === null ? null : localStorage.getItem(key);
       },
       async write(name, data) {
-        const id = this.idOf(name);
-        if (id !== null) localStorage.setItem(StorageManager.webStorageKey(id), data);
+        const key = this.keyOf(name);
+        if (key !== null) localStorage.setItem(key, data);
       },
       async remove(name) {
-        const id = this.idOf(name);
-        if (id !== null) localStorage.removeItem(StorageManager.webStorageKey(id));
+        const key = this.keyOf(name);
+        if (key !== null) localStorage.removeItem(key);
       },
       install(hooks) {
         const self = this;
@@ -253,6 +260,42 @@
   //---------------------------------------------------------------------------
 
   let authLost = false;
+  let booting = false;
+  let waiting = false; // the last upload failed; retrying later
+  let lastSyncAt = 0;
+
+  //---------------------------------------------------------------------------
+  // Status, for the ☁ toolbar icon and the ⏸ menu (RWK_SafeSaves):
+  // synced | syncing | offline | error, with a sentence for the player.
+  //---------------------------------------------------------------------------
+
+  const listeners = [];
+  const changed = () => listeners.forEach((fn) => fn());
+
+  function status() {
+    const unsent = Object.values(meta).filter((m) => m.dirty && !m.conflict).length;
+    const waitingText = unsent ? `${unsent} save(s) upload when back online` : "saves sync when back online";
+    if (authLost) return { state: "error", text: "Login expired: reload the page to sync saves" };
+    if (Object.values(meta).some((m) => m.conflict)) {
+      return { state: "error", text: "A save differs from the cloud: you choose when the game next opens" };
+    }
+    if (!navigator.onLine) return { state: "offline", text: "Offline: " + waitingText };
+    if (booting || running) return { state: "syncing", text: "Syncing…" };
+    if (waiting) return { state: "offline", text: "Network problem: " + waitingText };
+    if (pending.size) return { state: "syncing", text: "Uploading…" };
+    if (!lastSyncAt) return { state: "synced", text: "In sync" };
+    return { state: "synced", text: "In sync, " + ago(lastSyncAt) };
+  }
+
+  function ago(ms) {
+    const min = Math.round((Date.now() - ms) / 60000);
+    if (min < 1) return "just now";
+    if (min < 60) return min + " min ago";
+    return "at " + new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // Readable names in dialogs.
+  const label = (name) => ({ "rwk-quick": "Quick save", "rwk-auto": "Autosave (⏸ menu)" })[name] || name;
 
   // The game waits for this to finish, so it must never write saves after the
   // engine has read them: network calls time out individually, while dialogs
@@ -263,8 +306,11 @@
       return;
     }
     RWK.toast("☁ Syncing saves…", "info", 0);
+    booting = true;
+    changed();
     try {
       await reconcile();
+      lastSyncAt = Date.now();
     } catch (e) {
       if (e instanceof AuthExpired) {
         authLost = true;
@@ -274,9 +320,14 @@
         RWK.toast("Could not sync saves (slow or failed network); using this device's saves.", "warn", 5000);
       }
     }
+    booting = false;
     // Whatever could not be pushed is retried in the background.
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
-    if (pending.size) schedule(RETRY_DELAY_MS);
+    if (pending.size) {
+      waiting = true;
+      schedule(RETRY_DELAY_MS);
+    }
+    changed();
   }
 
   async function reconcile() {
@@ -349,7 +400,7 @@
   }
 
   function askConflict(conflicts) {
-    const lines = conflicts.map((c) => `• ${c.name}: cloud copy saved at ${time(c.remote.updatedAt)} (${c.remote.deviceId})`);
+    const lines = conflicts.map((c) => `• ${label(c.name)}: cloud copy saved at ${time(c.remote.updatedAt)} (${c.remote.deviceId})`);
     return RWK.choose(
       "This device's saves differ from the cloud",
       "These saves changed in both places:\n" + lines.join("\n") + "\n\nChoose which copy to keep for all of them:",
@@ -371,6 +422,7 @@
   const pending = new Set();
   let timer = 0;
   let running = false;
+  let quiet = false; // no "Saved to the cloud" toast: the save itself showed one
 
   function schedule(delay = PUSH_DELAY_MS) {
     clearTimeout(timer);
@@ -379,8 +431,9 @@
 
   async function flush() {
     if (running || authLost || !pending.size) return;
-    if (!navigator.onLine) return; // the "online" event resumes
+    if (!navigator.onLine) return changed(); // the "online" event resumes
     running = true;
+    changed();
     let synced = 0;
     let retrying = false;
     try {
@@ -400,21 +453,25 @@
         if (result.status === "conflict") await resolveRuntimeConflict(name, result.current);
         else if (result.status === "ok") synced++;
       }
-      if (synced) RWK.toast("☁ Saved to the cloud", "info", 1500);
+      waiting = false;
+      lastSyncAt = Date.now();
+      if (synced && !quiet) RWK.toast("☁ Saved to the cloud", "info", 1500);
     } catch (e) {
       if (e instanceof AuthExpired) {
         authLost = true;
         RWK.toast("Login expired: saves stay on this device. Reload the page to sync.", "error", 8000);
       } else {
         console.warn("[RWK] push failed, retrying later", e);
-        RWK.toast("Could not upload the save yet; will retry.", "warn", 3000);
-        retrying = true;
+        if (!waiting) RWK.toast("Could not upload the save yet; will retry.", "warn", 3000);
+        waiting = retrying = true;
         schedule(RETRY_DELAY_MS);
       }
     } finally {
       running = false;
+      quiet = false;
       // Saves made while this flush ran go out shortly; failures wait for the retry.
       if (pending.size && !authLost && !retrying) schedule();
+      changed();
     }
   }
 
@@ -422,7 +479,7 @@
     const when = current ? time(current.updatedAt) + " (" + current.deviceId + ")" : "recently";
     const choice = await RWK.choose(
       "The cloud has a newer save",
-      `Save “${name}” was updated in the cloud at ${when}.\nOverwrite it with the save just made on this device?`,
+      `Save “${label(name)}” was updated in the cloud at ${when}.\nOverwrite it with the save just made on this device?`,
       [
         { label: "Later", value: "later" },
         { label: "Overwrite cloud", value: "overwrite", primary: true },
@@ -447,6 +504,7 @@
     saveMeta();
     pending.add(name);
     schedule();
+    changed();
   }
 
   function markDeleted(name) {
@@ -456,17 +514,36 @@
     saveMeta();
     pending.add(name);
     schedule();
+    changed();
+  }
+
+  // Upload whatever is waiting now, e.g. from the ⏸ menu.
+  function syncNow() {
+    for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
+    clearTimeout(timer);
+    return flush();
   }
 
   window.addEventListener("online", () => {
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
     schedule(500);
   });
+  window.addEventListener("offline", changed);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
   });
 
   adapter.install({ boot, onSave: markDirty, onRemove: markDeleted });
 
-  RWK.saveSync = { flush, meta };
+  // saved(name): a save the engine's hooks above do not see (MV toolkit slots).
+  // hush(): the next upload shows no toast (autosaves).
+  RWK.saveSync = {
+    flush,
+    meta,
+    syncNow,
+    status,
+    saved: markDirty,
+    hush: () => (quiet = true),
+    onChange: (fn) => listeners.push(fn),
+  };
 })();
