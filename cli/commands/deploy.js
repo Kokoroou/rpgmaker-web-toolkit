@@ -17,7 +17,7 @@ import {
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
-import { analyzeGame, collectFiles, nonAsciiPaths, suggestSlug, validateSlug } from "../lib/game.js";
+import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../lib/game.js";
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
@@ -96,11 +96,12 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   const files = collectFiles(game, cfg);
   const overflow = files.filter((f) => f.size > maxFileBytes);
   const assets = files.filter((f) => f.size <= maxFileBytes);
-  const generated = generatedFiles(game, applyPolicy(cfg, policy));
+  const generated = generatedFiles(game, applyPolicy(cfg, policy), files);
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} go to R2)`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
+  if (game.engine === "MV") warnMobileMedia(files);
   const oddNames = nonAsciiPaths(files);
   if (oddNames.length) {
     const shown = oddNames.slice(0, 3).join(", ") + (oddNames.length > 3 ? ", …" : "");
@@ -143,7 +144,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
       // A public site that asked to be listed needs the files without noindex.
       if (isIndexable(cfg)) {
         project.indexable = true;
-        syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy)));
+        syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy), files));
       }
       log.step("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
@@ -211,6 +212,14 @@ function editInNotepad(cfg) {
 
 function formatMiB(bytes) {
   return `${+(bytes / 1024 ** 2).toFixed(1)} MiB`;
+}
+
+// MV wants .m4a / .mp4 on phones; RWK_Core falls back to Ogg / WebM where the
+// browser plays them, which leaves out older iPhones.
+function warnMobileMedia(files) {
+  const missing = mobileOnlyMissing(files);
+  if (missing.audio) log.warn(`${missing.audio} audio file(s) have no .m4a version: phones whose browser cannot play Ogg (older iPhones) will have no sound for them.`);
+  if (missing.movies) log.warn(`${missing.movies} movie(s) have no .mp4 version: phones whose browser cannot play WebM (older iPhones) will not show them.`);
 }
 
 function tooManyFiles(assets, count, max) {

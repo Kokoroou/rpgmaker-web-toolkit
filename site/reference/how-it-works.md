@@ -8,6 +8,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SaveTools       save export / import / delete (desktop save file format)
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
+             RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
              index.js            static files + large files from R2 (with Range) + /api
              auth.js             verifies Cloudflare Access logins (JWT)

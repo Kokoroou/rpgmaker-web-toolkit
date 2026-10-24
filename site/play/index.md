@@ -35,6 +35,12 @@ Or tap ⛶ in the game's toolbar.
 |---|---|
 | Phone or tablet | The on-screen gamepad: [Touch controls](/play/controls) |
 | PC | Keyboard or a controller, as in the desktop game |
-| ⚙ Tools | [Move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items) |
+| ⚙ Tools | [Move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items), [report a problem](#report-a-problem) |
 
 On a PC, ⚙ is a faint button in the top-left corner. Tools the person who set up the game turned off are missing.
+
+## Report a problem
+
+⚙ → **Report a problem** (also on the game's error screen) shows the latest errors, the audio state and the sound files that failed to load. **Copy report** and send it to whoever set up the game, with what you were doing. It has no email or save data.
+
+Check first whether the problem also happens in the desktop version of the game: only then is it the game's own bug.

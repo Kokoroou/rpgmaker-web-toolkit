@@ -8,7 +8,7 @@ Tài liệu này gồm năm phần:
 4. Thiết kế lại cách sắp xếp, nhóm và icon các nút.
 5. Những gì người thiết lập game được tùy chỉnh (vd. không cho tải game về).
 
-Chưa có gì ở đây được thi công.
+Chưa có gì ở đây được thi công. Thứ tự thi công: [ROADMAP.md](ROADMAP.md).
 
 ## 1. Công cụ đã tham khảo
 
@@ -46,6 +46,8 @@ Nguồn: Steam Discussions của RPG Maker MV, diễn đàn rpgmakerweb, bình l
 ## 3. Thứ tự ưu tiên thi công
 
 Xếp theo giá trị cho người chơi. Cột "Công sức" chỉ để tham khảo (**S** vài giờ, **M** 1–3 ngày, **L** hơn 3 ngày), không ảnh hưởng tới thứ tự.
+
+Thứ tự **thi công thật** nằm ở [ROADMAP.md](ROADMAP.md): ngoài giá trị còn tính lỗi đang chặn người chơi, phụ thuộc giữa các phần và công sức. Ví dụ menu nhanh ⏸ (mục 4) làm trước mọi tính năng thêm nút, tải offline (#6) đi sau Service Worker, cheat (#5) đi sau config hai tầng (mục 5).
 
 ### Nhóm A: làm trước (người chơi dùng nhiều nhất)
 

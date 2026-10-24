@@ -6,9 +6,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
+import { mobileOnlyMissing } from "./game.js";
 import { isIndexable } from "./policy.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SaveTools", "RWK_ItemBatch", "RWK_Report"];
+
+// Shown in the in-game problem report (RWK_Report).
+const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
 
 // files: from collectFiles(); generated: Map<rel, string|Buffer>
 // -> { linked, copied, unchanged, removed }
@@ -74,9 +78,11 @@ function statOrNull(p) {
 }
 
 // Files the toolkit adds to / overrides in the web build.
-export function generatedFiles(game, gameConfig) {
+// files: from collectFiles(), for the MV phone audio / movie check.
+export function generatedFiles(game, gameConfig, files = []) {
   const out = new Map();
   const runtimeConfig = {
+    version: TOOLKIT_VERSION,
     gameId: gameConfig.slug,
     engine: game.engine,
     sync: { enabled: !!(gameConfig.sync && gameConfig.sync.enabled) },
@@ -84,6 +90,10 @@ export function generatedFiles(game, gameConfig) {
     saveTools: gameConfig.saveTools !== false,
     itemBatch: gameConfig.itemBatch !== false,
   };
+  if (game.engine === "MV") {
+    const missing = mobileOnlyMissing(files);
+    runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
+  }
 
   for (const name of RUNTIME_PLUGINS) {
     out.set(`js/plugins/${name}.js`, fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", `${name}.js`)));

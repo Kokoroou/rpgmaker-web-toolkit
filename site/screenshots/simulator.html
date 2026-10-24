@@ -94,7 +94,9 @@
     isDatabaseLoaded: () => true,
     createGameObjects() {},
   };
-  window.SceneManager = { _scene: new Scene_Map() };
+  window.SceneManager = { _scene: new Scene_Map(), catchException() {} };
+  window.AudioManager = { createBuffer() {}, audioFileExt: () => ".ogg" };
+  window.WebAudio = { _context: null };
   window.StorageManager = {
     isLocalMode: () => false,
     forageKey: (name) => "rmmzsave.demo." + name,
@@ -130,6 +132,7 @@
 <script src="../../runtime/RWK_MobileControls.js"></script>
 <script src="../../runtime/RWK_SaveTools.js"></script>
 <script src="../../runtime/RWK_ItemBatch.js"></script>
+<script src="../../runtime/RWK_Report.js"></script>
 <script>
   //--- The "game": a hand-drawn map or item menu on the canvas
   const canvas = document.createElement("canvas");
