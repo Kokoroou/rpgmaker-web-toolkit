@@ -26,4 +26,6 @@ Forgot one? The deploy stops, prints the link and waits.
 
 Encrypted images and audio (`.rpgmvp`, `.png_`, `.ogg_`…) work as they are.
 
+On phones, MV plays `.m4a` audio and `.mp4` movies. An MV game that ships only `.ogg` / `.webm` still plays them on phones whose browser supports those formats; the deploy warns about files that older iPhones cannot play.
+
 **Next:** [First deploy](/setup/first-deploy)

@@ -148,6 +148,29 @@
     };
   }
 
+  //---------------------------------------------------------------------------
+  // On phones MV asks for .m4a audio and .mp4 movies, even when the browser
+  // can play Ogg / WebM, so a game that ships only .ogg / .webm has no sound
+  // or movies there. Use the Ogg / WebM files when the build lacks the twins
+  // (checked by the CLI: config.media) and the browser can play them.
+  //---------------------------------------------------------------------------
+
+  const media = config.media || {};
+  if (Utils.RPGMAKER_NAME !== "MZ" && Utils.isMobileDevice()) {
+    if (media.oggOnly) {
+      const _audioFileExt = AudioManager.audioFileExt;
+      AudioManager.audioFileExt = function () {
+        return WebAudio.canPlayOgg() ? ".ogg" : _audioFileExt.apply(this, arguments);
+      };
+    }
+    if (media.webmOnly) {
+      const _videoFileExt = Game_Interpreter.prototype.videoFileExt;
+      Game_Interpreter.prototype.videoFileExt = function () {
+        return Graphics.canPlayVideoType("video/webm") ? ".webm" : _videoFileExt.apply(this, arguments);
+      };
+    }
+  }
+
   let toastEl = null;
   let toastTimer = 0;
   function toast(message, kind = "info", ms = 2500) {

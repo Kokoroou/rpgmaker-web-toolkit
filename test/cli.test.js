@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
-import { compileGlobs, suggestSlug, validateSlug } from "../cli/lib/game.js";
+import { compileGlobs, mobileOnlyMissing, suggestSlug, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
@@ -187,6 +187,33 @@ test("free plan limits: newest valid copy wins, offline falls back", async () =>
   }
   assert.equal(parseLimits({ updated: "2026-01-01", assets: { maxFiles: 1.5, maxFileBytes: 25 * 1024 ** 2 } }), null);
   await assert.rejects(loadLimits({ bundledFile: path.join(dir, "missing.json"), url: "off" }), /Invalid limits file/);
+});
+
+test("MV phone media: Ogg / WebM without an .m4a / .mp4 twin", () => {
+  const files = [
+    "audio/bgm/Town.ogg",
+    "audio/bgm/Town.m4a",
+    "audio/se/Cursor.rpgmvo",
+    "audio/se/Cursor.rpgmvm",
+    "audio/me/Fanfare.ogg",
+    "Audio/bgs/Rain.rpgmvo",
+    "img/pictures/notaudio.ogg",
+    "movies/Intro.webm",
+    "movies/Intro.mp4",
+  ].map((rel) => ({ rel }));
+  assert.deepEqual(mobileOnlyMissing(files), { audio: 2, movies: 0 });
+  assert.deepEqual(mobileOnlyMissing([{ rel: "movies/End.webm" }]), { audio: 0, movies: 1 });
+
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const runtimeConfig = (engine) => {
+    const js = generatedFiles({ root, engine, title: "G" }, { slug: "g", sync: {} }, files).get("js/plugins.js");
+    return JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  };
+  assert.deepEqual(runtimeConfig("MV").media, { oggOnly: true, webmOnly: false });
+  assert.equal(runtimeConfig("MZ").media, undefined, "MZ decodes Ogg itself");
 });
 
 test("web build: runtime plugins and the toolkit version for the problem report", () => {
