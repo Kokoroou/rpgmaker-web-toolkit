@@ -117,7 +117,7 @@
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
-.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-menu):not(.rwk-tool-speed){display:none}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-menu):not(.rwk-tool-speed):not(.rwk-tool-cloud){display:none}
 .rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}

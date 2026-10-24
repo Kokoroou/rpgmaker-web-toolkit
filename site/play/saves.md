@@ -8,6 +8,17 @@ With **cloud save sync** on, your saves follow your email. Save on your phone, c
 | You save | The save uploads a second later (*☁ Saved to the cloud*) |
 | You are offline | You play with this device's saves; they upload when you are back online |
 
+## The ☁ icon
+
+On a phone, ☁ in the toolbar shows where your saves are; tap it for the ⏸ menu, where ⏸ → **Cloud saves** says the same in words and uploads waiting saves.
+
+| Icon | Means |
+|---|---|
+| ☁ with a tick | Every save is in the cloud |
+| ☁ with an arrow | Uploading |
+| ☁ crossed out | Offline or a network problem: saves stay on this device and upload later |
+| Red ☁ with ! | Login expired, or a save differs from the cloud: see below |
+
 ## If the game asks
 
 <div class="shots">
