@@ -1,11 +1,12 @@
 //=============================================================================
 // RWK_SaveTools.js - rpgmaker-web-toolkit
 // Export a save slot as a desktop save file (file3.rmmzsave / file3.rpgsave)
-// so an external save editor can change it, and import the edited file back.
+// so an external save editor can change it, import the edited file back, or
+// delete a slot.
 //=============================================================================
 /*:
  * @target MZ MV
- * @plugindesc [rpgmaker-web-toolkit] Save export / import. Requires RWK_Core.
+ * @plugindesc [rpgmaker-web-toolkit] Save export / import / delete. Requires RWK_Core.
  * @author rpgmaker-web-toolkit
  */
 
@@ -127,6 +128,25 @@
     }
   }
 
+  // Removes through the engine so save sync deletes the cloud copy too, and
+  // drops the slot from the save list.
+  async function deleteSlot(id) {
+    if (MZ) {
+      await StorageManager.remove(DataManager.makeSavename(id));
+      await StorageManager.updateForageKeys();
+      DataManager._globalInfo[id] = null;
+      await StorageManager.saveObject("global", DataManager._globalInfo);
+    } else {
+      StorageManager.remove(id);
+      const globalInfo = DataManager.loadGlobalInfo() || [];
+      globalInfo[id] = null;
+      DataManager.saveGlobalInfo(globalInfo);
+    }
+    // A save / load screen open behind the panel still shows the slot.
+    const scene = SceneManager._scene;
+    if (scene && scene._listWindow && scene._listWindow.refresh) scene._listWindow.refresh();
+  }
+
   //---------------------------------------------------------------------------
   // Panel
   //---------------------------------------------------------------------------
@@ -141,6 +161,7 @@
 .rwk-saves-row button{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid #555;
   background:#2c2c33;color:#eee;cursor:pointer}
 .rwk-saves-row button:disabled{opacity:.35;cursor:default}
+.rwk-saves-row button.danger{color:#f88;border-color:#844}
 .rwk-saves-btn{position:fixed;left:6px;top:6px;z-index:55;width:30px;height:30px;padding:0;border-radius:50%;
   border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
   opacity:.2;transition:opacity .2s}
@@ -167,31 +188,17 @@
     const p = document.createElement("p");
     p.textContent =
       `Export saves a slot as fileN${EXT}, the file the desktop game uses, ` +
-      "ready for a save editor. Import puts an edited file back into a slot and restarts the game.";
+      "ready for a save editor. Import puts an edited file back into a slot and restarts the game. " +
+      "Delete empties a slot" + (RWK.saveSync ? ", here and in the cloud." : ".");
     const list = document.createElement("div");
     list.className = "rwk-saves-list";
     const close = () => overlay.remove();
 
-    for (const id of slotIds()) {
-      const has = exists(id);
-      const row = document.createElement("div");
-      row.className = "rwk-saves-row";
-      const label = document.createElement("div");
-      label.textContent = slotName(id);
-      const sub = document.createElement("small");
-      sub.textContent = has ? describe(slotInfo(id)) || "Saved" : "Empty";
-      label.appendChild(sub);
-      const exp = button("Export", () =>
-        exportSlot(id).catch((e) => {
-          console.error("[RWK] export failed", e);
-          RWK.toast("Could not export " + slotName(id) + ".", "error", 4000);
-        })
-      );
-      exp.disabled = !has;
-      const imp = button("Import", () => pickFile(id, has, close));
-      row.append(label, exp, imp);
-      list.appendChild(row);
-    }
+    const fill = () => {
+      list.textContent = "";
+      for (const id of slotIds()) list.appendChild(slotRow(id, close, fill));
+    };
+    fill();
 
     const actions = document.createElement("div");
     actions.className = "rwk-modal-actions";
@@ -201,6 +208,55 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
+  }
+
+  function slotRow(id, closePanel, refreshPanel) {
+    const has = exists(id);
+    const row = document.createElement("div");
+    row.className = "rwk-saves-row";
+    const label = document.createElement("div");
+    label.textContent = slotName(id);
+    const sub = document.createElement("small");
+    sub.textContent = has ? describe(slotInfo(id)) || "Saved" : "Empty";
+    label.appendChild(sub);
+    const exp = button("Export", () =>
+      exportSlot(id).catch((e) => {
+        console.error("[RWK] export failed", e);
+        RWK.toast("Could not export " + slotName(id) + ".", "error", 4000);
+      })
+    );
+    exp.disabled = !has;
+    const imp = button("Import", () => pickFile(id, has, closePanel));
+    const del = button("Delete", () => confirmDelete(id, refreshPanel));
+    del.className = "danger";
+    del.disabled = !has;
+    row.append(label, exp, imp, del);
+    return row;
+  }
+
+  async function confirmDelete(id, refreshPanel) {
+    const ok = await RWK.choose(
+      "Delete save",
+      `Delete ${slotName(id)}?` +
+        (RWK.saveSync ? "\nIt is also removed from the cloud, on every device." : "") +
+        "\n\nThis cannot be undone: export it first to keep a copy.",
+      [
+        { label: "Cancel", value: false, primary: true },
+        { label: "Delete", value: true },
+      ]
+    );
+    if (!ok || busy) return;
+    busy = true;
+    try {
+      await deleteSlot(id);
+      RWK.toast(slotName(id) + " deleted.", "info", 2000);
+    } catch (e) {
+      console.error("[RWK] delete failed", e);
+      RWK.toast("Could not delete " + slotName(id) + ".", "error", 4000);
+    } finally {
+      busy = false;
+      refreshPanel();
+    }
   }
 
   function button(label, onClick) {
@@ -273,7 +329,7 @@
     const btn = document.createElement("button");
     btn.className = "rwk-saves-btn";
     btn.textContent = "💾";
-    btn.title = "Export / import saves";
+    btn.title = "Export / import / delete saves";
     btn.addEventListener("click", openPanel);
     RWK.shield(btn);
     document.body.appendChild(btn);
