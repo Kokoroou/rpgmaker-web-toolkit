@@ -9,9 +9,14 @@ export default defineConfig({
   lang: "en",
   cleanUrls: true,
   lastUpdated: true,
-  head: [["meta", { name: "theme-color", content: "#3c8772" }]],
+  head: [
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/rpgmaker-web-toolkit/logo.svg" }],
+    ["meta", { name: "theme-color", content: "#2a347a" }],
+  ],
 
   themeConfig: {
+    logo: { src: "/logo.svg", alt: "" },
+
     nav: [
       { text: "Set up", link: "/setup/requirements", activeMatch: "/setup/" },
       { text: "Play", link: "/play/", activeMatch: "/play/" },
