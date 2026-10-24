@@ -2,6 +2,8 @@
 
 Tài liệu này trả lời: toolkit (và các tính năng dự kiến trong [FEATURE_IDEAS.md](FEATURE_IDEAS.md)) có thể ảnh hưởng thế nào tới nhà phát triển game RPG Maker, nhất là nhà phát triển độc lập / circle doujin, và tới cộng đồng người chơi. Phần cuối là các đề xuất giảm rủi ro.
 
+**Trạng thái (cập nhật):** các đề xuất 1–6, 8 và 11 ở mục 5 đã được thi công, xem cột "Trạng thái". Mục 6 đánh giá giấy phép.
+
 Trước tài liệu này, dự án chỉ có đoạn "Responsible use" ngắn trong README và trang chủ user guide, cùng vài ghi chú về phát tán rải rác trong FEATURE_IDEAS (#20 tải .zip, mục "Chặn thật hay chỉ ẩn nút"). Chưa có phần nào nhìn từ phía nhà phát triển.
 
 **Lưu ý về nguồn.** Không có khảo sát hay số liệu nào về việc người chơi tự host game RPG Maker. Phần lớn bằng chứng là bình luận trên itch.io, Steam, diễn đàn, cộng với văn bản luật và điều khoản dịch vụ. Những gì dưới đây là đánh giá định tính, không phải đo lường. Đây cũng không phải tư vấn pháp lý.
@@ -18,7 +20,7 @@ Trước tài liệu này, dự án chỉ có đoạn "Responsible use" ngắn t
 | **Nhà phát triển: cơ hội** | Chính dev có thể dùng toolkit để phát bản test / bản cho người ủng hộ, có đăng nhập email và cloud save | Tích cực, chưa được khai thác |
 | **Dự án** | Rủi ro pháp lý và uy tín nằm ở người deploy, nhưng tên dự án sẽ bị gắn với các trường hợp lạm dụng | Trung bình |
 
-Kết luận ngắn: thiết kế hiện tại (khóa site đến khi bật Access, mỗi email một save, không giải mã tài nguyên) đã đặt đúng hướng. Rủi ro lớn nhất không nằm ở tính năng nào cụ thể mà ở **chế độ "No protection"** và ở việc **chia link cho nhiều người**: hai thứ biến công cụ chơi cá nhân thành kênh phát tán.
+Kết luận ngắn: thiết kế ban đầu (khóa site đến khi bật Access, mỗi email một save, không giải mã tài nguyên) đã đặt đúng hướng. Rủi ro lớn nhất không nằm ở tính năng nào cụ thể mà ở **chế độ "No protection"** và ở việc **chia link cho nhiều người**: hai thứ biến công cụ chơi cá nhân thành kênh phát tán.
 
 ## 2. Bối cảnh: toolkit làm gì với file game
 
@@ -48,8 +50,8 @@ Kết luận ngắn: thiết kế hiện tại (khóa site đến khi bật Acce
 | Chế độ "No protection" | Có, hỏi xác nhận một lần | Chỉ một câu "Really make the site public?". Không hỏi người deploy có phải tác giả / có quyền không |
 | Cảnh báo khi Access bị tắt | Có, ở mỗi lần deploy | Chỉ khi người đó deploy lại |
 | Giới hạn số người được mời | Gián tiếp (Access free: 50 user) | 50 người là đủ để phát tán trong một nhóm nhỏ / Discord |
-| Ngăn máy tìm kiếm index | Chưa | Worker không gửi `X-Robots-Tag`; site public có thể bị index nếu link bị đăng ở đâu đó |
-| Kênh để dev báo vi phạm | Chưa có trong tài liệu dự án | Dev vẫn báo được qua [Cloudflare abuse / DMCA](https://www.cloudflare.com/abuse/): Workers lưu nội dung nên Cloudflare gỡ được |
+| Ngăn máy tìm kiếm index | Đã có | `X-Robots-Tag: noindex` (qua `_headers` của static assets và trong Worker), meta `robots`, `robots.txt`. Chỉ site public có lý do và chủ động xin mới được index |
+| Kênh để dev báo vi phạm | Đã có | Trang "For game creators" trong user guide: [Cloudflare abuse / DMCA](https://www.cloudflare.com/abuse/) (Workers lưu nội dung nên Cloudflare gỡ được), mở issue |
 
 **Vị trí pháp lý (tham khảo).**
 
@@ -96,7 +98,7 @@ Phần này hiện chưa được nhắc trong tài liệu dự án, dù đây l
 - **Demo / game miễn phí công khai**: chế độ "No protection" đúng mục đích của nó.
 - **Thử bản điện thoại**: xem nút ảo, phím plugin, ảnh quá lớn trên GPU điện thoại trước khi quyết định làm port chính thức.
 
-Giới hạn hiện tại cho nhóm này: Access free tối đa 50 user, `workers.dev` không có tên miền riêng, giấy phép PolyForm Noncommercial **không cho dùng thương mại**, nên dev bán bản web cho Patreon về lý thuyết không được dùng toolkit cho việc đó.
+Giới hạn cho nhóm này: Access free tối đa 50 user, `workers.dev` không có tên miền riêng. Giấy phép cũ (PolyForm Noncommercial) cấm dùng thương mại, nên dev bán bản web cho Patreon không được dùng toolkit; quyền bổ sung "Game Creators" (mục 6) đã gỡ giới hạn này.
 
 ## 4. Tác động lên cộng đồng người chơi
 
@@ -119,36 +121,61 @@ Giới hạn hiện tại cho nhóm này: Access free tối đa 50 user, `worker
 | **Chuẩn mực cộng đồng** | Nếu "deploy rồi chia link" trở thành thói quen, cộng đồng RPG Maker có thể coi toolkit như công cụ phát tán, và dev phản ứng bằng cách mã hóa nặng hơn / dùng DRM, làm khó cả người chơi trung thực (như cách một số dev né mã hóa RPG Maker vì làm game lỗi: [itch.io](https://itch.io/post/8922397)) |
 | **Báo lỗi sai cho dev** | Lỗi phát sinh do plugin của toolkit (ItemBatch, SaveSync) hay do cheat có thể bị báo cho dev như lỗi của game |
 
-## 5. Đề xuất
+## 5. Đề xuất và trạng thái
 
-Xếp theo hiệu quả giảm rủi ro so với công sức.
+| # | Đề xuất | Trạng thái | Thi công ở đâu |
+|---|---|---|---|
+| 1 | **Siết chế độ "No protection"**: hỏi vì sao site được công khai | Đã làm | `cli/commands/deploy.js` (`askPublic`, `checkPublic`). Ba lựa chọn: tôi làm game / tác giả cho phép / không (giữ khóa). Lưu `auth.basis` và `auth.since`. Site public cũ không có `basis` bị hỏi một lần ở lần deploy sau |
+| 2 | **Không cho máy tìm kiếm index** | Đã làm | `cli/lib/stage.js` sinh `_headers`, `robots.txt`, meta `robots`; `worker/index.js` gửi header cho file lớn từ R2 và trang khóa. Chỉ site public có `basis` và `indexable: true` mới được index |
+| 3 | **Viết lại "Responsible use"** | Đã làm | README, `site/index.md`: một mình, thiết bị của mình; chia cho bạn bè cũng nằm ngoài "dùng cá nhân" ở đa số nước; người deploy chịu trách nhiệm |
+| 4 | **Trang "For game creators"** | Đã làm | `site/creators/index.md`: toolkit làm gì / không làm gì, dùng cho game của chính mình, báo vi phạm |
+| 5 | **Nhắc khi nhiều email chơi** | Đã làm | `worker/players.js` ghi hash email khi lưu lần đầu (`rwk/players/<slug>.json`); CLI đếm sau mỗi deploy, nhắc khi > 5 email (> 1 nếu tác giả chọn `personal`) |
+| 6 | **Opt-out / chính sách của tác giả** | Đã làm | `cli/lib/policy.js`, file `rwk-policy.json`: `hosting` = `none` / `personal` / `shared` / `public`, `features` tắt `saveTools` / `itemBatch` / `sync` (người deploy không bật lại được), `message`, `contact`. Tài liệu: `site/creators/policy.md` |
+| 7 | Gói "Giữ nguyên trải nghiệm gốc", cheat mặc định tắt | Chờ | Làm cùng các tính năng trong FEATURE_IDEAS; `features` của policy sẽ nhận thêm khóa mới (`cheats`, `fastForward`…) |
+| 8 | **Gắn nhãn bản web khi báo lỗi** | Đã làm (phần cơ bản) | `<meta name="generator" content="rpgmaker-web-toolkit">`; `RWK_Core` in dòng console và thêm ghi chú vào màn hình lỗi của engine: kiểm tra bản desktop trước khi báo cho tác giả. Phần "cheat đã từng bật" làm khi có cheat |
+| 9 | Dịch máy: cache theo từng deploy, không xuất thành patch | Chờ | Khi làm #7 trong FEATURE_IDEAS |
+| 10 | Không làm tải .zip (#20) trừ khi có opt-out | Giữ nguyên | Opt-out đã có; khi làm #20 phải tôn trọng `hosting` |
+| 11 | **Điều chỉnh giấy phép cho tác giả game** | Đã làm | `LICENSE`: thêm "Additional Permission: Game Creators", xem mục 6 |
+| 12 | Hỏi ý kiến trực tiếp các dev | Chưa | Việc của người duy trì dự án, không làm bằng code được |
 
-### Nên làm sớm
+### Giới hạn cần nói rõ
 
-1. **Siết chế độ "No protection"** (`cli/commands/deploy.js`): thay câu xác nhận đơn bằng một câu hỏi rõ "Bạn là tác giả, hoặc game cho phép phát công khai?" và in một dòng giải thích đây là phát tán. Lưu lý do vào `games.json` để các lần deploy sau không hỏi lại.
-2. **Gửi `X-Robots-Tag: noindex, nofollow`** từ Worker cho mọi phản hồi (một dòng trong `worker/index.js`). Site cá nhân không có lý do được index.
-3. **Viết lại đoạn "Responsible use"** (README, `site/index.md`) cho chặt và nhất quán: một mình, game đã mua, trong gia đình. Bỏ "people close to you" hoặc nói rõ đó là vùng xám pháp lý. Nói rõ người deploy chịu trách nhiệm và Cloudflare xử lý DMCA với Workers.
-4. **Trang "For game developers"** trong user guide: toolkit làm gì / không làm gì với file game, dev có thể dùng nó để phát bản test, cách báo vi phạm (Cloudflare abuse form, mở issue trên repo), và cách dev từ chối (xem mục 6).
-5. **Cảnh báo khi mời nhiều email**: CLI không quản lý danh sách Access, nhưng `/api/me` hoặc lần deploy có thể đếm số email có save và nhắc khi vượt một ngưỡng nhỏ (vd. 5).
+- `rwk-policy.json` là **lời đề nghị** toolkit tôn trọng, không phải DRM: ai cũng xóa được file hoặc sửa toolkit. Nó có tác dụng với số đông muốn làm đúng, và là bằng chứng rõ ràng ý muốn của tác giả khi họ cần gửi yêu cầu gỡ.
+- Số email chỉ tăng, không giảm: email đã bị xóa khỏi Access vẫn được đếm. Đây là lời nhắc, không chặn gì.
+- Câu hỏi "vì sao được công khai" dựa vào lời khai của người deploy. Nó làm người dùng dừng lại suy nghĩ và để lại ghi chép, chứ không kiểm chứng được.
 
-### Khi thi công các tính năng dự kiến
+## 6. Giấy phép
 
-6. **Tôn trọng opt-out của nhà phát triển.** Đề xuất một tín hiệu đơn giản dev có thể đặt trong game: một file `rwk-optout` hoặc tham số plugin `RWK_OptOut` trong `js/plugins.js`. CLI thấy tín hiệu thì chỉ cho deploy ở chế độ một người (Access, không mời) hoặc từ chối hẳn, và tắt cheat / Skip / dịch. Cùng chỗ đó có thể có tín hiệu ngược lại (dev cho phép rõ ràng) để mở khóa chế độ public.
-7. **Gói "Giữ nguyên trải nghiệm gốc"** (FEATURE_IDEAS mục 5) nên là lựa chọn được nêu lên đầu, và **cheat mặc định tắt** như đã đề xuất.
-8. **Gắn nhãn báo lỗi**: trình báo lỗi (#11) ghi rõ game chạy qua toolkit, phiên bản toolkit, plugin RWK nào đang bật, và cheat đã từng bật trong save hay chưa, để dev không mất công vào lỗi không phải của họ.
-9. **Dịch máy (#7)**: cache bản dịch theo từng người chơi hoặc theo từng deploy, không chia sẻ giữa các deploy; không có lệnh xuất bản dịch thành patch từ dịch máy.
-10. **Không làm #20 (tải .zip)** trừ khi có opt-out ở mục 6: đây là tính năng dễ thành phát tán nhất.
+### Vấn đề của giấy phép cũ
 
-### Cần cân nhắc thêm
+PolyForm Noncommercial 1.0.0 cho phép mọi mục đích phi thương mại, nhưng **cấm thương mại với tất cả mọi người**, kể cả tác giả game dùng cho game của chính họ. Hệ quả: nhóm dùng toolkit hợp pháp nhất (dev phát bản web cho người ủng hộ Patreon, bản early access, bản test kín của studio) lại là nhóm bị cấm. Người chơi dùng cá nhân thì không bị ảnh hưởng.
 
-11. **Giấy phép**: PolyForm Noncommercial chặn dev indie dùng toolkit cho bản web trả phí (Patreon). Có thể thêm ngoại lệ: tác giả game dùng cho chính game của mình thì được dùng thương mại.
-12. **Hỏi ý kiến trực tiếp**: đăng câu hỏi trên diễn đàn rpgmakerweb / Ci-en / Twitter của vài dev doujin trước khi quảng bá dự án rộng. Không có dữ liệu nào thay được câu trả lời của chính nhóm bị ảnh hưởng.
+### Các phương án đã cân nhắc
 
-## 6. Câu hỏi còn mở
+| Phương án | Dev indie | Ngăn lạm dụng | Nhận xét |
+|---|---|---|---|
+| Giữ PolyForm Noncommercial | Bị cấm dùng thương mại cho game của mình | Cấm "dịch vụ host game" thu tiền | Bảo vệ tốt nhưng bỏ rơi nhóm có lợi nhất |
+| MIT / Apache-2.0 | Dùng tự do | Không: ai cũng mở được dịch vụ thu tiền host game của người khác bằng toolkit | Phổ biến nhất, nhưng mở cửa cho đúng kiểu lạm dụng mục 3.1 |
+| PolyForm Small Business | Dùng được nếu dưới 100 người và dưới 1 triệu USD doanh thu | Không: một dịch vụ host lậu nhỏ cũng đủ điều kiện | Phân biệt theo quy mô, trong khi vấn đề là **game của ai**, không phải công ty to hay nhỏ |
+| PolyForm Shield | Dùng được | Chỉ cấm cạnh tranh với chính toolkit | Không liên quan tới quyền của tác giả game |
+| **PolyForm Noncommercial + quyền bổ sung cho tác giả game** (chọn) | Dùng mọi mục đích, kể cả thương mại, cho game họ sở hữu hoặc được phép phát hành; được đóng gói các plugin `runtime/` vào game của mình | Giữ nguyên: host game của người khác để kiếm tiền, bán dịch vụ host, bán lại toolkit vẫn bị cấm | Phân biệt đúng theo quyền đối với game |
+
+### Nội dung quyền bổ sung ("Additional Permission: Game Creators")
+
+- **Ai được:** người sở hữu bản quyền game, hoặc người được chủ sở hữu cho phép phát hành (nhà phát hành, người dịch / port có thỏa thuận).
+- **Được làm gì:** dùng toolkit cho mọi mục đích, kể cả thương mại, để phát hành, host, thử nghiệm, bán hoặc cho truy cập game của mình; sao chép, sửa và phân phối các plugin trong `runtime/` bên trong game của mình trên mọi nền tảng (ví dụ đưa bộ nút ảo vào bản HTML5 bán trên itch.io).
+- **Không bao gồm:** game không phải của mình (vẫn theo Noncommercial); cung cấp toolkit hoặc việc host bằng toolkit như dịch vụ cho game của người khác; bán toolkit như một sản phẩm.
+- **Ghi chú bản quyền:** giữ dòng `Required Notice:` và link giấy phép ở đầu mỗi file plugin (đã thêm vào cả 5 file); không bắt ghi công trong game.
+
+Quyền bổ sung được đặt trước văn bản PolyForm và không sửa văn bản đó. `package.json` đổi `license` thành `SEE LICENSE IN LICENSE` vì không còn là một mã SPDX đơn thuần.
+
+Lưu ý: đây là thay đổi do chủ bản quyền quyết định. Văn bản được viết đơn giản và chưa qua luật sư; nên nhờ người có chuyên môn xem lại trước khi dự án được dùng rộng rãi cho mục đích thương mại.
+
+## 7. Câu hỏi còn mở
 
 - Có bao nhiêu deploy đang để "No protection"? Toolkit không thu thập dữ liệu nên không biết; chỉ có thể suy đoán qua issue / phản hồi.
 - Dev doujin Nhật thực sự nghĩ gì về JoiPlay / MTool? Nguồn tìm được đều từ phía người chơi; cần tìm thêm trên Ci-en, Fantia, Twitter tiếng Nhật (từ khóa: 再配布禁止, JoiPlay 禁止, MTool 対策).
-- Opt-out (mục 5.6) có ai dùng không nếu chỉ một dự án nhỏ đề ra? Có thể đề xuất chung với JoiPlay / các công cụ tương tự để thành quy ước.
+- `rwk-policy.json` có ai dùng không nếu chỉ một dự án nhỏ đề ra? Có thể đề xuất chung với JoiPlay / các công cụ tương tự để thành quy ước.
 
 ## Nguồn
 

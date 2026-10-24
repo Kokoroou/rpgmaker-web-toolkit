@@ -24,6 +24,8 @@ The script downloads the toolkit to a temporary folder, installs what it needs, 
 
 The toolkit finds the engine (MZ or MV) and the game title. If it prints an error here, see [Troubleshooting](/setup/troubleshooting#the-game-is-not-recognized).
 
+If the game's creator ships a [hosting policy](/creators/policy), the toolkit shows it here: what the creator allows, their message and contact, and the features they turned off.
+
 ### 2. Logging in to Cloudflare
 
 The first time on a PC, a browser window opens to log in to Cloudflare and approve access. The toolkit only asks for these permissions:

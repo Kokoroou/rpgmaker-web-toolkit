@@ -38,7 +38,14 @@ features:
 | Changing buttons, folders or features | [Customize the game](/setup/configuration) |
 | Someone who got a link and wants to play | [Open and play](/play/) |
 | Stuck on an error | [Troubleshooting](/setup/troubleshooting) |
+| The person who made the game | [For game creators](/creators/) |
 
 ::: warning Responsible use
-This toolkit is for playing games **you own**, by yourself or with people close to you. Game files belong to their creators. Keep Cloudflare Access on and do not share the link publicly: a site anyone can open is redistribution of the game.
+This toolkit is for playing a game **you own**, on your own devices. The game belongs to its creators:
+
+- Keep Cloudflare Access on. A public site, or one shared with many people, is redistribution of the game, and only its creators can allow that. Even sharing with friends is outside "private use" in most countries' copyright law.
+- If the game ships an `rwk-policy.json`, the toolkit follows its creator's wishes. See [Hosting policy](/creators/policy).
+- You, not the toolkit's author, are responsible for what you publish on your Cloudflare account, and Cloudflare handles copyright takedown requests for it.
+
+Made the game yourself? You may use the toolkit for anything, including selling access. See [For game creators](/creators/).
 :::
