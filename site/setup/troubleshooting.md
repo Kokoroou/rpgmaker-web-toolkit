@@ -9,9 +9,9 @@ irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1
 
 ## Running the command
 
-### "Node.js 20 or newer is required"
+### "Node.js 24 or newer is required"
 
-Install Node.js ([Before you start](/setup/requirements#_2-node-js-20-or-newer)), then **close and reopen** PowerShell so it finds the new `node`.
+Install Node.js ([Before you start](/setup/requirements#_2-node-js-24-or-newer)), then **close and reopen** PowerShell so it finds the new `node`.
 
 ### "npm ci failed"
 

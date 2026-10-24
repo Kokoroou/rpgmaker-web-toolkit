@@ -23,7 +23,7 @@ An MV game is recognized by its title. If a translation changes the title (in `d
 
 ## Publish from another PC
 
-Download the game on the other PC, install [Node.js](/setup/requirements#_2-node-js-20-or-newer), run the same command and log in to the **same Cloudflare account**. The settings come from your account, so there are no questions to answer.
+Download the game on the other PC, install [Node.js](/setup/requirements#_2-node-js-24-or-newer), run the same command and log in to the **same Cloudflare account**. The settings come from your account, so there are no questions to answer.
 
 ## Upload desktop saves again
 
