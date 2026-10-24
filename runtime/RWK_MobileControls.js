@@ -114,7 +114,7 @@
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
-.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle){display:none}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-more){display:none}
 .rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}
@@ -140,6 +140,7 @@
 .rwk-arm.mid{left:33%;top:33%;border:0;width:34%;height:34%}
 .rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-tool{width:calc(var(--u)*.66);height:calc(var(--u)*.66);border-radius:50%;font-size:calc(var(--u)*.3)}
+.rwk-tool svg{width:1.4em;height:1.4em;pointer-events:none}
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
@@ -429,7 +430,7 @@
       if (row.length) flush();
     } else {
       // Columns down the right edge, between the toolbar row and R.
-      const top = m + unit() * 0.45;
+      const top = m + unit() * 0.66 + gap;
       const bottom = vh() - (gamepadOn ? shoulderY() + unit() * 0.41 : margin() + clusterHeight()) - gap;
       let x = m;
       let y = top;
@@ -449,25 +450,33 @@
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar: hide/show, game keys, fullscreen, edit layout. Top-left in
-  // landscape; in portrait it sits between L and R.
+  // Toolbar, in two groups: ⚙ tools and ⌨ game keys on the left, fullscreen
+  // and show/hide on the right. Top corners in landscape; in portrait both
+  // groups sit on the L/R line, next to L and R.
   //---------------------------------------------------------------------------
 
-  const toolbar = el("div", "rwk-tools");
-  pad.appendChild(toolbar);
-  function addTool(label, extraClass, onTap) {
+  const toolbarLeft = el("div", "rwk-tools");
+  const toolbarRight = el("div", "rwk-tools");
+  pad.append(toolbarLeft, toolbarRight);
+  function addTool(label, extraClass, onTap, group = toolbarLeft) {
     const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
     bindPress(btn, null, () => {}, onTap);
-    toolbar.appendChild(btn);
+    group.appendChild(btn);
     return btn;
   }
 
-  addTool("◐", "rwk-tool-toggle", () => {
-    pad.classList.toggle("hidden");
-    document.body.classList.toggle("rwk-ctl", !pad.classList.contains("hidden") && (gamepadOn || dpadOn));
-    RWK.storage.set(HIDDEN_KEY, pad.classList.contains("hidden"));
+  const { icons } = RWK;
+  const eyeIcon = (open) => (open ? icons.eye : icons.eyeOff);
+  let toggleBtn = null;
+
+  // The eye shows the current state: open while the controls are shown.
+  function setHidden(hidden) {
+    pad.classList.toggle("hidden", hidden);
+    document.body.classList.toggle("rwk-ctl", !hidden && (gamepadOn || dpadOn));
+    toggleBtn.innerHTML = eyeIcon(!hidden);
+    RWK.storage.set(HIDDEN_KEY, hidden);
     layout();
-  });
+  }
   let panel = null;
   let backdrop = null;
   if (panelKeys.length) {
@@ -497,7 +506,7 @@
     }
     panel.appendChild(grid);
     pad.appendChild(panel);
-    addTool("⌨", "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
+    addTool(icons.keys, "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
   }
 
   function setPanel(open) {
@@ -507,12 +516,24 @@
   }
 
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
-  if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen);
+  if (extrasTools.includes("fullscreen")) addTool(icons.fullscreen, "rwk-tool-fs", toggleFullscreen, toolbarRight);
+  toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")), toolbarRight);
+
+  // The ⚙ tools menu opens from the toolbar (RWK_Core adds the button with
+  // the first tool), first on the left.
+  let ready = false;
+  RWK.tools.mount((label, onTap) => {
+    const btn = addTool(label, "rwk-tool-more", onTap);
+    toolbarLeft.prepend(btn);
+    if (ready) layout();
+    return btn;
+  });
+
   if (extrasTools.includes("editLayout")) {
-    const editBtn = addTool("✥", "rwk-tool-edit", () => {
-      editing = !editing;
+    // Started from the tools menu; ✓ and ↺ show in the toolbar while editing.
+    const setEditing = (on) => {
+      editing = on;
       pad.classList.toggle("editing", editing);
-      editBtn.textContent = editing ? "✓" : "✥";
       if (!editing) {
         RWK.storage.set(LAYOUT_KEY, saved);
         RWK.storage.set(OFF_KEY, [...off]);
@@ -520,29 +541,37 @@
       } else {
         RWK.toast("Drag buttons to move them, − hides one, + shows it again. ↺ resets positions, ✓ saves.", "info", 5000);
       }
-      resetBtn.style.display = editing ? "" : "none";
+      doneBtn.style.display = resetBtn.style.display = editing ? "" : "none";
       layout(); // hidden buttons show up dimmed while editing
+    };
+    RWK.tools.add({
+      icon: icons.move,
+      label: "Edit button layout",
+      detail: "Move the on-screen buttons, or hide the ones you never use",
+      onSelect: () => {
+        if (pad.classList.contains("hidden")) setHidden(false); // nothing to edit otherwise
+        setEditing(true);
+      },
     });
-    const resetBtn = addTool("↺", "rwk-tool-reset", () => {
+    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false));
+    const resetBtn = addTool(icons.reset, "rwk-tool-reset", () => {
       delete saved[orientation()];
       layout();
     });
-    resetBtn.style.display = "none";
+    doneBtn.style.display = resetBtn.style.display = "none";
   }
 
   // Portrait with a gamepad: the game sits above the controls.
   const docked = () => orientation() === "portrait" && !pad.classList.contains("hidden") && (gamepadOn || dpadOn);
 
   function layoutTools() {
-    const w = toolbar.offsetWidth;
-    const h = toolbar.offsetHeight;
-    if (docked()) {
-      toolbar.style.left = vw() / 2 + "px";
-      toolbar.style.top = vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) + "px";
-    } else {
-      toolbar.style.left = margin() + w / 2 + "px";
-      toolbar.style.top = margin() + h / 2 + "px";
-    }
+    const h = toolbarLeft.offsetHeight || toolbarRight.offsetHeight;
+    // Docked: next to L and R (their outer edge is margin + 1.8u from the side).
+    const inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
+    const top = docked() ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + h / 2;
+    toolbarLeft.style.left = inset + toolbarLeft.offsetWidth / 2 + "px";
+    toolbarRight.style.left = vw() - inset - toolbarRight.offsetWidth / 2 + "px";
+    toolbarLeft.style.top = toolbarRight.style.top = top + "px";
   }
 
   // Above the controls when docked, under the toolbar otherwise.
@@ -555,7 +584,7 @@
       panel.style.bottom = bottom + "px";
       panel.style.maxHeight = vh() - bottom - 8 + "px";
     } else {
-      const top = toolbar.offsetTop + toolbar.offsetHeight / 2 + 8;
+      const top = toolbarLeft.offsetTop + toolbarLeft.offsetHeight / 2 + 8;
       panel.style.bottom = "";
       panel.style.top = top + "px";
       panel.style.maxHeight = vh() - top - 8 + "px";
@@ -565,7 +594,7 @@
   // Top edge of the controls in the lower half of the screen.
   function controlsTop() {
     let top = vh();
-    for (const node of [toolbar, ...items.map((i) => i.el)]) {
+    for (const node of [toolbarLeft, toolbarRight, ...items.map((i) => i.el)]) {
       if (!node.offsetWidth || node.offsetTop < vh() / 2) continue; // hidden, or moved to the top
       top = Math.min(top, node.offsetTop - node.offsetHeight / 2); // offsetTop is the center (translate -50%)
     }
@@ -655,9 +684,12 @@
   window.addEventListener("pointerdown", wake, true);
   wake();
 
-  if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
-  else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
+  if (RWK.storage.get(HIDDEN_KEY, false)) {
+    pad.classList.add("hidden");
+    toggleBtn.innerHTML = eyeIcon(false);
+  } else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
   document.body.appendChild(pad);
+  ready = true;
   layout();
   // The engine creates the canvas after plugins load.
   const waitCanvas = () => (document.getElementById("gameCanvas") ? fitGame() : requestAnimationFrame(waitCanvas));
@@ -668,7 +700,7 @@
   document.addEventListener("webkitfullscreenchange", relayout);
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 
-  // Later toolkit plugins (save tools) add their buttons to the toolbar.
+  // Lets later plugins add buttons to the toolbar (advanced tools go in RWK.tools instead).
   RWK.controls = {
     addTool(label, extraClass, onTap) {
       const btn = addTool(label, extraClass, onTap);

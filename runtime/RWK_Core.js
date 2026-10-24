@@ -196,6 +196,141 @@
     }
   }
 
+  //---------------------------------------------------------------------------
+  // Tools menu: advanced tools (saves, layout editing, item options) sit
+  // behind one ⚙ button so they don't crowd the screen. The touch toolbar
+  // hosts the button when it is shown (tools.mount); otherwise it is a faint
+  // button in the top-left corner.
+  //---------------------------------------------------------------------------
+
+  const toolsStyle = document.createElement("style");
+  toolsStyle.textContent = `
+.rwk-tools-list{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.rwk-tools-list button{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;text-align:left;
+  font:inherit;border-radius:10px;border:1px solid #444;background:#2c2c33;color:#eee;cursor:pointer}
+.rwk-tools-list b{display:flex;width:24px;justify-content:center}
+.rwk-tools-list svg{width:20px;height:20px}
+.rwk-tools-list span{flex:1;min-width:0}
+.rwk-tools-list small{display:block;opacity:.65;font-size:12px}
+.rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:55;display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;padding:0;border-radius:50%;
+  border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
+  opacity:.2;transition:opacity .2s}
+.rwk-tools-btn:hover{opacity:1}
+.rwk-tools-btn svg{width:17px;height:17px}
+`;
+  document.head.appendChild(toolsStyle);
+
+  // Toolbar and menu icons: monochrome line drawings in the text color, never
+  // color emoji (only the A/B/X/Y buttons have color).
+  const svg = (paths) =>
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true">' + paths + "</svg>";
+  const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+  const icons = {
+    gear: svg(
+      '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38' +
+        'a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73' +
+        'l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25' +
+        'a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74' +
+        'l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>' +
+        '<circle cx="12" cy="12" r="3"/>'
+    ),
+    keys: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
+    fullscreen: svg('<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'),
+    eye: svg(EYE),
+    eyeOff: svg(EYE + '<path d="M3 3l18 18"/>'),
+    move: svg('<path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/>'),
+    check: svg('<path d="M5 12l5 5L20 7"/>'),
+    reset: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
+    save: svg('<path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/>'),
+    items: svg('<path d="M12 2l10 5-10 5L2 7z"/><path d="M2 12l10 5 10-5M2 17l10 5 10-5"/>'),
+  };
+
+  const toolList = [];
+  let mountEntry = null; // (label, onTap) -> element, set by the touch toolbar
+  let entry = null;
+
+  function cornerEntry() {
+    const btn = document.createElement("button");
+    btn.className = "rwk-tools-btn";
+    btn.innerHTML = icons.gear;
+    btn.title = "Tools";
+    btn.addEventListener("click", openTools);
+    shield(btn);
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  // tool: { icon (RWK.icons entry), label, detail: string | () => string, onSelect, keepOpen }
+  // keepOpen redraws the menu after onSelect instead of closing it (toggles).
+  function addTool(tool) {
+    toolList.push(tool);
+    if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
+  }
+
+  function mount(fn) {
+    mountEntry = fn;
+    if (entry) {
+      entry.remove();
+      entry = fn(icons.gear, openTools);
+    }
+  }
+
+  function openTools() {
+    if (document.querySelector(".rwk-tools-list")) return;
+    const overlay = document.createElement("div");
+    overlay.className = "rwk-modal";
+    const box = document.createElement("div");
+    box.className = "rwk-modal-box";
+    const h = document.createElement("h2");
+    h.textContent = "Tools";
+    const list = document.createElement("div");
+    list.className = "rwk-tools-list";
+    const close = () => overlay.remove();
+
+    const fill = () => {
+      list.textContent = "";
+      for (const tool of toolList) {
+        const b = document.createElement("button");
+        const icon = document.createElement("b");
+        icon.innerHTML = tool.icon;
+        const label = document.createElement("span");
+        label.textContent = tool.label;
+        const detail = typeof tool.detail === "function" ? tool.detail() : tool.detail;
+        if (detail) {
+          const small = document.createElement("small");
+          small.textContent = detail;
+          label.appendChild(small);
+        }
+        b.append(icon, label);
+        b.addEventListener("click", () => {
+          if (tool.keepOpen) {
+            tool.onSelect();
+            fill();
+          } else {
+            close();
+            tool.onSelect();
+          }
+        });
+        list.appendChild(b);
+      }
+    };
+    fill();
+
+    const actions = document.createElement("div");
+    actions.className = "rwk-modal-actions";
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", close);
+    actions.appendChild(closeBtn);
+    box.append(h, list, actions);
+    overlay.appendChild(box);
+    overlay.addEventListener("click", (e) => e.target === overlay && close());
+    shield(overlay);
+    document.body.appendChild(overlay);
+  }
+
   window.RWK = {
     config,
     engine: Utils.RPGMAKER_NAME === "MZ" ? "MZ" : "MV",
@@ -204,5 +339,7 @@
     toast,
     choose,
     shield,
+    icons,
+    tools: { add: addTool, mount, open: openTools },
   };
 })();
