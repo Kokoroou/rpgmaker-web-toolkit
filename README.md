@@ -1,6 +1,6 @@
 # rpgmaker-web-toolkit
 
-Publish an **RPG Maker MZ** game (MV: adapter included, not yet tested) to **Cloudflare Workers on the free plan** with a single command:
+Publish an **RPG Maker MZ or MV** game to **Cloudflare Workers on the free plan** with a single command:
 
 - Play in a browser anywhere: `https://<game-name>.<username>.workers.dev`
 - **Cloud save sync**: sign in with the same email and continue on any device
