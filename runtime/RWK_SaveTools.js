@@ -161,10 +161,6 @@
   background:#2c2c33;color:#eee;cursor:pointer}
 .rwk-saves-row button:disabled{opacity:.35;cursor:default}
 .rwk-saves-row button.danger{color:#f88;border-color:#844}
-.rwk-saves-btn{position:fixed;left:6px;top:6px;z-index:55;width:30px;height:30px;padding:0;border-radius:50%;
-  border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
-  opacity:.2;transition:opacity .2s}
-.rwk-saves-btn:hover{opacity:1}
 `;
   document.head.appendChild(style);
 
@@ -317,22 +313,7 @@
     setTimeout(() => location.reload(), 600);
   }
 
-  //---------------------------------------------------------------------------
-  // Entry point: a 💾 tool in the on-screen toolbar, or a small corner button
-  // when the touch controls are not shown (desktop).
-  //---------------------------------------------------------------------------
-
-  if (RWK.controls) {
-    RWK.controls.addTool("💾", "rwk-tool-saves", openPanel);
-  } else {
-    const btn = document.createElement("button");
-    btn.className = "rwk-saves-btn";
-    btn.textContent = "💾";
-    btn.title = "Export / import / delete saves";
-    btn.addEventListener("click", openPanel);
-    RWK.shield(btn);
-    document.body.appendChild(btn);
-  }
+  RWK.tools.add({ icon: "💾", label: "Saves", detail: "Export, import or delete save slots", onSelect: openPanel });
 
   RWK.saveTools = { open: openPanel };
 })();

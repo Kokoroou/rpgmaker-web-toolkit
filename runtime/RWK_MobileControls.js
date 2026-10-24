@@ -114,7 +114,7 @@
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
-.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle){display:none}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-more){display:none}
 .rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}
@@ -462,12 +462,13 @@
     return btn;
   }
 
-  addTool("◐", "rwk-tool-toggle", () => {
-    pad.classList.toggle("hidden");
-    document.body.classList.toggle("rwk-ctl", !pad.classList.contains("hidden") && (gamepadOn || dpadOn));
-    RWK.storage.set(HIDDEN_KEY, pad.classList.contains("hidden"));
+  function setHidden(hidden) {
+    pad.classList.toggle("hidden", hidden);
+    document.body.classList.toggle("rwk-ctl", !hidden && (gamepadOn || dpadOn));
+    RWK.storage.set(HIDDEN_KEY, hidden);
     layout();
-  });
+  }
+  addTool("◐", "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")));
   let panel = null;
   let backdrop = null;
   if (panelKeys.length) {
@@ -508,11 +509,21 @@
 
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
   if (extrasTools.includes("fullscreen")) addTool("⛶", "rwk-tool-fs", toggleFullscreen);
+
+  // The ⚙ tools menu opens from the toolbar (RWK_Core adds the button with
+  // the first tool).
+  let ready = false;
+  RWK.tools.mount((label, onTap) => {
+    const btn = addTool(label, "rwk-tool-more", onTap);
+    if (ready) layout();
+    return btn;
+  });
+
   if (extrasTools.includes("editLayout")) {
-    const editBtn = addTool("✥", "rwk-tool-edit", () => {
-      editing = !editing;
+    // Started from the tools menu; ✓ and ↺ show in the toolbar while editing.
+    const setEditing = (on) => {
+      editing = on;
       pad.classList.toggle("editing", editing);
-      editBtn.textContent = editing ? "✓" : "✥";
       if (!editing) {
         RWK.storage.set(LAYOUT_KEY, saved);
         RWK.storage.set(OFF_KEY, [...off]);
@@ -520,14 +531,24 @@
       } else {
         RWK.toast("Drag buttons to move them, − hides one, + shows it again. ↺ resets positions, ✓ saves.", "info", 5000);
       }
-      resetBtn.style.display = editing ? "" : "none";
+      doneBtn.style.display = resetBtn.style.display = editing ? "" : "none";
       layout(); // hidden buttons show up dimmed while editing
+    };
+    RWK.tools.add({
+      icon: "✥",
+      label: "Edit button layout",
+      detail: "Move the on-screen buttons, or hide the ones you never use",
+      onSelect: () => {
+        if (pad.classList.contains("hidden")) setHidden(false); // nothing to edit otherwise
+        setEditing(true);
+      },
     });
+    const doneBtn = addTool("✓", "rwk-tool-edit", () => setEditing(false));
     const resetBtn = addTool("↺", "rwk-tool-reset", () => {
       delete saved[orientation()];
       layout();
     });
-    resetBtn.style.display = "none";
+    doneBtn.style.display = resetBtn.style.display = "none";
   }
 
   // Portrait with a gamepad: the game sits above the controls.
@@ -658,6 +679,7 @@
   if (RWK.storage.get(HIDDEN_KEY, false)) pad.classList.add("hidden");
   else if (gamepadOn || dpadOn) document.body.classList.add("rwk-ctl");
   document.body.appendChild(pad);
+  ready = true;
   layout();
   // The engine creates the canvas after plugins load.
   const waitCanvas = () => (document.getElementById("gameCanvas") ? fitGame() : requestAnimationFrame(waitCanvas));
@@ -668,7 +690,7 @@
   document.addEventListener("webkitfullscreenchange", relayout);
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 
-  // Later toolkit plugins (save tools) add their buttons to the toolbar.
+  // Lets later plugins add buttons to the toolbar (advanced tools go in RWK.tools instead).
   RWK.controls = {
     addTool(label, extraClass, onTap) {
       const btn = addTool(label, extraClass, onTap);
