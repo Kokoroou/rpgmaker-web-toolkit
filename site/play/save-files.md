@@ -1,38 +1,17 @@
 # Edit or move a save
 
-⚙ → **💾 Saves** lists the game's save slots. For each slot you can:
+⚙ → **Saves**:
 
-## Export a save
+![The Saves panel: Export, Import and Delete per slot](/img/saves-panel.png){.shot .portrait}
 
-**Export** downloads the slot as a file, byte for byte what the desktop game writes:
-
-| Engine | File |
+| Button | Does |
 |---|---|
-| MZ | `file3.rmmzsave` |
-| MV | `file3.rpgsave` |
+| <span id="export">**Export**</span> | Downloads the slot as `file3.rmmzsave` (MV: `file3.rpgsave`), the same file the desktop game writes. Open it in a save editor, keep it as a backup, or drop it in the desktop game's `save/` folder |
+| <span id="import">**Import**</span> | Puts a file into the slot: a desktop save, an editor's raw output, or plain JSON. The save uploads to the cloud and **the game restarts** so you can load it |
+| <span id="delete">**Delete**</span> | Empties the slot, **on every device** when sync is on |
 
-Use it to:
-
-- Keep a backup of an important save.
-- Edit the save in any RPG Maker save editor.
-- Continue in the desktop version: put the file in the game's `save/` folder.
-
-## Import a save
-
-**Import** puts a file into a slot. It accepts:
-
-- A desktop save file (`.rmmzsave` / `.rpgsave`), including one from the desktop game's `save/` folder.
-- The raw format some save editors write.
-- Plain JSON.
-
-After importing, the slot's details in the save list (party, play time) are refreshed, the save uploads to the cloud when sync is on, and **the game restarts** so you can load it.
-
-A file that is not a save of the same engine is refused, and so are the game's `config` and `global` files.
-
-## Delete a save
-
-**Delete** empties the slot after you confirm. With sync on, the cloud copy is deleted too, so the slot disappears **on every device**.
+Import refuses files from the other engine, and the game's `config` and `global` files.
 
 ::: danger
-Deleting cannot be undone. Export the slot first if you may want it back.
+Delete cannot be undone. Export first if you may want the save back.
 :::

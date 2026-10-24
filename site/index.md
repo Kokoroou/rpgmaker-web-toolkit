@@ -49,12 +49,22 @@ features:
     details: The toolkit builds in a temporary folder that is deleted at the end of the run.
 ---
 
+## What players get
+
+<div class="shots">
+
+![A game on a phone in landscape, with the on-screen gamepad](/img/controls-landscape.png){.shot .landscape}
+
+![The same game in portrait](/img/controls-portrait.png){.shot .portrait}
+
+</div>
+
 ## Which page do I need?
 
 | You are… | Start here |
 |---|---|
-| Putting a game online for the first time | [Before you start](/setup/requirements), then [First deploy](/setup/first-deploy) |
-| Letting a friend or another of your emails play | [Protect the site and invite players](/setup/access#invite-players) |
+| Putting a game online for the first time | [Before you start](/setup/requirements) |
+| Letting a friend or another of your emails play | [Invite players](/setup/access#invite-players) |
 | Installing a patch or a translation | [Update the game](/setup/updating) |
 | Changing buttons, folders or features | [Customize the game](/setup/configuration) |
 | Someone who got a link and wants to play | [Open and play](/play/) |
@@ -62,11 +72,5 @@ features:
 | The person who made the game | [For game creators](/creators/) |
 
 ::: warning Responsible use
-This toolkit is for playing a game **you own**, on your own devices. The game belongs to its creators:
-
-- Keep Cloudflare Access on. A public site, or one shared with many people, is redistribution of the game, and only its creators can allow that. Even sharing with friends is outside "private use" in most countries' copyright law.
-- If the game ships an `rwk-policy.json`, the toolkit follows its creator's wishes. See [Hosting policy](/creators/policy).
-- You, not the toolkit's author, are responsible for what you publish on your Cloudflare account, and Cloudflare handles copyright takedown requests for it.
-
-Made the game yourself? You may use the toolkit for anything, including selling access. See [For game creators](/creators/).
+For playing a game **you own**, on your own devices. Keep Cloudflare Access on: a public or widely shared site is redistribution, which only the game's creators can allow, and you are responsible for what your Cloudflare account publishes. The toolkit follows a creator's [hosting policy](/creators/policy). Made the game yourself? Anything goes, selling access included: [For game creators](/creators/).
 :::

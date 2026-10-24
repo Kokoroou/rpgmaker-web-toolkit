@@ -1,44 +1,44 @@
 # Touch controls
 
-On a phone or tablet the game shows an on-screen gamepad, laid out like emulator apps such as JoiPlay.
+<div class="shots">
 
-## The buttons
+![Portrait: the game above, the gamepad below](/img/controls-portrait.png){.shot .portrait}
+
+![Landscape: the gamepad on both sides of the game](/img/controls-landscape.png){.shot .landscape}
+
+</div>
 
 | Button | Does |
 |---|---|
-| **D-pad** (bottom-left) | Walk. Slide your thumb to change direction without lifting it |
-| **A** | Confirm, talk, interact |
-| **B** | Back, close |
-| **X** | Dash (hold while walking) |
-| **Y** | Open the game's menu |
-| **L / R** | Previous / next page, switch actor in menus |
+| **D-pad** | Walk. Slide your thumb to turn without lifting it |
+| **A** | Confirm, talk |
+| **B** | Back |
+| **X** | Dash (hold) |
+| **Y** | Menu |
+| **L / R** | Previous / next page |
+| Keycaps (**Inspect**, **Popup ▾**…) | Keys this game's plugins use. **▾** opens a row of more keys |
 
-Some games also have keycaps on screen (above L / R in portrait, down the right edge in landscape) for keys their plugins use. A button with ▾ opens a small row of more buttons.
-
-The controls fade after a few seconds without a touch, so the game is easy to see. The next touch brings them back.
+The controls fade after a few seconds without a touch. Touch the screen and they come back.
 
 ## The toolbar
 
-In landscape the toolbar sits in the top corners; in portrait, next to L and R.
-
 | Icon | Does |
 |---|---|
-| ⚙ | Tools: edit the button layout, saves, item options |
-| ⌨ | **Game keys**: the extra keys this game uses, each with what it does. Tap ⌨ again, or outside the panel, to close it |
-| ⛶ | Full screen (a landscape game also turns sideways where the browser allows) |
-| 👁 | Hide / show all the controls. The eye is crossed out while they are hidden |
+| ⚙ | [Tools](/play/#controls-and-tools) |
+| ⌨ | **Game keys**: the game's extra keys, with what each one does |
+| ⛶ | Full screen (also turns a landscape game sideways) |
+| 👁 | Hide / show all the controls |
 
-In portrait the game is centered in the space above the controls.
+![The ⌨ Game keys panel](/img/game-keys.png){.shot .portrait}
 
 ## Move or hide buttons
 
-1. Tap ⚙ → **✥ Edit button layout**.
-2. **Drag** a button to move it.
-3. Tap **−** on a button you never use (L / R, for example) to hide it. **+** brings it back.
-4. Tap **✓** to save, or **↺** to put every button back in its place.
+![Editing the layout: L is hidden (+ brings it back), ✓ saves](/img/edit-layout.png){.shot .landscape}
+
+1. ⚙ → **Edit button layout**.
+2. **Drag** a button to move it. **−** hides it, **+** brings it back.
+3. **✓** saves. **↺** resets the positions.
 
 The layout is saved in this browser, separately for portrait and landscape.
 
-## Use a real controller or keyboard
-
-A Bluetooth or USB controller works as in the desktop game, and so does a keyboard. The on-screen gamepad only shows on touch screens.
+A keyboard, or a USB / Bluetooth controller, works as in the desktop game.

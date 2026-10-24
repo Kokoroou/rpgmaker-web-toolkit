@@ -1,6 +1,6 @@
 # On-screen buttons
 
-The first deploy asks whether to add an on-screen gamepad. Everything about it lives under `controls` in the game's settings ([how to edit them](/setup/configuration#edit-the-settings)).
+What players see is on [Touch controls](/play/controls). This page is the `controls` part of the game's [settings](/setup/configuration):
 
 ```json
 "controls": {
@@ -19,46 +19,36 @@ The first deploy asks whether to add an on-screen gamepad. Everything about it l
 }
 ```
 
-Players can also move and hide buttons themselves in the game; see [Touch controls](/play/controls#move-or-hide-buttons). Their changes stay in their browser and do not change these settings.
-
-## The gamepad
-
-The layout follows emulator apps such as JoiPlay: a D-pad bottom-left, A / B / X / Y bottom-right, L / R above them. The buttons press the same keys RPG Maker maps a real controller to:
-
-| Button | Key | Does |
-|---|---|---|
-| A | `ok` | Confirm, talk, interact |
-| B | `cancel` | Back / close |
-| X | `shift` | Dash (hold) |
-| Y | `menu` | Open the game's menu |
-| L / R | `pageup` / `pagedown` | Previous / next page (switch actor in menus) |
-
 | Key | Values | Default |
 |---|---|---|
-| `enabled` | `true` / `false`: the whole on-screen gamepad | answer to the first-deploy question |
-| `showOn` | `touch` (touch screens only), `always`, `never` | `touch` |
-| `gamepad` | A / B / X / Y and L / R | `true` |
-| `dpad` | The D-pad (slide your thumb to change direction) | `true` |
+| `enabled` | The whole on-screen gamepad | first-deploy answer |
+| `showOn` | `touch` (touch screens), `always`, `never` | `touch` |
+| `gamepad` | A / B / X / Y and L / R (`ok`, `cancel`, `shift`, `menu`, `pageup` / `pagedown`) | `true` |
+| `dpad` | The D-pad | `true` |
 | `opacity` | 0 to 1 | `0.35` |
-| `scale` | Multiplies the button size | `1` |
-| `extras` | Toolbar extras: `fullscreen` (⛶) and `editLayout` (✥ Edit button layout in ⚙). Remove one to hide it | both |
+| `scale` | Button size multiplier | `1` |
+| `extras` | `fullscreen` (⛶) and `editLayout` (⚙ → Edit button layout) | both |
 
-## Extra keys
+## Extra keys (`buttons`)
 
-Many games use plugins that read keys a phone has no way to press: a quest log on `T`, a map on `M`… The toolkit finds these keys in the game's plugins at the first deploy and asks for a label for each. They are listed in `buttons`:
+The first deploy finds the keys the game's plugins read and asks for a label for each.
+
+<div class="shots">
+
+![Plain buttons go in the ⌨ Game keys panel, with their hint](/img/game-keys.png){.shot .portrait}
+
+![Pinned buttons and groups stay on screen: Inspect and Popup ▾](/img/controls-landscape.png){.shot .landscape}
+
+</div>
 
 | Field | Meaning |
 |---|---|
-| `key` | The key: an RPG Maker key name (`ok`, `escape`, `pageup`…), a name a plugin registers (`r`, `t`…), or a numeric keyCode |
+| `key` | An RPG Maker key name (`ok`, `escape`…), a name a plugin registers (`r`, `t`…), or a keyCode |
 | `label` | Text on the button |
-| `hint` | What the key does, shown under the button. Filled in from the description of the plugin that reads the key |
-| `pin` | `true` keeps the button on screen as a keycap. Otherwise it lives in the ⌨ **Game keys** panel |
-| `keys` | Makes a **group**: a button that opens a row of sub-buttons. Each entry is a key name or `{ "key", "label" }` |
+| `hint` | What it does, shown in the ⌨ panel. Filled from the plugin's description |
+| `pin` | `true`: on screen as a keycap instead of in the ⌨ panel |
+| `keys` | Makes a **group** (▾) that opens a row of sub-buttons: key names or `{ "key", "label" }` |
 
-Where buttons show:
+With `"gamepad": false`, every button stays on screen. Buttons for keys the gamepad already presses are hidden. When an update adds keys, the deploy offers buttons for them.
 
-- By default, extra keys are in the ⌨ **Game keys** panel of the toolbar, so they don't crowd the screen.
-- Pinned buttons and groups stay on screen: above L / R in portrait, down the right edge in landscape. When `gamepad` is `false`, every button is shown this way.
-- Buttons for keys the gamepad already presses (`ok`, `escape`, `pageup`…) are hidden while `gamepad` is on.
-
-When a game update adds new keys, the deploy offers to add buttons for them; see [Update the game](/setup/updating#install-a-patch-or-a-translation).
+Players can still move and hide buttons; that stays in their browser and does not change these settings.
