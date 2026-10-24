@@ -5,7 +5,7 @@
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Problem report: keeps the latest errors and the audio files that failed to
 // load, and lets players copy a report (browser, audio state, errors with the
-// plugin they most likely came from) from ⚙ Tools or the engine's error screen.
+// plugin they most likely came from) from the ⏸ menu or the engine's error screen.
 //=============================================================================
 /*:
  * @target MZ MV
@@ -52,7 +52,7 @@
     record(e.error || { name: "Error", message: e.message, stack: e.filename ? `at ${e.filename}:${e.lineno}:${e.colno}` : "" }, "window");
     if (!toldPlayer) {
       toldPlayer = true;
-      RWK.toast("Something went wrong. ⚙ Tools → Report a problem copies the details.", "warn", 6000);
+      RWK.toast("Something went wrong. ⏸ menu → Report a problem copies the details.", "warn", 6000);
     }
   });
   window.addEventListener("unhandledrejection", (e) => record(e.reason, "promise"));
@@ -207,6 +207,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.bug,
+    group: "help",
     label: "Report a problem",
     detail: () => (errors.length ? `${errors.length} error(s) so far` : "Copy details for a bug report"),
     onSelect: openReport,

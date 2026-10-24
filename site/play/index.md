@@ -19,7 +19,7 @@ Sign in with the same email everywhere to keep playing the same game. See [Saves
 | iPhone / iPad (Safari) | Share → **Add to Home Screen** |
 | Android (Chrome) | ⋮ → **Add to Home screen** (or **Install app**) |
 
-Or tap ⛶ in the game's toolbar.
+Or tap ⏸ → **Full screen** in the game. It also turns a landscape game sideways.
 
 ## Controls and tools
 
@@ -27,7 +27,7 @@ Or tap ⛶ in the game's toolbar.
 
 ![The game on a phone in landscape, with the on-screen gamepad](/img/controls-landscape.png){.shot .landscape}
 
-![The ⚙ Tools menu](/img/tools-menu.png){.shot .portrait}
+![The ⏸ menu](/img/tools-menu.png){.shot .portrait}
 
 </div>
 
@@ -35,12 +35,12 @@ Or tap ⛶ in the game's toolbar.
 |---|---|
 | Phone or tablet | The on-screen gamepad: [Touch controls](/play/controls) |
 | PC | Keyboard or a controller, as in the desktop game |
-| ⚙ Tools | [Move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items), [report a problem](#report-a-problem) |
+| ⏸ Menu | Full screen, [move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items), [report a problem](#report-a-problem) |
 
-On a PC, ⚙ is a faint button in the top-left corner. Tools the person who set up the game turned off are missing.
+The game pauses while the ⏸ menu is open, sound included; ✕, Esc or a tap outside it resumes. On a PC, ⏸ is a faint button in the top-left corner, or press **F1**. Options the person who set up the game turned off are missing.
 
 ## Report a problem
 
-⚙ → **Report a problem** (also on the game's error screen) shows the latest errors, the audio state and the sound files that failed to load. **Copy report** and send it to whoever set up the game, with what you were doing. It has no email or save data.
+⏸ → **Report a problem** (also on the game's error screen) shows the latest errors, the audio state and the sound files that failed to load. **Copy report** and send it to whoever set up the game, with what you were doing. It has no email or save data.
 
 Check first whether the problem also happens in the desktop version of the game: only then is it the game's own bug.

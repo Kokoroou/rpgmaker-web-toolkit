@@ -32,7 +32,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 
 | Key | Turns off |
 |---|---|
-| `saveTools` | 💾 Saves in the ⚙ menu: exporting, importing and deleting save files |
+| `saveTools` | 💾 Saves in the ⏸ menu: exporting, importing and deleting save files |
 | `itemBatch` | Using several items at once from the item menu |
 | `sync` | Cloud save sync: each browser keeps its own saves |
 

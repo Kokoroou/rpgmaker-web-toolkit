@@ -272,11 +272,12 @@
   }
 
   //---------------------------------------------------------------------------
-  // Tools menu switch, per browser.
+  // ⏸ menu switch, per browser.
   //---------------------------------------------------------------------------
 
   RWK.tools.add({
     icon: RWK.icons.items,
+    group: "play",
     label: "Use several items at once",
     detail: () =>
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",

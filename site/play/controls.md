@@ -24,9 +24,8 @@ The controls fade after a few seconds without a touch. Touch the screen and they
 
 | Icon | Does |
 |---|---|
-| ⚙ | [Tools](/play/#controls-and-tools) |
+| ⏸ | Pauses the game and opens the [menu](/play/#controls-and-tools): full screen, saves, button layout… |
 | ⌨ | **Game keys**: the game's extra keys, with what each one does |
-| ⛶ | Full screen (also turns a landscape game sideways) |
 | 👁 | Hide / show all the controls |
 
 ![The ⌨ Game keys panel](/img/game-keys.png){.shot .portrait}
@@ -35,7 +34,7 @@ The controls fade after a few seconds without a touch. Touch the screen and they
 
 ![Editing the layout: L is hidden (+ brings it back), ✓ saves](/img/edit-layout.png){.shot .landscape}
 
-1. ⚙ → **Edit button layout**.
+1. ⏸ → **Edit button layout**.
 2. **Drag** a button to move it. **−** hides it, **+** brings it back.
 3. **✓** saves. **↺** resets the positions.
 

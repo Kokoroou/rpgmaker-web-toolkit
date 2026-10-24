@@ -117,7 +117,7 @@
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
-.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-more){display:none}
+.rwk-pad.hidden>:not(.rwk-tools),.rwk-pad.hidden .rwk-tool:not(.rwk-tool-toggle):not(.rwk-tool-menu){display:none}
 .rwk-item{position:absolute;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-pad.idle:not(.editing) .rwk-item,.rwk-pad.idle:not(.editing) .rwk-tools{opacity:.45}
 .rwk-hit{pointer-events:auto;touch-action:none}
@@ -453,16 +453,19 @@
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar, in two groups: ⚙ tools and ⌨ game keys on the left, fullscreen
-  // and show/hide on the right. Top corners in landscape; in portrait both
-  // groups sit on the L/R line, next to L and R.
+  // Toolbar, in two groups: ⏸ menu and ⌨ game keys on the left, show/hide
+  // on the right. Top corners in landscape; in portrait both groups sit on
+  // the L/R line, next to L and R.
   //---------------------------------------------------------------------------
 
   const toolbarLeft = el("div", "rwk-tools");
   const toolbarRight = el("div", "rwk-tools");
   pad.append(toolbarLeft, toolbarRight);
-  function addTool(label, extraClass, onTap, group = toolbarLeft) {
+  function addTool(label, extraClass, onTap, name, group = toolbarLeft) {
     const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
+    btn.setAttribute("role", "button");
+    btn.setAttribute("aria-label", name);
+    btn.title = name;
     bindPress(btn, null, () => {}, onTap);
     group.appendChild(btn);
     return btn;
@@ -509,7 +512,7 @@
     }
     panel.appendChild(grid);
     pad.appendChild(panel);
-    addTool(icons.keys, "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")));
+    addTool(icons.keys, "rwk-tool-keys", () => setPanel(!panel.classList.contains("open")), "Game keys");
   }
 
   function setPanel(open) {
@@ -518,15 +521,16 @@
     layoutPanel();
   }
 
+  // Full screen is in the ⏸ menu (RWK_Core).
   const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
-  if (extrasTools.includes("fullscreen")) addTool(icons.fullscreen, "rwk-tool-fs", toggleFullscreen, toolbarRight);
-  toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")), toolbarRight);
+  toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")),
+    "Hide or show the controls", toolbarRight);
 
-  // The ⚙ tools menu opens from the toolbar (RWK_Core adds the button with
-  // the first tool), first on the left.
+  // The ⏸ menu opens from the toolbar (RWK_Core adds the button with the
+  // first tool), first on the left.
   let ready = false;
   RWK.tools.mount((label, onTap) => {
-    const btn = addTool(label, "rwk-tool-more", onTap);
+    const btn = addTool(label, "rwk-tool-menu", onTap, "Pause menu");
     toolbarLeft.prepend(btn);
     if (ready) layout();
     return btn;
@@ -549,6 +553,7 @@
     };
     RWK.tools.add({
       icon: icons.move,
+      group: "controls",
       label: "Edit button layout",
       detail: "Move the on-screen buttons, or hide the ones you never use",
       onSelect: () => {
@@ -556,11 +561,11 @@
         setEditing(true);
       },
     });
-    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false));
+    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false), "Save the layout");
     const resetBtn = addTool(icons.reset, "rwk-tool-reset", () => {
       delete saved[orientation()];
       layout();
-    });
+    }, "Reset the positions");
     doneBtn.style.display = resetBtn.style.display = "none";
   }
 
@@ -619,27 +624,6 @@
     _updateAllElements.apply(this, arguments);
     fitGame();
   };
-
-  function toggleFullscreen() {
-    const doc = document;
-    const root = doc.documentElement;
-    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
-      (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
-      return;
-    }
-    const request = root.requestFullscreen || root.webkitRequestFullscreen;
-    if (!request) {
-      RWK.toast("This browser has no fullscreen support. Use “Add to Home Screen” instead.", "warn", 4000);
-      return;
-    }
-    // Fullscreen is what allows locking the orientation: turn a landscape game sideways.
-    Promise.resolve(request.call(root))
-      .then(() => {
-        const o = screen.orientation;
-        if (o && o.lock && Graphics.width >= Graphics.height) return o.lock("landscape");
-      })
-      .catch(() => {});
-  }
 
   //---------------------------------------------------------------------------
 
@@ -703,10 +687,12 @@
   document.addEventListener("webkitfullscreenchange", relayout);
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 
-  // Lets later plugins add buttons to the toolbar (advanced tools go in RWK.tools instead).
+  // Lets later plugins add buttons to the toolbar (other options go in the
+  // ⏸ menu, RWK.tools, instead). side "right" puts it before the eye.
   RWK.controls = {
-    addTool(label, extraClass, onTap) {
-      const btn = addTool(label, extraClass, onTap);
+    addTool(label, extraClass, onTap, name, side) {
+      const btn = addTool(label, extraClass, onTap, name, side === "right" ? toolbarRight : toolbarLeft);
+      if (side === "right") toolbarRight.insertBefore(btn, toggleBtn);
       layout();
       return btn;
     },

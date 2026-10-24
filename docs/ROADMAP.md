@@ -49,7 +49,7 @@ Plan:
 
 Merges Ideas #11 with the audio diagnostics idea.
 
-- A game that crashes on a phone often shows only a black screen or the engine's error text. ⚙ Tools → **Report a problem** (also on the engine's error screen) shows the latest errors with the plugin they most likely came from, and copies a report (toolkit version, engine, browser, screen).
+- A game that crashes on a phone often shows only a black screen or the engine's error text. ⏸ → **Report a problem** (also on the engine's error screen) shows the latest errors with the plugin they most likely came from, and copies a report (toolkit version, engine, browser, screen).
 - The same report has an audio section: the format the engine picked, whether the browser plays Ogg / M4A, the WebAudio state (locked / running) and the files that failed to load, so players can report phone audio bugs. Reference: the `?audioDebug=1` panel of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 - Later: "Try to continue" and "Back to a safe map" buttons.
 

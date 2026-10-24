@@ -15,7 +15,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `indexable` | `true` lets search engines list a public site | Yes |
 | `controls` | [On-screen buttons](/setup/controls) | Yes |
 | `controls.scannedKeys` | Plugin keys already seen, so updates only ask about new ones | No need |
-| `saveTools` | `false` removes ⚙ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
+| `saveTools` | `false` removes ⏸ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
 | `itemBatch` | `false` turns off using several items at once | Same |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
