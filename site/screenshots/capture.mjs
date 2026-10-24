@@ -42,14 +42,14 @@ async function shot(name, { viewport = PORTRAIT, query = "", touch = true, act, 
 // bindPress listens to pointer events; a mouse click sends them.
 const tap = (page, selector) => page.click(selector);
 const openTool = async (page, label) => {
-  await tap(page, ".rwk-tool-more");
+  await tap(page, ".rwk-tool-menu");
   await page.click(`.rwk-tools-list button:has-text("${label}")`);
 };
 
 await shot("controls-portrait");
 await shot("controls-landscape", { viewport: LANDSCAPE });
 await shot("game-keys", { act: (p) => tap(p, ".rwk-tool-keys") });
-await shot("tools-menu", { act: (p) => tap(p, ".rwk-tool-more") });
+await shot("tools-menu", { act: (p) => tap(p, ".rwk-tool-menu") });
 await shot("edit-layout", {
   viewport: LANDSCAPE,
   act: async (p) => {

@@ -223,17 +223,31 @@
   }
 
   //---------------------------------------------------------------------------
-  // Tools menu: advanced tools (saves, layout editing, item options) sit
-  // behind one ⚙ button so they don't crowd the screen. The touch toolbar
+  // ⏸ menu: the toolkit's options sit behind one button so they don't crowd
+  // the screen, and the game pauses while the menu is open. The touch toolbar
   // hosts the button when it is shown (tools.mount); otherwise it is a faint
-  // button in the top-left corner.
+  // button in the top-left corner, also opened with F1. On phones the menu is
+  // a bottom sheet in portrait and a panel on the left in landscape.
   //---------------------------------------------------------------------------
 
   const toolsStyle = document.createElement("style");
   toolsStyle.textContent = `
-.rwk-tools-list{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
-.rwk-tools-list button{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;text-align:left;
-  font:inherit;border-radius:10px;border:1px solid #444;background:#2c2c33;color:#eee;cursor:pointer}
+.rwk-modal-box.rwk-menu{display:flex;flex-direction:column;max-height:100%;padding:0;overflow:hidden}
+.rwk-menu-head{display:flex;align-items:center;gap:8px;padding:8px 8px 4px 20px}
+.rwk-menu-head h2{flex:1;margin:0}
+.rwk-menu-head button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;
+  border:0;border-radius:50%;background:none;color:inherit;cursor:pointer}
+.rwk-menu-head svg{width:22px;height:22px}
+.rwk-menu-body{overflow:auto;overscroll-behavior:contain;padding:4px 16px 16px}
+.rwk-quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.rwk-quick button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:64px;
+  padding:10px 6px;font:inherit;font-size:13px;line-height:1.2;border-radius:12px;border:1px solid #444;
+  background:#2c2c33;color:#eee;cursor:pointer}
+.rwk-quick svg{width:22px;height:22px}
+.rwk-tools-list{display:flex;flex-direction:column;gap:6px}
+.rwk-tools-list h3{margin:12px 0 0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.6}
+.rwk-tools-list button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:10px 12px;
+  text-align:left;font:inherit;border-radius:10px;border:1px solid #444;background:#2c2c33;color:#eee;cursor:pointer}
 .rwk-tools-list b{display:flex;width:24px;justify-content:center}
 .rwk-tools-list svg{width:20px;height:20px}
 .rwk-tools-list span{flex:1;min-width:0}
@@ -244,6 +258,15 @@
   opacity:.2;transition:opacity .2s}
 .rwk-tools-btn:hover{opacity:1}
 .rwk-tools-btn svg{width:17px;height:17px}
+@media (pointer:coarse) and (orientation:portrait){
+  .rwk-menu-overlay{align-items:flex-end;padding:0}
+  .rwk-modal-box.rwk-menu{max-width:none;max-height:85%;border-radius:16px 16px 0 0;
+    padding-bottom:env(safe-area-inset-bottom)}
+}
+@media (pointer:coarse) and (orientation:landscape){
+  .rwk-menu-overlay{justify-content:flex-start;align-items:stretch;padding:0}
+  .rwk-modal-box.rwk-menu{max-width:400px;border-radius:0 16px 16px 0;padding-left:env(safe-area-inset-left)}
+}
 `;
   document.head.appendChild(toolsStyle);
 
@@ -263,7 +286,10 @@
         '<circle cx="12" cy="12" r="3"/>'
     ),
     keys: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
+    pause: svg('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'),
+    close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
     fullscreen: svg('<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'),
+    minimize: svg('<path d="M8 3v5H3M16 3v5h5M21 16h-5v5M3 16h5v5"/>'),
     eye: svg(EYE),
     eyeOff: svg(EYE + '<path d="M3 3l18 18"/>'),
     move: svg('<path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/>'),
@@ -279,87 +305,211 @@
   };
 
   const toolList = [];
-  let mountEntry = null; // (label, onTap) -> element, set by the touch toolbar
+  let mountEntry = null; // (icon, onTap) -> element, set by the touch toolbar
   let entry = null;
+  let menu = null; // the open menu's overlay
+
+  // Menu sections, in this order. Tools with no known group go last, under "More".
+  const GROUPS = { play: "Play", save: "Saves", controls: "Controls", display: "Display", help: "Help" };
+  const value = (v) => (typeof v === "function" ? v() : v);
 
   function cornerEntry() {
     const btn = document.createElement("button");
     btn.className = "rwk-tools-btn";
-    btn.innerHTML = icons.gear;
-    btn.title = "Tools";
+    btn.innerHTML = icons.pause;
+    btn.title = "Pause menu (F1)";
+    btn.setAttribute("aria-label", "Pause menu");
     btn.addEventListener("click", openTools);
     shield(btn);
     document.body.appendChild(btn);
     return btn;
   }
 
-  // tool: { icon (RWK.icons entry), label, detail: string | () => string, onSelect, keepOpen }
-  // keepOpen redraws the menu after onSelect instead of closing it (toggles).
+  // tool: { icon (RWK.icons entry), label, detail: string | () => string, onSelect, keepOpen,
+  //         group: a GROUPS key, quick: a tile in the menu's top row (short label, no detail) }
+  // icon and label may be functions too. keepOpen redraws the menu after
+  // onSelect instead of closing it (toggles).
   function addTool(tool) {
     toolList.push(tool);
-    if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
+    if (!entry) entry = mountEntry ? mountEntry(icons.pause, openTools) : cornerEntry();
   }
 
   function mount(fn) {
     mountEntry = fn;
     if (entry) {
       entry.remove();
-      entry = fn(icons.gear, openTools);
+      entry = fn(icons.pause, openTools);
     }
   }
 
+  // Paused: the scene stops updating (keys and taps read meanwhile are
+  // dropped), and sound and movies stop until the menu closes.
+  let pausedAudio = null;
+  let pausedVideo = null;
+  const _updateScene = SceneManager.updateScene;
+  SceneManager.updateScene = function () {
+    if (!menu) _updateScene.apply(this, arguments);
+  };
+
+  function pause() {
+    const context = window.WebAudio && WebAudio._context;
+    pausedAudio = context && context.state === "running" ? context : null;
+    if (pausedAudio) Promise.resolve(pausedAudio.suspend()).catch(() => {});
+    const video = document.querySelector("video");
+    pausedVideo = video && !video.paused ? video : null;
+    if (pausedVideo) pausedVideo.pause();
+  }
+
+  function resume() {
+    if (pausedAudio) Promise.resolve(pausedAudio.resume()).catch(() => {});
+    if (pausedVideo) Promise.resolve(pausedVideo.play()).catch(() => {});
+    pausedAudio = pausedVideo = null;
+    Input.clear();
+    if (window.TouchInput) TouchInput.clear();
+  }
+
+  function closeTools() {
+    if (!menu) return;
+    menu.remove();
+    menu = null;
+    resume();
+  }
+
   function openTools() {
-    if (document.querySelector(".rwk-tools-list")) return;
-    const overlay = document.createElement("div");
-    overlay.className = "rwk-modal";
+    if (menu) return;
+    const overlay = (menu = document.createElement("div"));
+    overlay.className = "rwk-modal rwk-menu-overlay";
     const box = document.createElement("div");
-    box.className = "rwk-modal-box";
+    box.className = "rwk-modal-box rwk-menu";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-label", "Paused");
+    const head = document.createElement("div");
+    head.className = "rwk-menu-head";
     const h = document.createElement("h2");
-    h.textContent = "Tools";
+    h.textContent = "Paused";
+    const closeBtn = document.createElement("button");
+    closeBtn.innerHTML = icons.close;
+    closeBtn.title = "Resume (Esc)";
+    closeBtn.setAttribute("aria-label", "Resume");
+    closeBtn.addEventListener("click", closeTools);
+    head.append(h, closeBtn);
+    const body = document.createElement("div");
+    body.className = "rwk-menu-body";
+    const quick = document.createElement("div");
+    quick.className = "rwk-quick";
     const list = document.createElement("div");
     list.className = "rwk-tools-list";
-    const close = () => overlay.remove();
+    body.append(quick, list);
+
+    const button = (tool) => {
+      const b = document.createElement("button");
+      const icon = document.createElement("b");
+      icon.innerHTML = value(tool.icon);
+      const label = document.createElement("span");
+      label.textContent = value(tool.label);
+      const detail = !tool.quick && value(tool.detail);
+      if (detail) {
+        const small = document.createElement("small");
+        small.textContent = detail;
+        label.appendChild(small);
+      }
+      b.append(icon, label);
+      b.addEventListener("click", () => {
+        if (tool.keepOpen) {
+          tool.onSelect();
+          fill();
+        } else {
+          closeTools();
+          tool.onSelect();
+        }
+      });
+      return b;
+    };
 
     const fill = () => {
-      list.textContent = "";
+      quick.textContent = list.textContent = "";
+      const groups = new Map();
       for (const tool of toolList) {
-        const b = document.createElement("button");
-        const icon = document.createElement("b");
-        icon.innerHTML = tool.icon;
-        const label = document.createElement("span");
-        label.textContent = tool.label;
-        const detail = typeof tool.detail === "function" ? tool.detail() : tool.detail;
-        if (detail) {
-          const small = document.createElement("small");
-          small.textContent = detail;
-          label.appendChild(small);
+        if (tool.quick) {
+          quick.appendChild(button(tool));
+          continue;
         }
-        b.append(icon, label);
-        b.addEventListener("click", () => {
-          if (tool.keepOpen) {
-            tool.onSelect();
-            fill();
-          } else {
-            close();
-            tool.onSelect();
-          }
-        });
-        list.appendChild(b);
+        const key = GROUPS[tool.group] ? tool.group : "";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(tool);
+      }
+      quick.hidden = !quick.childElementCount;
+      for (const key of [...Object.keys(GROUPS), ""]) {
+        if (!groups.has(key)) continue;
+        const title = document.createElement("h3");
+        title.textContent = GROUPS[key] || "More";
+        list.appendChild(title);
+        for (const tool of groups.get(key)) list.appendChild(button(tool));
       }
     };
     fill();
 
-    const actions = document.createElement("div");
-    actions.className = "rwk-modal-actions";
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", close);
-    actions.appendChild(closeBtn);
-    box.append(h, list, actions);
+    box.append(head, body);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
+    overlay.addEventListener("click", (e) => e.target === overlay && closeTools());
     shield(overlay);
+    pause();
     document.body.appendChild(overlay);
+  }
+
+  // F1 opens the menu (unless one of the game's plugins uses that key). While
+  // it is open, keys go to the menu instead of the game, and Esc closes it.
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (menu) {
+        e.stopPropagation();
+        if (e.key === "Escape" || e.key === "F1") {
+          e.preventDefault();
+          closeTools();
+        }
+      } else if (e.key === "F1" && entry && !Input.keyMapper[112]) {
+        e.preventDefault();
+        openTools();
+      }
+    },
+    true
+  );
+
+  //---------------------------------------------------------------------------
+  // Full screen, a tile in the menu's top row. Fullscreen is also what allows
+  // locking the orientation: it turns a landscape game sideways.
+  //---------------------------------------------------------------------------
+
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+  function toggleFullscreen() {
+    const doc = document;
+    const root = doc.documentElement;
+    if (isFullscreen()) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
+      return;
+    }
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (!request) {
+      toast("This browser has no fullscreen support. Use “Add to Home Screen” instead.", "warn", 4000);
+      return;
+    }
+    Promise.resolve(request.call(root))
+      .then(() => {
+        const o = screen.orientation;
+        if (o && o.lock && Graphics.width >= Graphics.height) return o.lock("landscape");
+      })
+      .catch(() => {});
+  }
+
+  if (((config.controls && config.controls.extras) || ["fullscreen"]).includes("fullscreen")) {
+    addTool({
+      quick: true,
+      icon: () => (isFullscreen() ? icons.minimize : icons.fullscreen),
+      label: () => (isFullscreen() ? "Exit full screen" : "Full screen"),
+      onSelect: toggleFullscreen,
+    });
   }
 
   //---------------------------------------------------------------------------
@@ -397,6 +547,6 @@
     choose,
     shield,
     icons,
-    tools: { add: addTool, mount, open: openTools },
+    tools: { add: addTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
   };
 })();

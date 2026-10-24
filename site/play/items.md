@@ -10,4 +10,4 @@ Choose an item you hold several of, and the game asks **how many** to use (up to
 | Runs a common event | The event runs 10 times; you see its message once |
 | Its event shows choices, moves you, starts a battle, opens a shop / menu / save screen, or ends the game | Not asked: used one at a time, so nothing breaks |
 
-Turn it off or on with ⚙ → **Use several items at once** (remembered in this browser). It works with item menus restyled by plugins.
+Turn it off or on with ⏸ → **Use several items at once** (remembered in this browser). It works with item menus restyled by plugins.

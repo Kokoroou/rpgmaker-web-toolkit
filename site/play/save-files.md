@@ -1,6 +1,6 @@
 # Edit or move a save
 
-⚙ → **Saves**:
+⏸ → **Saves**:
 
 ![The Saves panel: Export, Import and Delete per slot](/img/saves-panel.png){.shot .portrait}
 

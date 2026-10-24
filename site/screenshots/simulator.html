@@ -94,7 +94,7 @@
     isDatabaseLoaded: () => true,
     createGameObjects() {},
   };
-  window.SceneManager = { _scene: new Scene_Map(), catchException() {} };
+  window.SceneManager = { _scene: new Scene_Map(), catchException() {}, updateScene() {} };
   window.AudioManager = { createBuffer() {}, audioFileExt: () => ".ogg" };
   window.WebAudio = { _context: null };
   window.StorageManager = {
