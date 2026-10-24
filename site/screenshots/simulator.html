@@ -77,16 +77,16 @@
     C.prototype = new Proxy({}, { get: (t, k) => (k in t ? t[k] : function () {}) });
     return C;
   };
-  for (const name of ["Game_Temp", "Game_Interpreter", "Scene_Item", "Scene_ItemBase", "Window_Base", "Window_ShopNumber", "Window_Message", "Window_ScrollText"]) {
+  for (const name of ["Game_Temp", "Game_Interpreter", "Game_Action", "Scene_Item", "Scene_Battle", "Scene_ItemBase", "Window_Base", "Window_ShopNumber", "Window_Message", "Window_ScrollText"]) {
     window[name] = stub();
   }
   window.ConfigManager = { alwaysDash: false, save() {} };
-  window.Game_Action = { EFFECT_COMMON_EVENT: 44 };
+  Game_Action.EFFECT_COMMON_EVENT = 44;
+  window.BattleManager = {};
   window.Scene_Boot = function () {};
   Scene_Boot.prototype.isReady = () => true;
   window.Scene_Map = function () {};
   window.Scene_Title = function () {};
-  window.Scene_Battle = function () {};
 
   const now = Date.now();
   const SLOTS = { 0: "0:42:10", 1: "12:05:31", 2: "11:58:02", 3: "3:20:47" };
