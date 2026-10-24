@@ -48,8 +48,8 @@ If R2 is not enabled yet, the toolkit notices, prints the link to the R2 page an
 
 | Engine | Status |
 |---|---|
-| RPG Maker **MZ** | Supported and tested |
-| RPG Maker **MV** | Supported, not yet tested on a real game |
+| RPG Maker **MZ** | Supported |
+| RPG Maker **MV** | Supported |
 | RPG Maker XP, VX, VX Ace, 2000, 2003 | Not supported (they are not web engines) |
 
 Use the folder that contains `Game.exe`. The toolkit looks for `index.html` and a `js/` folder there, or in its `www/` subfolder (MV), so either folder works.
