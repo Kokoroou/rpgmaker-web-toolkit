@@ -43,6 +43,7 @@ export function analyzeGame(inputPath) {
     root,
     engine,
     title,
+    gameTitle: system.gameTitle || "", // as the engine sees it: title falls back to the folder name
     fingerprint,
     unknownDirs,
     saveDir: findSaveDir(given, root, engine),
