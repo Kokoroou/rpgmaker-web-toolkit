@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.2.0...v0.3.0) (2026-10-25)
+
+
+### Features
+
+* **cli:** rename a game's site and keep its saves ([#42](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/42)) ([b14bd9d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b14bd9d4fdb6dfd646845de3df304067c19b74bf))
+* **cli:** update the toolkit of a deployed game from its link ([#44](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/44)) ([f550bcc](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f550bcc42c390a787a6685c834d2cafb72cece82))
+* **controls:** simpler touch toolbar with settings menu and full screen button ([#37](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/37)) ([a961836](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/a96183636c6f45450d5985ac898c01b1a975f7c0))
+
+
+### Bug Fixes
+
+* **cli:** let saves made under an older MV game title continue after import ([#41](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/41)) ([5cd8580](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/5cd8580d5a8cb744349eea5ccfdc38969851c14d))
+* **cli:** open the Worker's Access page and follow its new Access flow ([#43](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/43)) ([b208a77](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b208a77da3b07563ed191ebe62d7041e72142d7b))
+* **controls:** find the MV game canvas when laying out the controls ([#39](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/39)) ([0480aba](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/0480abaf1e7b950308def829f7efe3d8dcc26caa))
+
 ## [0.2.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.1.0...v0.2.0) (2026-10-24)
 
 

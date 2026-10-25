@@ -1,6 +1,6 @@
 {
   "name": "rpgmaker-web-toolkit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Deploy RPG Maker MZ/MV games to Cloudflare Workers with cloud save sync and mobile controls.",
   "license": "SEE LICENSE IN LICENSE",
