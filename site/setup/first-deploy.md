@@ -16,7 +16,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -c "irm https://raw.githubusercont
 
 ## What it asks
 
-The first time on a PC, a browser opens to **log in to Cloudflare**. The toolkit only asks for `account:read`, `user:read`, `workers:write` and `workers_scripts:write`.
+The first time on a PC, a browser opens to **log in to Cloudflare** (no account yet? [Set up Cloudflare](/setup/cloudflare) first). Select **Allow**. The toolkit only asks for `account:read`, `user:read`, `workers:write` and `workers_scripts:write`.
 
 Then, once per game (**Enter** takes the suggestion):
 

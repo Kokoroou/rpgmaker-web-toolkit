@@ -29,6 +29,7 @@ export default defineConfig({
         text: "Set up a game",
         items: [
           { text: "Before you start", link: "/setup/requirements" },
+          { text: "Set up Cloudflare", link: "/setup/cloudflare" },
           { text: "First deploy", link: "/setup/first-deploy" },
           { text: "Protect the site and invite players", link: "/setup/access" },
           { text: "Update the game", link: "/setup/updating" },
@@ -58,6 +59,7 @@ export default defineConfig({
           { text: "Config keys", link: "/reference/config" },
           { text: "How it works", link: "/reference/how-it-works" },
           { text: "Free plan limits", link: "/reference/limits" },
+          { text: "Credits and licenses", link: "/reference/credits" },
         ],
       },
       {
@@ -74,7 +76,9 @@ export default defineConfig({
     search: { provider: "local" },
     outline: { level: [2, 3] },
     footer: {
-      message: "PolyForm Noncommercial License 1.0.0, plus any use by game creators for their own games. For games you own, played by you.",
+      message:
+        "PolyForm Noncommercial License 1.0.0, plus any use by game creators for their own games. For games you own, played by you.<br>" +
+        'Screenshots: <a href="https://yancharkin.itch.io/gamedev-the-beginning">GameDev: The Beginning</a> by yancharkin, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> (<a href="/rpgmaker-web-toolkit/reference/credits">credits</a>). Not affiliated with Cloudflare or RPG Maker.',
     },
   },
 });

@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   A first deploy as it looks in PowerShell, for the guide (see capture.mjs).
-  The lines are the CLI's own messages (cli/commands/deploy.js) with example answers.
+  The lines are the CLI's own messages (cli/commands/deploy.js) with example answers, for GameDev: The Beginning by yancharkin.
 -->
 <html lang="en">
 <head>
@@ -21,30 +21,50 @@
 <div class="win">
   <div class="bar"><i></i><i></i><i></i><span>Windows PowerShell</span></div>
 <pre><span class="d">PS C:\Users\me&gt;</span> <span class="u">irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex</span>
-  <span class="y">?</span> Drag and drop or paste the game folder path: <span class="u">"D:\Games\Moonlit Ferry v1.2"</span>
-
+  <span class="y">?</span> Drag and drop or paste the game folder path: <span class="u">"D:\Games\gamedev_the_beginning-windows"</span>
 <span class="c">▶</span> <span class="b">Analyzing the game</span>
-  <span class="g">✓</span> MZ · Moonlit Ferry
-
+  <span class="g">✓</span> MV · GameDev: The Beginning
 <span class="c">▶</span> <span class="b">Cloudflare</span>
-  <span class="g">✓</span> Account: me@example.com's Account
+  <span class="g">✓</span> Account: me@example.com&#39;s Account
   First deploy of this game: answer a few questions (Enter = use the default).
-  <span class="y">?</span> Site name (becomes &lt;name&gt;.&lt;username&gt;.workers.dev)<span class="d"> [moonlit-ferry]</span>:
-  <span class="y">?</span> Enable cloud save sync (continue playing on other devices)? <span class="d">[Y/n]</span>:
-  The game's plugins use keys a touch screen cannot press:
-      <span class="b">t         </span> <span class="d">QuestJournal</span>
-      <span class="b">m         </span> <span class="d">WorldMap</span>
-  <span class="y">?</span> Add an on-screen gamepad for touch screens (D-pad, A/B/X/Y, L/R)? <span class="d">[Y/n]</span>:
-  <span class="y">?</span> Include the D-pad? (No = move by tapping the map only) <span class="d">[Y/n]</span>:
-  <span class="y">?</span> Button label for key "t" (Quest journal)<span class="d"> [T]</span>:
-  <span class="y">?</span> Button label for key "m" (World map)<span class="d"> [M]</span>:
-
+  <span class="y">?</span> Site name (becomes &lt;name&gt;.&lt;username&gt;.workers.dev)<span class="d"> [gamedev-the-beginning]</span>:
+  Non-standard folders in the game root: img.original
+  <span class="y">?</span> Include "img.original" in the web build? (yes if a plugin reads files from it)<span class="d"> [y/N]</span>:
+  <span class="y">?</span> Enable cloud save sync (continue playing on other devices)?<span class="d"> [Y/n]</span>:
+  The game&#39;s plugins use keys a touch screen cannot press:
+      <span class="b">escape    </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">eight     </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">five      </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">four      </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">nine      </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">one       </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">pagedown  </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">pageup    </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">seven     </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">six       </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">three     </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">two       </span> <span class="d">YAN_WASD_Controls+</span>
+      <span class="b">zero      </span> <span class="d">YAN_WASD_Controls+</span>
+  <span class="y">?</span> Add an on-screen gamepad for touch screens (D-pad, A/B/X/Y, L/R)?<span class="d"> [Y/n]</span>:
+  <span class="y">?</span> Include the D-pad? (No = move by tapping the map only)<span class="d"> [Y/n]</span>:
+  <span class="d">These keys go in the ⌨ panel of the in-game toolbar, each with a hint saying what it is for.</span>
+  <span class="d">Label each button: Enter = default, "-" = skip this key.</span>
+  <span class="y">?</span> Button label for key "eight" (Redefined key map and few new k…)<span class="d"> [EIGHT]</span>: <span class="u">-</span>
+  <span class="y">?</span> Button label for key "five" (Redefined key map and few new k…)<span class="d"> [FIVE]</span>: <span class="u">Quickbar</span>
+  <span class="y">?</span> Button label for key "four" (Redefined key map and few new k…)<span class="d"> [FOUR]</span>: <span class="u">Candle</span>
+  <span class="y">?</span> Button label for key "nine" (Redefined key map and few new k…)<span class="d"> [NINE]</span>: <span class="u">-</span>
+  <span class="y">?</span> Button label for key "one" (Redefined key map and few new k…)<span class="d"> [ONE]</span>: <span class="u">Items</span>
+  <span class="y">?</span> Button label for key "seven" (Redefined key map and few new k…)<span class="d"> [SEVEN]</span>: <span class="u">-</span>
+  <span class="y">?</span> Button label for key "six" (Redefined key map and few new k…)<span class="d"> [SIX]</span>: <span class="u">-</span>
+  <span class="y">?</span> Button label for key "three" (Redefined key map and few new k…)<span class="d"> [THREE]</span>: <span class="u">Skills</span>
+  <span class="y">?</span> Button label for key "two" (Redefined key map and few new k…)<span class="d"> [TWO]</span>: <span class="u">Equip</span>
+  <span class="y">?</span> Button label for key "zero" (Redefined key map and few new k…)<span class="d"> [ZERO]</span>: <span class="u">-</span>
 <span class="c">▶</span> <span class="b">Preparing the web build</span>
-  2841 files, 612.4 MB (0 file(s) over 25 MiB go to R2)
-  <span class="g">✓</span> Temporary build ready (2841 hard links, 0 copies)
-
+  265 files, 13.9 MB (0 file(s) over 25 MiB go to R2)
+  <span class="y">!</span> 43 audio file(s) have no .m4a version: phones whose browser cannot play Ogg (older iPhones) will have no sound for them.
+  <span class="y">!</span> 1 movie(s) have no .mp4 version: phones whose browser cannot play WebM (older iPhones) will not show them.
+  <span class="g">✓</span> Temporary build ready (265 hard links, 0 copies)
 <span class="c">▶</span> <span class="b">Deploying the Worker (wrangler uploads changed files only)</span>
-
 <span class="c">▶</span> <span class="b">Access protection</span>
   The site is locked for now. Choose how to protect it:
   <span class="y">?</span> Option
@@ -53,10 +73,14 @@
      3) Later (keep the site locked)
   <span class="y">?</span> Enter a number<span class="d"> [1]</span>:
   <span class="g">✓</span> Access detected: myteam.cloudflareaccess.com
-
 <span class="c">▶</span> <span class="b">Redeploying with access protection</span>
+<span class="c">▶</span> <span class="b">Build report</span>
+  265 files, 13.9 MB
+  2 warning(s) during this run:
+    <span class="y">!</span> 43 audio file(s) have no .m4a version: phones whose browser cannot play Ogg (older iPhones) will have no sound for them.
+    <span class="y">!</span> 1 movie(s) have no .mp4 version: phones whose browser cannot play WebM (older iPhones) will not show them.
 
-<span class="g">Done!</span> <span class="b">https://moonlit-ferry.myname.workers.dev</span></pre>
+<span class="g">Done!</span> <span class="b">https://gamedev-the-beginning.myname.workers.dev</span></pre>
 </div>
 </body>
 </html>

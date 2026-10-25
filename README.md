@@ -7,11 +7,13 @@ Put an **RPG Maker MZ or MV** game online with one command, on **Cloudflare Work
   <img src="site/public/img/controls-portrait.png" width="160" alt="The same game in portrait">
 </p>
 
+<p align="center"><sub>Screenshots: <a href="https://yancharkin.itch.io/gamedev-the-beginning">GameDev: The Beginning</a> by yancharkin, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></sub></p>
+
 **📖 User guide: https://kokoroou.github.io/rpgmaker-web-toolkit/**
 
 ## Quick start
 
-Windows with [Node.js](https://nodejs.org) 24+. In PowerShell:
+Windows with [Node.js](https://nodejs.org) 24+, and a free [Cloudflare account][cloudflare] (it asks for a payment method to turn on R2 and Access, even for free use). In PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
@@ -21,7 +23,7 @@ Drop the game folder in, answer a few questions, and get a link:
 
 <img src="site/public/img/first-deploy.png" width="600" alt="A first deploy in PowerShell">
 
-Step by step: [Before you start][requirements] → [First deploy][first-deploy] → [Protect the site][access].
+Step by step: [Before you start][requirements] → [Set up Cloudflare][cloudflare] → [First deploy][first-deploy] → [Protect the site][access].
 
 ## Features
 
@@ -41,15 +43,18 @@ For playing a game **you own**, on your own devices. A public or widely shared s
 
 ## More
 
-- [Commands][commands] · [Config keys][config] · [Free plan limits][limits] · [Troubleshooting][troubleshooting]
+- [Commands][commands] · [Config keys][config] · [Free plan limits][limits] · [Troubleshooting][troubleshooting] · [Credits and licenses][credits]
 - Working on the toolkit: [CONTRIBUTING.md](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Impact (Vietnamese)](docs/IMPACT.md)
 
 ## License
 
 [PolyForm Noncommercial 1.0.0](LICENSE), plus a **Game Creators** permission: use it freely for noncommercial purposes. For a game you own or publish with its owner's permission, any use is allowed, commercial included, and so is shipping the `runtime/` plugins inside it. Hosting other people's games for money, offering it as a hosting service, or selling the toolkit is not.
 
+The game screenshots (`site/public/img/`) show *GameDev: The Beginning* by yancharkin and are licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), not under the toolkit's license: see [Credits and licenses][credits]. Cloudflare and RPG Maker are trademarks of their owners; this project is not affiliated with them.
+
 <!-- Each link goes to the published page of a file in site/ -->
 [requirements]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/requirements
+[cloudflare]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/cloudflare
 [first-deploy]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/first-deploy
 [access]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/access
 [updating]: https://kokoroou.github.io/rpgmaker-web-toolkit/setup/updating
@@ -61,6 +66,7 @@ For playing a game **you own**, on your own devices. A public or widely shared s
 [commands]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/commands
 [config]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/config
 [limits]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/limits
+[credits]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/credits
 [how]: https://kokoroou.github.io/rpgmaker-web-toolkit/reference/how-it-works
 [creators]: https://kokoroou.github.io/rpgmaker-web-toolkit/creators/
 [policy]: https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy
