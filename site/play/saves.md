@@ -10,7 +10,7 @@ With **cloud save sync** on, your saves follow your email. Save on your phone, c
 
 ## The ☁ icon
 
-On a phone, ☁ in the toolbar shows where your saves are; tap it for the ⏸ menu, where ⏸ → **Cloud saves** says the same in words and uploads waiting saves.
+⚙ → **Cloud saves** shows where your saves are, with this icon and in words. Tap it to upload waiting saves.
 
 | Icon | Means |
 |---|---|
@@ -38,11 +38,11 @@ On a phone, ☁ in the toolbar shows where your saves are; tap it for the ⏸ me
 
 ## Bring back an older save
 
-![⏸ → Older saves](/img/save-history.png){.shot .portrait}
+![⚙ → Older saves](/img/save-history.png){.shot .portrait}
 
 The cloud keeps older copies of your saves: one when a save is overwritten (at most every 15 minutes, or when another device saves over it) and one when it is deleted. By default up to 10 per save, for 30 days.
 
-Tap ⏸ → **Older saves**, pick a copy, then **Restore**. It replaces that save on every device, and the game restarts. The save it replaced is kept in the list, so you can change your mind.
+Tap ⚙ → **Older saves**, pick a copy, then **Restore**. It replaces that save on every device, and the game restarts. The save it replaced is kept in the list, so you can change your mind.
 
 Use it when a save is broken, when you picked the wrong copy above, or when you saved over the wrong slot. It needs an internet connection.
 

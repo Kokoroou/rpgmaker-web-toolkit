@@ -22,12 +22,15 @@ The controls fade after a few seconds without a touch. Touch the screen and they
 
 ## The toolbar
 
-| Icon | Does |
-|---|---|
-| ⏸ | Pauses the game and opens the [menu](/play/#controls-and-tools): full screen, saves, button layout… |
-| ⌨ | **Game keys**: the game's extra keys, with what each one does |
-| ⏩ ×2 | [Fast forward](/play/speed): tap to turn on or off, hold to speed up only while held. Stays when the controls are hidden |
-| 👁 | Hide / show all the controls |
+| Icon | Where | Does |
+|---|---|---|
+| ⚙ | Left | Opens the [settings menu](/play/#controls-and-tools): saves, button layout… The game pauses meanwhile; the music keeps playing |
+| ⏩ ×2 | Left | [Fast forward](/play/speed): tap to turn on or off, hold to speed up only while held |
+| ⌨ | Left | **Game keys**: the game's extra keys, with what each one does |
+| ⟳ | Right | Full screen. It also turns a landscape game sideways |
+| 👁 | Right | Hide / show all the controls. Hidden, only 👁 stays on screen |
+
+In landscape the game's extra keys sit on the left, and a group of toolbar buttons that would cover the game stands in a column instead of a row.
 
 ![The ⌨ Game keys panel](/img/game-keys.png){.shot .portrait}
 
@@ -35,7 +38,7 @@ The controls fade after a few seconds without a touch. Touch the screen and they
 
 ![Editing the layout: L is hidden (+ brings it back), ✓ saves](/img/edit-layout.png){.shot .landscape}
 
-1. ⏸ → **Edit button layout**.
+1. ⚙ → **Edit button layout**.
 2. **Drag** a button to move it. **−** hides it, **+** brings it back.
 3. **✓** saves. **↺** resets the positions.
 

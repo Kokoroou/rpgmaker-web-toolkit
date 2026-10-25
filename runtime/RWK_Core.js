@@ -223,8 +223,9 @@
   }
 
   //---------------------------------------------------------------------------
-  // ⏸ menu: the toolkit's options sit behind one button so they don't crowd
-  // the screen, and the game pauses while the menu is open. The touch toolbar
+  // ⚙ menu: the toolkit's options sit behind one button so they don't crowd
+  // the screen, and the game pauses while the menu is open (the music keeps
+  // playing). The touch toolbar
   // hosts the button when it is shown (tools.mount); otherwise it is a faint
   // button in the top-left corner, also opened with F1. On phones the menu is
   // a bottom sheet in portrait and a panel on the left in landscape.
@@ -289,6 +290,7 @@
     pause: svg('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'),
     close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
     fullscreen: svg('<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'),
+    rotate: svg('<rect x="9" y="7.5" width="6" height="9" rx="1"/><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
     minimize: svg('<path d="M8 3v5H3M16 3v5h5M21 16h-5v5M3 16h5v5"/>'),
     eye: svg(EYE),
     eyeOff: svg(EYE + '<path d="M3 3l18 18"/>'),
@@ -341,9 +343,9 @@
   function cornerEntry() {
     const btn = document.createElement("button");
     btn.className = "rwk-tools-btn";
-    btn.innerHTML = icons.pause;
-    btn.title = "Pause menu (F1)";
-    btn.setAttribute("aria-label", "Pause menu");
+    btn.innerHTML = icons.gear;
+    btn.title = "Settings (F1)";
+    btn.setAttribute("aria-label", "Settings");
     btn.addEventListener("click", openTools);
     shield(btn);
     document.body.appendChild(btn);
@@ -356,20 +358,29 @@
   // onSelect instead of closing it (toggles).
   function addTool(tool) {
     toolList.push(tool);
-    if (!entry) entry = mountEntry ? mountEntry(icons.pause, openTools) : cornerEntry();
+    if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
+  }
+
+  // Takes a tool out of the menu, e.g. one the touch toolbar shows instead.
+  function removeTool(tool) {
+    const i = toolList.indexOf(tool);
+    if (i >= 0) toolList.splice(i, 1);
+    if (!toolList.length && entry) {
+      entry.remove();
+      entry = null;
+    }
   }
 
   function mount(fn) {
     mountEntry = fn;
     if (entry) {
       entry.remove();
-      entry = fn(icons.pause, openTools);
+      entry = fn(icons.gear, openTools);
     }
   }
 
   // Paused: the scene stops updating (keys and taps read meanwhile are
-  // dropped), and sound and movies stop until the menu closes.
-  let pausedAudio = null;
+  // dropped) and movies stop until the menu closes. The music keeps playing.
   let pausedVideo = null;
   const _updateScene = SceneManager.updateScene;
   SceneManager.updateScene = function () {
@@ -377,18 +388,14 @@
   };
 
   function pause() {
-    const context = window.WebAudio && WebAudio._context;
-    pausedAudio = context && context.state === "running" ? context : null;
-    if (pausedAudio) Promise.resolve(pausedAudio.suspend()).catch(() => {});
     const video = document.querySelector("video");
     pausedVideo = video && !video.paused ? video : null;
     if (pausedVideo) pausedVideo.pause();
   }
 
   function resume() {
-    if (pausedAudio) Promise.resolve(pausedAudio.resume()).catch(() => {});
     if (pausedVideo) Promise.resolve(pausedVideo.play()).catch(() => {});
-    pausedAudio = pausedVideo = null;
+    pausedVideo = null;
     Input.clear();
     if (window.TouchInput) TouchInput.clear();
   }
@@ -407,11 +414,11 @@
     const box = document.createElement("div");
     box.className = "rwk-modal-box rwk-menu";
     box.setAttribute("role", "dialog");
-    box.setAttribute("aria-label", "Paused");
+    box.setAttribute("aria-label", "Settings");
     const head = document.createElement("div");
     head.className = "rwk-menu-head";
     const h = document.createElement("h2");
-    h.textContent = "Paused";
+    h.textContent = "Settings";
     const closeBtn = document.createElement("button");
     closeBtn.innerHTML = icons.close;
     closeBtn.title = "Resume (Esc)";
@@ -528,13 +535,15 @@
       .catch(() => {});
   }
 
+  // The touch toolbar shows it as a button instead (RWK.fullscreen.tool).
+  let fullscreenTool = null;
   if (((config.controls && config.controls.extras) || ["fullscreen"]).includes("fullscreen")) {
-    addTool({
+    addTool((fullscreenTool = {
       quick: true,
       icon: () => (isFullscreen() ? icons.minimize : icons.fullscreen),
       label: () => (isFullscreen() ? "Exit full screen" : "Full screen"),
       onSelect: toggleFullscreen,
-    });
+    }));
   }
 
   //---------------------------------------------------------------------------
@@ -572,6 +581,7 @@
     choose,
     shield,
     icons,
-    tools: { add: addTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
+    tools: { add: addTool, remove: removeTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
+    fullscreen: { toggle: toggleFullscreen, isOn: isFullscreen, tool: fullscreenTool },
   };
 })();

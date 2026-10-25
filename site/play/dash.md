@@ -1,6 +1,6 @@
 # Always dash
 
-Turn on ⏸ → **Always dash** to run everywhere without holding a button. Hold **Dash** on the on-screen gamepad (**Shift** on a keyboard) to walk instead. Tap it again to turn it off.
+Turn on ⚙ → **Always dash** to run everywhere without holding a button. Hold **Dash** on the on-screen gamepad (**Shift** on a keyboard) to walk instead. Tap it again to turn it off.
 
 It is the game's own **Always Dash** setting, so it also shows in the game's Options menu (when the game has one) and it follows your saves to your other devices.
 

@@ -4,7 +4,7 @@
 // License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Brings back an older copy of a save. The Worker keeps one when a save is
-// overwritten or deleted (worker/saves.js); this lists them in ⏸ → Saves and
+// overwritten or deleted (worker/saves.js); this lists them in ⚙ → Saves and
 // restores one, here and in the cloud.
 //=============================================================================
 /*:
