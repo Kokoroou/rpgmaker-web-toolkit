@@ -35,7 +35,7 @@ Step by step: [Before you start][requirements] → [Set up Cloudflare][cloudflar
 | <img src="site/public/img/item-batch.png" width="150" alt=""> | **Several items at once.** Use 10 potions in one go. [More][items] |
 | <img src="site/public/img/locked-page.png" width="150" alt=""> | **Private by default.** Locked until Cloudflare Access (email login) is on. [More][access] |
 
-Updates upload only the files that changed ([updating][updating]). The game folder is never modified ([how it works][how]).
+Updates upload only the files that changed. A new toolkit version also reaches a game whose folder you deleted, from its link alone ([updating][updating]). The game folder is never modified ([how it works][how]).
 
 ## Responsible use
 
