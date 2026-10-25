@@ -59,11 +59,14 @@ features:
 
 </div>
 
+The game is [*GameDev: The Beginning*](https://yancharkin.itch.io/gamedev-the-beginning) by yancharkin. Its screenshots are under CC BY-SA 4.0: see [credits](/reference/credits).
+
 ## Which page do I need?
 
 | You are… | Start here |
 |---|---|
 | Putting a game online for the first time | [Before you start](/setup/requirements) |
+| New to Cloudflare, or wondering about the card it asks for | [Set up Cloudflare](/setup/cloudflare) |
 | Letting a friend or another of your emails play | [Invite players](/setup/access#invite-players) |
 | Installing a patch or a translation | [Update the game](/setup/updating) |
 | Changing buttons, folders or features | [Customize the game](/setup/configuration) |

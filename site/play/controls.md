@@ -16,7 +16,7 @@
 | **X** | Dash (hold) |
 | **Y** | Menu |
 | **L / R** | Previous / next page |
-| Keycaps (**Inspect**, **Popup ▾**…) | Keys this game's plugins use. **▾** opens a row of more keys |
+| Keycaps (**Candle**…) | Keys this game's plugins use. A keycap with **▾** opens a row of more keys |
 
 The controls fade after a few seconds without a touch. Touch the screen and they come back.
 

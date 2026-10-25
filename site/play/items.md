@@ -2,7 +2,7 @@
 
 Choose an item you hold several of, and the game asks **how many** to use (up to 99):
 
-![Use how many? Study Book × 10](/img/item-batch.png){.shot .landscape}
+![Use how many? Red Berry × 10](/img/item-batch.png){.shot .landscape}
 
 | Item | With 10 |
 |---|---|

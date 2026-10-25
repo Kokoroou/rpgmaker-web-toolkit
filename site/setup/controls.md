@@ -12,12 +12,15 @@ What players see is on [Touch controls](/play/controls). This page is the `contr
   "scale": 1,
   "extras": ["fullscreen", "editLayout"],
   "buttons": [
-    { "key": "t", "label": "T", "hint": "Quest journal" },
-    { "key": "r", "label": "Inspect", "pin": true },
-    { "label": "Popup", "keys": [{ "key": "f", "label": "F" }, "e", "q"] }
+    { "key": "one", "label": "Items", "hint": "Inventory" },
+    { "key": "five", "label": "Quickbar", "hint": "Show or hide the quickbar" },
+    { "key": "four", "label": "Candle", "pin": true },
+    { "label": "Menus", "keys": [{ "key": "two", "label": "Equip" }, "three"] }
   ]
 }
 ```
+
+These are the keys of *GameDev: The Beginning*, the game in this guide's screenshots: its plugin reads the number keys 1 to 5.
 
 | Key | Values | Default |
 |---|---|---|
@@ -37,7 +40,7 @@ The first deploy finds the keys the game's plugins read and asks for a label for
 
 ![Plain buttons go in the ⌨ Game keys panel, with their hint](/img/game-keys.png){.shot .portrait}
 
-![Pinned buttons and groups stay on screen: Inspect and Popup ▾](/img/controls-landscape.png){.shot .landscape}
+![Pinned buttons stay on screen: Candle, top left](/img/controls-landscape.png){.shot .landscape}
 
 </div>
 

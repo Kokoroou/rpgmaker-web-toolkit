@@ -20,13 +20,15 @@ How the pieces fit: [How it works](site/reference/how-it-works.md).
 cd site && npm ci && npm run dev
 ```
 
-The screenshots in `site/public/img/` come from `site/screenshots/`: a stand-in game page that loads the real `runtime/` plugins, and a PowerShell transcript. Regenerate them after a UI change:
+The screenshots in `site/public/img/` come from `site/screenshots/capture.mjs`. It opens a real game published with the toolkit, *GameDev: The Beginning* by yancharkin (CC BY-SA 4.0), in Google Chrome with the plugins swapped for your `runtime/`, and answers the save API itself. It needs a network connection and Chrome. Regenerate them after a UI change:
 
 ```sh
 cd site
-npm install --no-save playwright && npx playwright install chromium   # once
+npm install --no-save playwright   # once
 npm run screenshots
 ```
+
+The game screenshots stay under CC BY-SA 4.0 (see `site/reference/credits.md`): keep the credit when you add one.
 
 ## CI and releases
 

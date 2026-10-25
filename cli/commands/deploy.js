@@ -289,7 +289,7 @@ async function createConfig(game, takenSlugs) {
     cfg.controls.enabled = true;
     cfg.controls.dpad = await confirm("Include the D-pad? (No = move by tapping the map only)", true);
     cfg.controls.buttons = await askButtons(keys);
-    log.info(c.dim("Labels, groups, size and opacity can be changed with edit-config; in game, the ✥ button lets you drag buttons around."));
+    log.info(c.dim("Labels, groups, size and opacity can be changed with edit-config; in game, ⚙ → Edit button layout moves buttons around."));
   }
   return cfg;
 }
