@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { RUNTIME_PLUGINS, pluginsJsWith } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS } from "../cli/lib/stage.js";
 import { combine, findings, fmt, formatReport, median, metricsOf, parseVariants } from "../tools/perf/stats.js";
 
 test("bench variants: none is always the baseline", () => {
@@ -91,12 +91,4 @@ test("bench findings need the limit and to stand out from the noise", () => {
   assert.match(report, / 1\.00 +120 {2}Input\.update\n +0\.25 +– {2}Input\.clear/);
   assert.match(report, /Over the limit:\n {2}\+Report: Audio kept \+89\.5 MB/);
   assert.match(formatReport({ combined: { none: combined.none } }), /No variant differs/);
-});
-
-test("plugins.js gets the toolkit's plugins in order, config on RWK_Core only", () => {
-  const js = pluginsJsWith("var $plugins = [];\n\n", ["RWK_Core", "RWK_Speed"], { gameId: "g" });
-  const $plugins = new Function(`${js}; return $plugins;`)();
-  assert.deepEqual($plugins.map((p) => p.name), ["RWK_Core", "RWK_Speed"]);
-  assert.deepEqual(JSON.parse($plugins[0].parameters.config), { gameId: "g" });
-  assert.deepEqual($plugins[1].parameters, {});
 });

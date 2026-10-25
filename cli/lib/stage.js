@@ -8,11 +8,12 @@ import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing, storageIdOf } from "./game.js";
 import { isIndexable } from "./policy.js";
+import { appendToolkit } from "../../worker/toolkit.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
-const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
+export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
 
 // files: from collectFiles(); generated: Map<rel, string|Buffer>
 // -> { linked, copied, unchanged, removed }
@@ -99,13 +100,14 @@ export function saveHistoryConfig(value) {
   return { keep: keep >= 1 ? Math.min(50, keep) : 10, days: days >= 1 ? Math.min(365, days) : 30 };
 }
 
-// RWK_Core's config parameter. files: from collectFiles(), for the MV phone
-// audio / movie check.
-export function runtimeConfigOf(game, gameConfig, files = []) {
-  const runtimeConfig = {
+// RWK_Core's config. engine: "MZ" | "MV"; gameConfig: after applyPolicy().
+// Without the game's files (update-from-link) MV's `media` is left out: the
+// Worker keeps the deployed build's.
+export function runtimeConfigOf(engine, gameConfig) {
+  return {
     version: TOOLKIT_VERSION,
     gameId: storageIdOf(gameConfig),
-    engine: game.engine,
+    engine,
     sync: { enabled: !!(gameConfig.sync && gameConfig.sync.enabled) },
     controls: gameConfig.controls || null,
     saveTools: gameConfig.saveTools !== false,
@@ -117,40 +119,27 @@ export function runtimeConfigOf(game, gameConfig, files = []) {
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
   };
-  if (game.engine === "MV") {
-    const missing = mobileOnlyMissing(files);
-    runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
-  }
-  return runtimeConfig;
 }
 
-// The game's plugins.js with the toolkit's plugins (names, in load order) appended.
-export function pluginsJsWith(pluginsJs, names, runtimeConfig) {
-  const entries = names.map((name) => ({
-    name,
-    status: true,
-    description: "[rpgmaker-web-toolkit]",
-    parameters: name === "RWK_Core" ? { config: JSON.stringify(runtimeConfig) } : {},
-  }));
-  return (
-    `${pluginsJs.replace(/\s*$/, "")}\n\n// ---- rpgmaker-web-toolkit (web build only) ----\n` +
-    entries.map((e) => `$plugins.push(${JSON.stringify(e)});`).join("\n") +
-    "\n"
-  );
+// The runtime plugins' sources: { name: source }
+export function runtimeSources() {
+  return Object.fromEntries(RUNTIME_PLUGINS.map((name) => [name, fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", `${name}.js`), "utf8")]));
 }
 
 // Files the toolkit adds to / overrides in the web build.
 // files: from collectFiles(), for the MV phone audio / movie check.
 export function generatedFiles(game, gameConfig, files = []) {
   const out = new Map();
-  const runtimeConfig = runtimeConfigOf(game, gameConfig, files);
-
-  for (const name of RUNTIME_PLUGINS) {
-    out.set(`js/plugins/${name}.js`, fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", `${name}.js`)));
+  const runtimeConfig = runtimeConfigOf(game.engine, gameConfig);
+  if (game.engine === "MV") {
+    const missing = mobileOnlyMissing(files);
+    runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
   }
 
+  for (const [name, source] of Object.entries(runtimeSources())) out.set(`js/plugins/${name}.js`, source);
+
   const pluginsJs = fs.readFileSync(path.join(game.root, "js", "plugins.js"), "utf8");
-  out.set("js/plugins.js", pluginsJsWith(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
+  out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
 
   // Lets the game's creator, and anyone reading a bug report, tell this
   // build apart from an official release.

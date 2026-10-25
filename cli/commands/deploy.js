@@ -24,10 +24,12 @@ import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js"
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
+import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
-  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path");
+  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)");
   inputPath = inputPath.replace(/^["']|["']$/g, "");
+  if (!importOnly && !editOnly && !rename && isLink(inputPath)) return updateFromLink(inputPath);
 
   //-------------------------------------------------------------------------
   log.step("Analyzing the game");
@@ -64,6 +66,8 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     cfg = await createConfig(game, takenNames(configs, game.fingerprint));
   }
   await addNewKeys(game, cfg);
+  // Kept for update-from-link, which has no game folder to read it from.
+  cfg.policy = policy ? { hosting: policy.hosting, features: policy.features } : null;
   await saveGameConfig();
 
   // Then deploys as usual, under the new name.
@@ -163,7 +167,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   } else if (cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);
     if (probe.protected) log.ok("Cloudflare Access is protecting the site");
-    else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Settings → Domains & Routes)."));
+    else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Access)."));
   }
 
   // After a rename, once the new site works.
@@ -192,7 +196,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   log.info("On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.");
 }
 
-async function connect(settings) {
+export async function connect(settings) {
   log.step("Cloudflare");
   const session = await ensureLogin(settings);
   saveSettings({ accountId: settings.accountId });
@@ -200,7 +204,7 @@ async function connect(settings) {
   return session;
 }
 
-function isAuthReady(auth = {}) {
+export function isAuthReady(auth = {}) {
   return auth.mode === "none" || (auth.mode === "access" && !!auth.teamDomain && !!auth.aud);
 }
 
@@ -215,8 +219,8 @@ function editInNotepad(cfg) {
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
-        // The rename command changes the site name.
-        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers };
+        // The rename command changes the site name. The policy is the game creator's.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy };
       } catch (err) {
         log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
       }
@@ -224,6 +228,10 @@ function editInNotepad(cfg) {
   } finally {
     fs.rmSync(file, { force: true });
   }
+}
+
+function isLink(input) {
+  return /^https?:\/\//i.test(input) || /\.workers\.dev(\/|$)/i.test(input);
 }
 
 function formatMiB(bytes) {
@@ -427,12 +435,13 @@ async function setupAuth(cfg, account, policy) {
   }
 
   if (!cfg.url) cfg.url = await ask("Worker URL (https://<name>.<username>.workers.dev)");
-  const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/settings`;
-  log.info("Follow these steps in the browser (opening the Worker's Settings page):");
-  log.info(`  1. Under ${c.bold("Domains & Routes")}, on the ${c.bold("workers.dev")} row, enable ${c.bold("Cloudflare Access")}.`);
-  log.info("  2. If this is your first time using Zero Trust: pick a team name and the Free plan.");
-  log.info("  3. By default only the Cloudflare account's email may sign in. To allow other emails:");
-  log.info("     Zero Trust → Access → Applications → the Worker's app → Policies.");
+  const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/access`;
+  log.info("Follow these steps in the browser (opening the Worker's Access page):");
+  log.info(`  1. Select ${c.bold("Protect this Worker behind Access")}.`);
+  log.info(`  2. Scope: ${c.bold("All traffic")} (${c.bold("Previews only")} leaves the game itself open).`);
+  log.info(`  3. Authentication policy: ${c.bold("Add policy")} → ${c.bold("Cloudflare account")}, then ${c.bold("Apply Access")}.`);
+  log.info("  4. If Cloudflare asks to set up Zero Trust (first time): pick a team name and the Free plan.");
+  log.info(`  Only the Cloudflare account's email may sign in at first. To invite players, see "Protect the site and invite players" in the guide.`);
   log.info(c.dim(`  ${dash}`));
   openBrowser(dash);
 
@@ -523,7 +532,7 @@ function showPolicy(policy) {
 
 // How many emails have saves for this game, recorded by the Worker.
 const SHARE_WARN_AT = 5;
-async function checkPlayers(bucket, cfg, policy) {
+export async function checkPlayers(bucket, cfg, policy) {
   let players;
   try {
     players = await loadPlayers(bucket, storageIdOf(cfg));

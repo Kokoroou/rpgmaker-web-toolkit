@@ -19,7 +19,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { analyzeGame } from "../../cli/lib/game.js";
-import { RUNTIME_PLUGINS, pluginsJsWith, runtimeConfigOf } from "../../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, runtimeConfigOf } from "../../cli/lib/stage.js";
+import { appendToolkit } from "../../worker/toolkit.js";
 import { TOOLKIT_ROOT } from "../../cli/lib/config.js";
 import { MemoryBucket } from "../../test/helpers.js";
 import { findChrome, launchChrome, openPage } from "./chrome.js";
@@ -198,13 +199,13 @@ async function main() {
 
   const game = analyzeGame(positionals[0]);
   const variants = parseVariants(o.variants, RUNTIME_PLUGINS);
-  const runtimeConfig = runtimeConfigOf(game, GAME_CONFIG);
+  const runtimeConfig = runtimeConfigOf(game.engine, GAME_CONFIG);
   const perfConfig = { audio: { bgm: audioNames(game.root, "bgm"), se: audioNames(game.root, "se") } };
   const gamePluginsJs = fs.readFileSync(path.join(game.root, "js", "plugins.js"), "utf8");
   const perfEntry = { name: "RWK_Perf", status: true, description: "", parameters: { config: JSON.stringify(perfConfig) } };
   // RWK_Perf right after the game's plugins, before the toolkit's.
   const pluginsJsFor = (names) =>
-    pluginsJsWith(`${gamePluginsJs.replace(/\s*$/, "")}\n$plugins.push(${JSON.stringify(perfEntry)});\n`, names, runtimeConfig);
+    appendToolkit(`${gamePluginsJs.replace(/\s*$/, "")}\n$plugins.push(${JSON.stringify(perfEntry)});\n`, names, runtimeConfig);
 
   const executable = findChrome(o.chrome);
   console.log(`${game.title} (${game.engine}) · ${variants.length} variants × ${opts.rounds} rounds · CPU ×${opts.cpu}`);

@@ -14,6 +14,27 @@ MV games are recognized by their title (MZ: by their game ID). If a translation 
 
 Install [Node.js](/setup/requirements), run the same command and log in to the **same Cloudflare account**. The settings come from your account: no questions.
 
+## New toolkit version, game folder gone
+
+Deleted the game from your PC? Paste the game's link instead of the folder:
+
+```powershell
+$rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
+& $rwk update-from-link "https://my-game.alice.workers.dev"
+```
+
+(Or run the one-liner and paste the link when it asks for the folder.)
+
+Log in to the **same Cloudflare account**. The toolkit finds the game from its link and updates the Worker and the in-game plugins (on-screen controls, save sync, the ⚙ menu…) to the new version. It uses the settings stored in your account, including what you changed with [`edit-config`](/setup/configuration). Players get the new version on their next reload and keep their saves.
+
+What stays as it was:
+
+- **The game files you uploaded.** Nothing is downloaded or uploaded from your PC. To install a patch or a translation, you need the game folder again.
+- **`index.html`, `robots.txt` and the icon**, from the last deploy from the folder. A [public site](/setup/access) that changes whether search engines may list it needs a deploy from the folder.
+- **Features the game's creator turned off** stay off. If its last deploy from the folder used a toolkit from before this command, every feature that was off then also stays off: deploy once from the folder to turn one back on.
+
+The site must already be set up (Access, or public). This command calls the Cloudflare API directly instead of going through wrangler, because wrangler always replaces every file. If it fails with a Cloudflare API error, deploy from the game folder and [report it](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues). The next deploy from the folder puts everything back the usual way.
+
 ## Upload desktop saves again
 
 ```powershell

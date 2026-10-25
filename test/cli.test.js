@@ -5,11 +5,13 @@ import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
 import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
-import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
+import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
+import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, runtimeSources, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -338,4 +340,177 @@ test("rename: a new Worker name, the same storage", () => {
   };
   assert.deepEqual([...takenNames(configs, "mv:B")].sort(), ["a", "a-new"]);
   assert.deepEqual([...takenNames(configs, "mv:A")], ["b"], "a game may go back to its own old name");
+});
+
+test("update-from-link: which game a link names", () => {
+  assert.equal(siteNameFromLink("https://my-game.alice.workers.dev/"), "my-game");
+  assert.equal(siteNameFromLink(' "my-game.alice.workers.dev/index.html" '), "my-game");
+  assert.equal(siteNameFromLink("HTTPS://My-Game.Alice.Workers.Dev"), "my-game");
+  for (const bad of ["D:\\Games\\My Game", "https://example.com", "https://a.b.c.workers.dev", "https://-x.alice.workers.dev", "http://"]) {
+    assert.throws(() => siteNameFromLink(bad), /Not a game link/, bad);
+  }
+
+  const configs = { "mz:1": { slug: "new-name", storageId: "old-name", retiredWorkers: ["old-name"], url: "https://new-name.alice.workers.dev" }, "mv:B": { slug: "b" } };
+  assert.equal(findGameBySite(configs, "b")[0], "mv:B");
+  assert.throws(() => findGameBySite(configs, "old-name"), /old name of "new-name".*https:\/\/new-name/);
+  assert.throws(() => findGameBySite(configs, "zzz"), /Games in this account: b, new-name/);
+  assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
+});
+
+test("update-from-link: the Worker patch keeps the deployed files", async () => {
+  const toolkit = { names: RUNTIME_PLUGINS, plugins: runtimeSources(), config: runtimeConfigOf("MV", { slug: "g", storageId: "first", sync: { enabled: true } }), keepOff: false };
+  assert.equal(toolkit.config.gameId, "first");
+  assert.equal(toolkit.config.media, undefined, "taken from the deployed build by the Worker");
+  const patch = keepAssetsPatch({
+    slug: "g",
+    gameId: "first",
+    bucket: "b",
+    overflowRels: ["movies/big.webm"],
+    auth: { mode: "access", teamDomain: "t.cloudflareaccess.com", aud: "abc" },
+    toolkitRoot: path.join(import.meta.dirname, ".."),
+    saveHistory: { keep: 5, days: 30 },
+    toolkit,
+  });
+  assert.equal(patch.main_module, "worker.js");
+  assert.equal(patch.assets.jwt, undefined, "no new files: the deployed ones carry over");
+  const vars = Object.fromEntries(patch.bindings.filter((b) => b.type === "plain_text").map((b) => [b.name, b.text]));
+  assert.deepEqual(vars, {
+    GAME_ID: "first",
+    AUTH_MODE: "access",
+    ACCESS_TEAM_DOMAIN: "t.cloudflareaccess.com",
+    ACCESS_AUD: "abc",
+    RWK_LOCKED: "0",
+    RWK_INDEXABLE: "0",
+    RWK_SAVE_HISTORY: '{"keep":5,"days":30}',
+  });
+  assert.ok(patch.bindings.some((b) => b.type === "r2_bucket" && b.name === "BUCKET" && b.bucket_name === "b"));
+  assert.ok(patch.bindings.some((b) => b.type === "assets" && b.name === "ASSETS"));
+  const routes = patch.assets.config.run_worker_first;
+  for (const r of ["/api/*", "/js/plugins.js", "/js/plugins/RWK_Core.js", "/movies/big.webm"]) assert.ok(routes.includes(r), r);
+
+  const modules = new Map(patch.modules.map((m) => [m.name, m]));
+  for (const name of ["worker.js", "rwk-overflow.js", "rwk-toolkit.js", "worker/index.js", "worker/auth.js", "worker/saves.js", "worker/players.js", "worker/toolkit.js"]) {
+    assert.equal(modules.get(name)?.content_type, "application/javascript+module", name);
+  }
+  const source = (name) => Buffer.from(modules.get(name).content_base64, "base64").toString("utf8");
+  // Uploaded unbundled: every relative import must name another module.
+  for (const name of modules.keys()) {
+    for (const [, spec] of source(name).matchAll(/^(?:import|export) .* from "(\.[^"]+)";$/gm)) {
+      const target = path.posix.join(path.posix.dirname(name), spec);
+      assert.ok(modules.has(target), `${name} imports ${spec}: no module "${target}"`);
+    }
+  }
+  assert.equal(source("worker/toolkit.js"), fs.readFileSync(new URL("../worker/toolkit.js", import.meta.url), "utf8"));
+  const { default: uploaded } = await import(`data:text/javascript,${encodeURIComponent(source("rwk-toolkit.js"))}`);
+  assert.deepEqual(uploaded, toolkit);
+});
+
+test("update-from-link: Workers API calls and their errors", async (t) => {
+  const calls = [];
+  let replies = [];
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    calls.push({ url, init });
+    const [status, body, headers] = replies.shift();
+    return new Response(JSON.stringify(body), { status, headers });
+  });
+  t.mock.method(console, "log", () => {});
+  const patch = { main_module: "worker.js" };
+  const run = () => deployKeepingAssets({ token: "tok", accountId: "acc", slug: "g", patch });
+
+  replies = [
+    [200, { success: true, result: {} }],
+    [200, { success: true, result: {}, messages: [{ message: "fine" }] }, { deprecation: "true" }],
+  ];
+  warnings.length = 0;
+  await run();
+  assert.equal(calls[0].url, `${WORKERS_API.base}/accounts/acc/workers/workers/g`);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[1].url, `${WORKERS_API.base}/accounts/acc/workers/workers/g/versions/latest?deploy=true`);
+  assert.equal(calls[1].init.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[1].init.body), patch);
+  assert.equal(calls[1].init.headers["content-type"], "application/merge-patch+json");
+  assert.equal(calls[1].init.headers.authorization, "Bearer tok");
+  assert.match(warnings[0], /going away \(deprecation: true\).*checked against the Cloudflare API on/);
+  warnings.length = 0;
+
+  replies = [[404, { success: false, errors: [{ code: 10007, message: "workers.api.error.script_not_found" }] }]];
+  await assert.rejects(run, /no Worker named "g"/);
+  replies = [[500, "not json"]];
+  await assert.rejects(run, /Could not read the Worker: HTTP 500/);
+  replies = [
+    [200, { success: true }],
+    [400, { success: false, errors: [{ code: 10021, message: "Unknown field" }] }],
+  ];
+  await assert.rejects(run, (err) => /Could not update the Worker: Unknown field \[code: 10021\]/.test(err.message) && err.message.includes(WORKERS_API.checked));
+  replies = [
+    [200, { success: true }],
+    [200, { success: false, errors: [{ message: "odd" }] }],
+  ];
+  await assert.rejects(run, /Could not update the Worker: odd\n/);
+});
+
+// A trimmed copy of the parts of Cloudflare's OpenAPI schema the patch relies on.
+function workersSchema() {
+  const prop = (properties) => ({ type: "object", properties });
+  return {
+    paths: {
+      [WORKERS_API.worker]: { get: {} },
+      [WORKERS_API.patchLatest]: {
+        patch: {
+          description: "Creates a new Worker version by applying a JSON Merge Patch (RFC 7396) to the latest version. Omitted fields are inherited from the latest version.",
+          parameters: [{ $ref: "#/components/parameters/deploy" }],
+          requestBody: {
+            content: {
+              "application/merge-patch+json": {
+                schema: {
+                  allOf: [
+                    prop({ main_module: {}, compatibility_date: {}, bindings: {} }),
+                    prop({
+                      modules: { type: "array", items: prop({ name: {}, content_type: {}, content_base64: {} }) },
+                      assets: { $ref: "#/components/schemas/assets" },
+                    }),
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      parameters: { deploy: { name: "deploy", in: "query" } },
+      schemas: {
+        assets: prop({ config: prop({ not_found_handling: {}, run_worker_first: {} }), jwt: {} }),
+        workers_binding_kind_plain_text: prop({ name: {}, type: {}, text: {} }),
+        workers_binding_kind_r2_bucket: prop({ name: {}, type: {}, bucket_name: {} }),
+        workers_binding_kind_assets: prop({ name: {}, type: {} }),
+      },
+    },
+  };
+}
+
+test("update-from-link: noticing Workers API changes in Cloudflare's schema", () => {
+  assert.deepEqual(checkWorkersApi(workersSchema()), []);
+  assert.match(WORKERS_API.checked, /^\d{4}-\d{2}-\d{2}$/);
+
+  const broken = (change) => {
+    const schema = workersSchema();
+    change(schema, schema.paths[WORKERS_API.patchLatest].patch);
+    return checkWorkersApi(schema);
+  };
+  assert.deepEqual(broken((s) => delete s.paths[WORKERS_API.worker]), [`GET ${WORKERS_API.worker} is gone`]);
+  assert.deepEqual(broken((s) => delete s.paths[WORKERS_API.patchLatest]), [`PATCH ${WORKERS_API.patchLatest} is gone`]);
+  assert.deepEqual(broken((s, p) => (p.parameters = [])), ["the version patch has no ?deploy= any more"]);
+  assert.match(broken((s, p) => (p.description = "Fields are reset."))[0], /omitted fields are inherited/);
+  assert.deepEqual(broken((s, p) => delete p.requestBody.content["application/merge-patch+json"]), ["the version patch no longer takes application/merge-patch+json"]);
+  assert.deepEqual(broken((s, p) => delete p.requestBody.content["application/merge-patch+json"].schema.allOf[1].properties.modules), [
+    'the version patch has no "modules" field',
+    'modules[] has no "name"',
+    'modules[] has no "content_type"',
+    'modules[] has no "content_base64"',
+  ]);
+  assert.deepEqual(broken((s) => delete s.components.schemas.assets.properties.config.properties.run_worker_first), ['assets.config has no "run_worker_first"']);
+  assert.deepEqual(broken((s) => delete s.components.schemas.workers_binding_kind_r2_bucket), ['the r2_bucket binding has no "bucket_name"']);
+  assert.deepEqual(broken((s) => (s.components.schemas.assets = { $ref: "#/components/schemas/assets" })), ['assets.config has no "not_found_handling"', 'assets.config has no "run_worker_first"'], "a $ref loop ends");
 });

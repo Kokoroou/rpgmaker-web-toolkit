@@ -1,11 +1,13 @@
 // Worker entry shared by every deployed game. The CLI generates a tiny
 // `worker.js` per game that calls createWorker() with that game's
-// overflow list (files > 25 MiB that live in R2 instead of static assets).
+// overflow list (files > 25 MiB that live in R2 instead of static assets),
+// and, after `rwk update-from-link`, the newer toolkit to serve (toolkit.js).
 
 import { AuthError, identify } from "./auth.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
+import { serveToolkit } from "./toolkit.js";
 
-export function createWorker({ overflow = [] } = {}) {
+export function createWorker({ overflow = [], toolkit = null } = {}) {
   const overflowSet = new Set(overflow);
 
   return {
@@ -18,12 +20,12 @@ export function createWorker({ overflow = [] } = {}) {
       if (path.startsWith("/api/")) return handleApi(request, env, path);
 
       const rel = path.slice(1);
-      if (overflowSet.has(rel) && env.BUCKET) {
-        const res = await serveOverflow(request, env, rel);
-        if (res) {
-          if (env.RWK_INDEXABLE !== "1") res.headers.set("x-robots-tag", "noindex, nofollow");
-          return res;
-        }
+      let res = null;
+      if (toolkit) res = await serveToolkit(request, env, rel, toolkit);
+      if (!res && overflowSet.has(rel) && env.BUCKET) res = await serveOverflow(request, env, rel);
+      if (res) {
+        if (env.RWK_INDEXABLE !== "1") res.headers.set("x-robots-tag", "noindex, nofollow");
+        return res;
       }
       return env.ASSETS.fetch(request);
     },
