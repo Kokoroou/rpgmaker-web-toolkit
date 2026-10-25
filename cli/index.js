@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { deploy } from "./commands/deploy.js";
+import { updateFromLink } from "./commands/update-from-link.js";
 import { c, log } from "./lib/ui.js";
 
 const HELP = `
@@ -9,6 +10,7 @@ ${c.bold("rpgmaker-web-toolkit")}: publish RPG Maker MZ/MV games to Cloudflare W
   rwk import-saves "<game folder>"   Upload local saves (the save/ folder) to the cloud
   rwk edit-config "<game folder>"    Edit the game's config stored in R2 (buttons, exclude…)
   rwk rename "<game folder>"         Change the site name (its address); saves carry over
+  rwk update-from-link "<game link>" Update the toolkit of a deployed game whose folder is gone
   rwk help                           Show this help
 `;
 
@@ -31,6 +33,8 @@ async function main() {
       return deploy(rest.join(" ") || undefined, { editOnly: true });
     case "rename":
       return deploy(rest.join(" ") || undefined, { rename: true });
+    case "update-from-link":
+      return updateFromLink(rest.join(" ") || undefined);
     default:
       return deploy(process.argv.slice(2).join(" ") || undefined);
   }

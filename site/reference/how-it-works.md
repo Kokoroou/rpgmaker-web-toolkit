@@ -19,6 +19,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              auth.js             verifies Cloudflare Access logins (JWT)
              saves.js            save API, with ETag overwrite protection, and save history
              players.js          counts the emails that save, for the deploy's reminder
+             toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after update-from-link
 ```
 
 ## The build
@@ -31,6 +32,12 @@ The game folder is never written to. Each run:
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
 5. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
 6. Deletes the build folder.
+
+## Update from the link
+
+[`update-from-link`](/setup/updating#new-toolkit-version-game-folder-gone) works without the game folder. Cloudflare cannot hand back a Worker's static files, and `wrangler deploy` always replaces all of them. So the CLI uploads the new Worker through the Workers API itself (`PUT /accounts/{id}/workers/scripts/{name}`), with `keep_assets: true`, which keeps the files already there. The new Worker contains the new `RWK_*.js` plugins and runs before static assets for `js/plugins.js` and those plugins. It serves the plugins itself and rewrites `js/plugins.js`: the game's own part stays and the toolkit's part (after the `rpgmaker-web-toolkit` marker) is replaced. MV's phone audio / movie flags come from the deployed copy.
+
+`WORKERS_API` in `cli/lib/cloudflare.js` records the API it was written against: endpoints, metadata fields, the wrangler version whose upload it copies, and the date it was checked. A test fails when `wrangler` in `package.json` no longer matches that version, or when the installed wrangler stops building its upload the same way. At run time, an API error, or a `Deprecation` / `Sunset` header from Cloudflare, prints that date.
 
 ## Storage
 

@@ -1,5 +1,6 @@
 // Cloudflare operations: account, R2 bucket, overflow assets, Worker deploy,
-// Access detection and save import. All through the pinned wrangler.
+// Access detection and save import. All through the pinned wrangler, except
+// deployKeepingAssets() (update-from-link), which calls the Workers API.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -8,6 +9,7 @@ import path from "node:path";
 import LZString from "lz-string";
 import { choose, log } from "./ui.js";
 import { PROFILE, SCOPES, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
+import { toolkitRoutes } from "../../worker/toolkit.js";
 
 //---------------------------------------------------------------------------
 // Account
@@ -42,16 +44,20 @@ export async function ensureLogin(settings) {
 // `wrangler whoami` only reads the default profile, so ask the API with the
 // toolkit profile's token (wrangler refreshes it when expired).
 async function whoami() {
-  const res = await wrangler(["auth", "token", "--json", "--profile", PROFILE], { quiet: true });
-  let token;
-  try {
-    token = JSON.parse(res.stdout.slice(res.stdout.indexOf("{"))).token;
-  } catch {
-    // Not logged in (no profile yet, or the refresh token was revoked).
-  }
+  const token = await apiToken();
   if (!token) return { loggedIn: false };
   const [user, accounts] = await Promise.all([cfApi(token, "/user"), cfApi(token, "/accounts?per_page=50")]);
   return { loggedIn: true, email: user.email, accounts: accounts.map((a) => ({ id: a.id, name: a.name })) };
+}
+
+// -> the toolkit profile's API token, or null when not logged in
+export async function apiToken() {
+  const res = await wrangler(["auth", "token", "--json", "--profile", PROFILE], { quiet: true });
+  try {
+    return JSON.parse(res.stdout.slice(res.stdout.indexOf("{"))).token || null;
+  } catch {
+    return null; // Not logged in (no profile yet, or the refresh token was revoked).
+  }
 }
 
 async function cfApi(token, route) {
@@ -169,10 +175,21 @@ export function contentTypeOf(rel) {
   return CONTENT_TYPES[path.extname(rel).toLowerCase()] || "application/octet-stream";
 }
 
+const manifestKeyOf = (slug) => `assets/${slug}/.rwk-manifest.json`;
+
+// { [rel]: { sha256, size } } of the files already on R2
+async function loadOverflowManifest(bucket, slug) {
+  const raw = await r2Get(bucket, manifestKeyOf(slug));
+  return raw ? JSON.parse(raw.toString("utf8")) : {};
+}
+
+export async function loadOverflowRels(bucket, slug) {
+  return Object.keys(await loadOverflowManifest(bucket, slug));
+}
+
 export async function syncOverflow({ bucket, slug, files }) {
-  const manifestKey = `assets/${slug}/.rwk-manifest.json`;
-  const raw = await r2Get(bucket, manifestKey);
-  const remote = raw ? JSON.parse(raw.toString("utf8")) : {};
+  const manifestKey = manifestKeyOf(slug);
+  const remote = await loadOverflowManifest(bucket, slug);
   const next = {};
   let uploaded = 0;
 
@@ -210,7 +227,8 @@ function hashFile(file) {
 
 // run_worker_first rules: exact paths when they fit, else the parent folder.
 // The Worker falls through to static assets for anything not in R2.
-export function overflowRoutes(rels) {
+// extra: other exact paths the Worker serves (toolkitRoutes()).
+export function overflowRoutes(rels, extra = []) {
   const MAX_RULES = 100; // wrangler limits
   const MAX_LEN = 100;
   // Both the raw and the percent-encoded spelling, since browsers encode
@@ -218,12 +236,13 @@ export function overflowRoutes(rels) {
   const variants = (p) => [...new Set([`/${p}`, encodeURI(`/${p}`)])];
   const fits = (rules) => rules.length <= MAX_RULES && rules.every((r) => r.length <= MAX_LEN);
 
-  const exact = ["/api/*", ...new Set(rels.flatMap(variants))];
+  const always = ["/api/*", ...extra];
+  const exact = [...always, ...new Set(rels.flatMap(variants))];
   if (fits(exact)) return exact;
 
   const dirs = [...new Set(rels.map((rel) => (rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "")))];
   if (!dirs.includes("")) {
-    const byFolder = ["/api/*", ...new Set(dirs.flatMap(variants).map((d) => `${d}/*`))];
+    const byFolder = [...always, ...new Set(dirs.flatMap(variants).map((d) => `${d}/*`))];
     if (fits(byFolder)) return byFolder;
   }
   return true; // last resort: every request goes through the Worker
@@ -233,7 +252,22 @@ export function overflowRoutes(rels) {
 // Worker deploy
 //---------------------------------------------------------------------------
 
+const COMPATIBILITY_DATE = "2026-09-01";
+
+// The Worker's environment variables (worker/index.js reads them).
 // saveHistory: from saveHistoryConfig() (stage.js)
+function workerVars({ gameId, auth, locked, indexable, saveHistory }) {
+  return {
+    GAME_ID: gameId,
+    AUTH_MODE: auth.mode || "locked",
+    ACCESS_TEAM_DOMAIN: auth.teamDomain || "",
+    ACCESS_AUD: auth.aud || "",
+    RWK_LOCKED: locked ? "1" : "0",
+    RWK_INDEXABLE: indexable ? "1" : "0",
+    RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
+  };
+}
+
 export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
@@ -249,7 +283,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
   const config = {
     name: slug,
     main: "worker.js",
-    compatibility_date: "2026-09-01",
+    compatibility_date: COMPATIBILITY_DATE,
     workers_dev: true,
     preview_urls: false, // preview hostnames would sit outside the Access app
     assets: {
@@ -258,15 +292,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels),
     },
-    vars: {
-      GAME_ID: gameId,
-      AUTH_MODE: auth.mode || "locked",
-      ACCESS_TEAM_DOMAIN: auth.teamDomain || "",
-      ACCESS_AUD: auth.aud || "",
-      RWK_LOCKED: locked ? "1" : "0",
-      RWK_INDEXABLE: indexable ? "1" : "0",
-      RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
-    },
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
@@ -296,6 +322,105 @@ export async function deleteWorker(name) {
   const res = await wrangler(["delete", name, "--force"], { quiet: true });
   if (res.code === 0) return true;
   return /\[code: 10007\]|does not exist|not found/i.test(res.output);
+}
+
+//---------------------------------------------------------------------------
+// Update without the game files (update-from-link): Cloudflare cannot hand
+// back a Worker's static files, and `wrangler deploy` always replaces all of
+// them, so the new Worker goes up through the Workers API with keep_assets.
+// This is the only place the toolkit calls that API itself.
+//---------------------------------------------------------------------------
+
+// What the request below was written against. When the toolkit's wrangler is
+// bumped, test/cli.test.js fails until someone checks that wrangler still
+// builds its upload the same way and updates `wrangler` and `checked` here.
+export const WORKERS_API = {
+  base: "https://api.cloudflare.com/client/v4",
+  // PUT: multipart, a `metadata` JSON part + one part per module.
+  upload: "/accounts/{account_id}/workers/scripts/{script_name}",
+  // GET: only to check that the Worker exists before replacing it.
+  settings: "/accounts/{account_id}/workers/scripts/{script_name}/settings",
+  // Metadata fields used: main_module, compatibility_date, bindings
+  // (plain_text, r2_bucket, assets), keep_assets, assets.config, observability.
+  wrangler: "4.148.0", // createWorkerUploadForm() of this version builds the same form
+  checked: "2026-10-25",
+  docs: "https://developers.cloudflare.com/workers/static-assets/direct-upload/",
+};
+
+// The same Worker as writeWorkerProject() + `wrangler deploy`, plus the newer
+// toolkit for the Worker to serve (worker/toolkit.js), keeping the static
+// files already uploaded. Modules go up unbundled: the API resolves their
+// relative imports. -> FormData
+export function keepAssetsForm({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, toolkit }) {
+  const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory });
+  const bindings = Object.entries(vars).map(([name, text]) => ({ name, type: "plain_text", text }));
+  if (bucket) bindings.push({ name: "BUCKET", type: "r2_bucket", bucket_name: bucket });
+  bindings.push({ name: "ASSETS", type: "assets" });
+  const metadata = {
+    main_module: "worker.js",
+    compatibility_date: COMPATIBILITY_DATE,
+    bindings,
+    keep_assets: true,
+    assets: { config: { not_found_handling: "none", run_worker_first: overflowRoutes(overflowRels, toolkitRoutes(toolkit)) } },
+    observability: { enabled: false },
+  };
+
+  const modules = {
+    "worker.js":
+      `// Generated by rpgmaker-web-toolkit. Do not edit.\n` +
+      `import { createWorker } from "./worker/index.js";\n` +
+      `import overflow from "./rwk-overflow.js";\n` +
+      `import toolkit from "./rwk-toolkit.js";\n` +
+      `export default createWorker({ overflow, toolkit });\n`,
+    "rwk-overflow.js": `export default ${JSON.stringify(overflowRels)};\n`,
+    "rwk-toolkit.js": `export default ${JSON.stringify(toolkit)};\n`,
+  };
+  const workerDir = path.join(toolkitRoot, "worker");
+  for (const name of fs.readdirSync(workerDir).filter((f) => f.endsWith(".js"))) {
+    modules[`worker/${name}`] = fs.readFileSync(path.join(workerDir, name), "utf8");
+  }
+
+  const form = new FormData();
+  form.set("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  for (const [name, source] of Object.entries(modules)) {
+    form.set(name, new File([source], name, { type: "application/javascript+module" }));
+  }
+  return form;
+}
+
+// Replaces the Worker's code and settings, keeping its static files.
+// token: from apiToken()
+export async function deployKeepingAssets({ token, accountId, slug, form }) {
+  const route = (template) => template.replace("{account_id}", accountId).replace("{script_name}", slug);
+
+  const found = await workersApi(token, "GET", route(WORKERS_API.settings));
+  if (found.status === 404) throw new Error(`This Cloudflare account has no Worker named "${slug}".`);
+  if (!found.ok) throw apiError("Could not read the Worker", found);
+
+  const res = await workersApi(token, "PUT", route(WORKERS_API.upload), form);
+  if (!res.ok) throw apiError("Could not update the Worker", res);
+}
+
+async function workersApi(token, method, route, body) {
+  const res = await fetch(`${WORKERS_API.base}${route}`, { method, headers: { authorization: `Bearer ${token}` }, body });
+  // Cloudflare announces API removals with these headers.
+  const notice = ["deprecation", "sunset"].map((h) => res.headers.get(h) && `${h}: ${res.headers.get(h)}`).filter(Boolean);
+  if (notice.length) log.warn(`Cloudflare marks an API this command uses as going away (${notice.join(", ")}). ${apiNote()}`);
+  const json = await res.json().catch(() => ({}));
+  for (const m of json.messages || []) log.info(`Cloudflare: ${m.message || JSON.stringify(m)}`);
+  return { status: res.status, ok: res.ok && json.success !== false, errors: json.errors || [] };
+}
+
+function apiError(what, res) {
+  const reason = res.errors.map((e) => `${e.message}${e.code ? ` [code: ${e.code}]` : ""}`).join("; ") || `HTTP ${res.status}`;
+  return new Error(`${what}: ${reason}\n${apiNote()}`);
+}
+
+function apiNote() {
+  return (
+    `This command was checked against the Cloudflare API on ${WORKERS_API.checked} (wrangler ${WORKERS_API.wrangler}); ` +
+    "if Cloudflare changed it since, deploy from the game folder instead and report it at https://github.com/Kokoroou/rpgmaker-web-toolkit/issues"
+  );
 }
 
 //---------------------------------------------------------------------------

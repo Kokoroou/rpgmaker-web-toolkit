@@ -24,10 +24,12 @@ import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js"
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
+import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
-  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path");
+  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)");
   inputPath = inputPath.replace(/^["']|["']$/g, "");
+  if (!importOnly && !editOnly && !rename && isLink(inputPath)) return updateFromLink(inputPath);
 
   //-------------------------------------------------------------------------
   log.step("Analyzing the game");
@@ -64,6 +66,8 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     cfg = await createConfig(game, takenNames(configs, game.fingerprint));
   }
   await addNewKeys(game, cfg);
+  // Kept for update-from-link, which has no game folder to read it from.
+  cfg.policy = policy ? { hosting: policy.hosting, features: policy.features } : null;
   await saveGameConfig();
 
   // Then deploys as usual, under the new name.
@@ -192,7 +196,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   log.info("On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.");
 }
 
-async function connect(settings) {
+export async function connect(settings) {
   log.step("Cloudflare");
   const session = await ensureLogin(settings);
   saveSettings({ accountId: settings.accountId });
@@ -200,7 +204,7 @@ async function connect(settings) {
   return session;
 }
 
-function isAuthReady(auth = {}) {
+export function isAuthReady(auth = {}) {
   return auth.mode === "none" || (auth.mode === "access" && !!auth.teamDomain && !!auth.aud);
 }
 
@@ -215,8 +219,8 @@ function editInNotepad(cfg) {
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
-        // The rename command changes the site name.
-        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers };
+        // The rename command changes the site name. The policy is the game creator's.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy };
       } catch (err) {
         log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
       }
@@ -224,6 +228,10 @@ function editInNotepad(cfg) {
   } finally {
     fs.rmSync(file, { force: true });
   }
+}
+
+function isLink(input) {
+  return /^https?:\/\//i.test(input) || /\.workers\.dev(\/|$)/i.test(input);
 }
 
 function formatMiB(bytes) {
@@ -524,7 +532,7 @@ function showPolicy(policy) {
 
 // How many emails have saves for this game, recorded by the Worker.
 const SHARE_WARN_AT = 5;
-async function checkPlayers(bucket, cfg, policy) {
+export async function checkPlayers(bucket, cfg, policy) {
   let players;
   try {
     players = await loadPlayers(bucket, storageIdOf(cfg));

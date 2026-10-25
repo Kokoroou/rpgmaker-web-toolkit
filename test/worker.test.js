@@ -227,3 +227,71 @@ test("save history can be turned off", async () => {
   assert.equal((await call(makeEnv(), "/api/history")).status, 200);
   assert.equal((await call(makeEnv({ RWK_SAVE_HISTORY: "{" }), "/api/history")).status, 200);
 });
+
+test("update-from-link: the Worker serves the newer toolkit over the deployed files", async () => {
+  const { appendToolkit } = await import("../worker/toolkit.js");
+  const game = 'var $plugins =\n[\n{"name":"GameOne","status":true,"description":"","parameters":{}}\n];\n';
+  const old = { version: "0.1.0", gameId: "g", engine: "MV", sync: { enabled: true }, saveTools: false, media: { oggOnly: true, webmOnly: false } };
+  const deployed = appendToolkit(game, ["RWK_Core", "RWK_Old"], old);
+  const seen = [];
+  const assets = {
+    fetch: async (req) => {
+      seen.push(req);
+      const rel = new URL(req.url).pathname;
+      return rel === "/js/plugins.js" ? new Response(deployed) : new Response("static " + rel);
+    },
+  };
+  const toolkit = {
+    names: ["RWK_Core", "RWK_New"],
+    plugins: { RWK_Core: "core v2", RWK_New: "new plugin" },
+    config: { version: "0.3.0", gameId: "g", engine: "MV", sync: { enabled: true }, saveTools: true },
+    keepOff: true,
+  };
+  const updated = createWorker({ toolkit });
+  const get = (path, init) => updated.fetch(new Request(BASE + path, init), makeEnv({ ASSETS: assets }));
+
+  let res = await get("/js/plugins.js", { headers: { "if-none-match": '"abc"' } });
+  assert.equal(res.status, 200);
+  assert.equal(seen.at(-1).headers.get("if-none-match"), null, "the original is always read in full");
+  assert.equal(res.headers.get("cache-control"), "no-cache");
+  assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
+  const js = await res.text();
+  assert.ok(js.startsWith(game.trimEnd()), "the game's own plugins stay");
+  assert.ok(!js.includes("RWK_Old"), "the old toolkit part is replaced");
+  assert.ok(js.includes('"name":"RWK_New"'));
+  const core = JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  assert.equal(core.version, "0.3.0");
+  assert.deepEqual(core.media, old.media, "MV phone media comes from the deployed build");
+  assert.equal(core.saveTools, false, "a feature the deployed build turned off stays off without a recorded policy");
+
+  res = await get("/js/plugins/RWK_New.js");
+  assert.equal(await res.text(), "new plugin");
+  assert.match(res.headers.get("content-type"), /javascript/);
+  res = await get("/js/plugins/RWK_Core.js", { method: "HEAD" });
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "");
+  assert.equal(await (await get("/js/plugins/RWK_Old.js")).text(), "static /js/plugins/RWK_Old.js", "not ours any more: static file");
+  assert.equal(await (await get("/js/plugins/GameOne.js")).text(), "static /js/plugins/GameOne.js");
+  assert.equal(await (await get("/js/plugins.js", { method: "POST" })).text(), deployed, "only GET / HEAD are rewritten");
+  assert.equal(await (await get("/img/a.png")).text(), "static /img/a.png");
+
+  const missing = { fetch: async () => new Response("gone", { status: 404 }) };
+  res = await updated.fetch(new Request(BASE + "/js/plugins.js"), makeEnv({ ASSETS: missing }));
+  assert.equal(res.status, 404, "no plugins.js: left to static assets");
+});
+
+test("update-from-link: toolkit part of plugins.js", async () => {
+  const { appendToolkit, mergeConfig, splitToolkit, toolkitRoutes } = await import("../worker/toolkit.js");
+  assert.deepEqual(splitToolkit("var $plugins = [];\n"), { game: "var $plugins = [];\n", config: null }, "not a toolkit build");
+  const js = appendToolkit("var $plugins = [];", ["RWK_Core"], { a: 1 }) + "$plugins.push({broken);\n";
+  assert.deepEqual(splitToolkit(js), { game: "var $plugins = [];\n\n", config: { a: 1 } });
+
+  const next = { saveTools: true, quickSave: { ignoreSaveLock: true }, sync: { enabled: true } };
+  const deployed = { saveTools: false, quickSave: false, sync: { enabled: false }, media: { oggOnly: false, webmOnly: true } };
+  assert.deepEqual(mergeConfig(next, null, true), next);
+  assert.deepEqual(mergeConfig(next, deployed, false), { ...next, media: deployed.media }, "a recorded policy decides alone");
+  assert.deepEqual(mergeConfig(next, deployed, true), { saveTools: false, quickSave: false, sync: { enabled: false }, media: deployed.media });
+  assert.deepEqual(mergeConfig({ media: { oggOnly: true } }, deployed, false).media, { oggOnly: true });
+
+  assert.deepEqual(toolkitRoutes({ plugins: { RWK_Core: "", RWK_Dash: "" } }), ["/js/plugins.js", "/js/plugins/RWK_Core.js", "/js/plugins/RWK_Dash.js"]);
+});

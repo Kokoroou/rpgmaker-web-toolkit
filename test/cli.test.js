@@ -4,12 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
-import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
-import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
+import { WORKERS_API, deployKeepingAssets, keepAssetsForm, overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, runtimeSources, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -338,4 +339,135 @@ test("rename: a new Worker name, the same storage", () => {
   };
   assert.deepEqual([...takenNames(configs, "mv:B")].sort(), ["a", "a-new"]);
   assert.deepEqual([...takenNames(configs, "mv:A")], ["b"], "a game may go back to its own old name");
+});
+
+test("update-from-link: which game a link names", () => {
+  assert.equal(siteNameFromLink("https://my-game.alice.workers.dev/"), "my-game");
+  assert.equal(siteNameFromLink(' "my-game.alice.workers.dev/index.html" '), "my-game");
+  assert.equal(siteNameFromLink("HTTPS://My-Game.Alice.Workers.Dev"), "my-game");
+  for (const bad of ["D:\\Games\\My Game", "https://example.com", "https://a.b.c.workers.dev", "https://-x.alice.workers.dev", "http://"]) {
+    assert.throws(() => siteNameFromLink(bad), /Not a game link/, bad);
+  }
+
+  const configs = { "mz:1": { slug: "new-name", storageId: "old-name", retiredWorkers: ["old-name"], url: "https://new-name.alice.workers.dev" }, "mv:B": { slug: "b" } };
+  assert.equal(findGameBySite(configs, "b")[0], "mv:B");
+  assert.throws(() => findGameBySite(configs, "old-name"), /old name of "new-name".*https:\/\/new-name/);
+  assert.throws(() => findGameBySite(configs, "zzz"), /Games in this account: b, new-name/);
+  assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
+});
+
+test("update-from-link: the Worker upload keeps the deployed files", async () => {
+  const toolkit = { names: RUNTIME_PLUGINS, plugins: runtimeSources(), config: runtimeConfigOf("MV", { slug: "g", storageId: "first", sync: { enabled: true } }), keepOff: false };
+  assert.equal(toolkit.config.gameId, "first");
+  assert.equal(toolkit.config.media, undefined, "taken from the deployed build by the Worker");
+  const form = keepAssetsForm({
+    slug: "g",
+    gameId: "first",
+    bucket: "b",
+    overflowRels: ["movies/big.webm"],
+    auth: { mode: "access", teamDomain: "t.cloudflareaccess.com", aud: "abc" },
+    toolkitRoot: path.join(import.meta.dirname, ".."),
+    saveHistory: { keep: 5, days: 30 },
+    toolkit,
+  });
+  const metadata = JSON.parse(await form.get("metadata").text());
+  assert.equal(metadata.keep_assets, true);
+  assert.equal(metadata.main_module, "worker.js");
+  const vars = Object.fromEntries(metadata.bindings.filter((b) => b.type === "plain_text").map((b) => [b.name, b.text]));
+  assert.deepEqual(vars, {
+    GAME_ID: "first",
+    AUTH_MODE: "access",
+    ACCESS_TEAM_DOMAIN: "t.cloudflareaccess.com",
+    ACCESS_AUD: "abc",
+    RWK_LOCKED: "0",
+    RWK_INDEXABLE: "0",
+    RWK_SAVE_HISTORY: '{"keep":5,"days":30}',
+  });
+  assert.ok(metadata.bindings.some((b) => b.type === "r2_bucket" && b.name === "BUCKET" && b.bucket_name === "b"));
+  assert.ok(metadata.bindings.some((b) => b.type === "assets" && b.name === "ASSETS"));
+  const routes = metadata.assets.config.run_worker_first;
+  for (const r of ["/api/*", "/js/plugins.js", "/js/plugins/RWK_Core.js", "/movies/big.webm"]) assert.ok(routes.includes(r), r);
+
+  for (const name of ["worker.js", "rwk-overflow.js", "rwk-toolkit.js", "worker/index.js", "worker/auth.js", "worker/saves.js", "worker/players.js", "worker/toolkit.js"]) {
+    assert.equal(form.get(name)?.type, "application/javascript+module", name);
+  }
+  // Uploaded unbundled: every relative import must name another part.
+  for (const [name, part] of form.entries()) {
+    if (name === "metadata") continue;
+    for (const [, spec] of (await part.text()).matchAll(/^(?:import|export) .* from "(\.[^"]+)";$/gm)) {
+      const target = path.posix.join(path.posix.dirname(name), spec);
+      assert.ok(form.has(target), `${name} imports ${spec}: no part "${target}"`);
+    }
+  }
+  const toolkitModule = await form.get("rwk-toolkit.js").text();
+  const { default: uploaded } = await import(`data:text/javascript,${encodeURIComponent(toolkitModule)}`);
+  assert.deepEqual(uploaded, toolkit);
+});
+
+test("update-from-link: Workers API calls and their errors", async (t) => {
+  const calls = [];
+  let replies = [];
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    calls.push({ url, init });
+    const [status, body, headers] = replies.shift();
+    return new Response(JSON.stringify(body), { status, headers });
+  });
+  t.mock.method(console, "log", () => {});
+  const form = new FormData();
+  const run = () => deployKeepingAssets({ token: "tok", accountId: "acc", slug: "g", form });
+
+  replies = [
+    [200, { success: true, result: {} }],
+    [200, { success: true, result: {}, messages: [{ message: "fine" }] }, { deprecation: "true" }],
+  ];
+  warnings.length = 0;
+  await run();
+  assert.equal(calls[0].url, `${WORKERS_API.base}/accounts/acc/workers/scripts/g/settings`);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[1].url, `${WORKERS_API.base}/accounts/acc/workers/scripts/g`);
+  assert.equal(calls[1].init.method, "PUT");
+  assert.equal(calls[1].init.body, form);
+  assert.equal(calls[1].init.headers.authorization, "Bearer tok");
+  assert.match(warnings[0], /going away \(deprecation: true\).*checked against the Cloudflare API on/);
+  warnings.length = 0;
+
+  replies = [[404, { success: false, errors: [{ code: 10007, message: "workers.api.error.script_not_found" }] }]];
+  await assert.rejects(run, /no Worker named "g"/);
+  replies = [[500, "not json"]];
+  await assert.rejects(run, /Could not read the Worker: HTTP 500/);
+  replies = [
+    [200, { success: true }],
+    [400, { success: false, errors: [{ code: 10021, message: "Unknown field keep_assets" }] }],
+  ];
+  await assert.rejects(run, (err) => /Could not update the Worker: Unknown field keep_assets \[code: 10021\]/.test(err.message) && err.message.includes(WORKERS_API.checked));
+  replies = [
+    [200, { success: true }],
+    [200, { success: false, errors: [{ message: "odd" }] }],
+  ];
+  await assert.rejects(run, /Could not update the Worker: odd\n/);
+});
+
+// The upload in keepAssetsForm() copies how the pinned wrangler builds its
+// own. A wrangler bump fails this test until that is checked again and
+// WORKERS_API (cli/lib/cloudflare.js) records the new version and date.
+test("update-from-link: the Workers API upload was checked against the pinned wrangler", (t) => {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(pkg.devDependencies.wrangler, WORKERS_API.wrangler, "wrangler was bumped: check keepAssetsForm() against it, then update WORKERS_API");
+  assert.match(WORKERS_API.checked, /^\d{4}-\d{2}-\d{2}$/);
+  const cli = new URL("../node_modules/wrangler/wrangler-dist/cli.js", import.meta.url);
+  if (!fs.existsSync(cli)) return t.skip("wrangler is not installed (npm ci)");
+  const installed = JSON.parse(fs.readFileSync(new URL("../node_modules/wrangler/package.json", import.meta.url), "utf8")).version;
+  assert.equal(installed, WORKERS_API.wrangler, "run npm ci");
+  const source = fs.readFileSync(cli, "utf8");
+  for (const snippet of [
+    "...keep_assets !== void 0 && { keep_assets }",
+    'metadataBindings.push({ name: binding, type: "plain_text", text: value });',
+    'type: "r2_bucket",',
+    'type: "assets"',
+    'esm: "application/javascript+module"',
+    "run_worker_first: assets?.run_worker_first",
+    "main_module: main2.name",
+  ]) {
+    assert.ok(source.includes(snippet), `wrangler no longer has: ${snippet}`);
+  }
 });

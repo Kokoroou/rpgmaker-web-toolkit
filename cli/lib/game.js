@@ -188,3 +188,36 @@ export function validateSlug(slug) {
   }
   return null;
 }
+
+// "https://<site name>.<username>.workers.dev/…" (or without https://) -> the site name
+export function siteNameFromLink(link) {
+  const text = String(link).trim().replace(/^["']|["']$/g, "");
+  let host;
+  try {
+    host = new URL(/^[a-z]+:\/\//i.test(text) ? text : `https://${text}`).hostname.toLowerCase();
+  } catch {
+    host = "";
+  }
+  const labels = host.split(".");
+  if (labels.length !== 4 || !host.endsWith(".workers.dev") || validateSlug(labels[0])) {
+    throw new Error(`Not a game link: "${text}". It looks like https://<site name>.<username>.workers.dev`);
+  }
+  return labels[0];
+}
+
+// The game deployed under that site name -> [fingerprint, cfg]
+export function findGameBySite(configs, name) {
+  const entries = Object.entries(configs);
+  const found = entries.find(([, cfg]) => cfg.slug === name);
+  if (found) return found;
+  const renamed = entries.find(([, cfg]) => (cfg.retiredWorkers || []).includes(name) || storageIdOf(cfg) === name);
+  if (renamed) {
+    const [, cfg] = renamed;
+    throw new Error(`"${name}" is the old name of "${cfg.slug}": use its current link${cfg.url ? ` (${cfg.url})` : ""}.`);
+  }
+  const known = entries.map(([, cfg]) => cfg.slug).sort();
+  throw new Error(
+    `No game in this Cloudflare account was deployed as "${name}".` +
+      (known.length ? ` Games in this account: ${known.join(", ")}.` : " This account has no games yet.")
+  );
+}
