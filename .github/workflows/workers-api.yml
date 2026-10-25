@@ -1,6 +1,10 @@
 # Checks every week that the Cloudflare Workers API still takes what
-# update-from-link sends (cli/lib/workers-api.js). A failed run means the
-# command may no longer work: GitHub emails the repository owner.
+# update-from-link sends (cli/lib/workers-api.js).
+#
+# On the weekly run a mismatch opens one issue (labelled workers-api) that
+# mentions the repository owner, so it is one email per breakage: while the
+# issue is open, later runs stay green and say nothing. Once the check passes
+# again, the issue is closed. Run by hand or on a PR, the job just fails.
 name: Workers API
 
 on:
@@ -17,10 +21,53 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - run: npm ci --no-fund --no-audit
-      - run: node scripts/check-workers-api.js
+      - id: check
+        run: |
+          set +e
+          node scripts/check-workers-api.js > check.log 2>&1
+          code=$?
+          cat check.log
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Fail
+        if: github.event_name != 'schedule' && steps.check.outputs.code != '0'
+        run: exit 1
+      - name: Open or close the issue
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CODE: ${{ steps.check.outputs.code }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --label workers-api --state open --json number --jq '.[0].number // empty')
+          if [ "$CODE" != "0" ]; then
+            if [ -n "$open" ]; then
+              echo "Already reported in #$open: no new issue, no email."
+              exit 0
+            fi
+            gh label create workers-api --color d93f0b --description "Cloudflare Workers API changed (update-from-link)" --force
+            {
+              echo "@$OWNER The weekly check found that the Cloudflare Workers API no longer matches what \`update-from-link\` sends, so the command may fail."
+              echo
+              echo '```'
+              cat check.log
+              echo '```'
+              echo
+              echo "Run: $RUN_URL"
+              echo
+              echo "Fix \`cli/lib/workers-api.js\` and update \`WORKERS_API.checked\`. This issue closes by itself once the check passes; until then the weekly runs stay quiet."
+            } > body.md
+            gh issue create --title "Workers API changed: update-from-link may not work" --label workers-api --body-file body.md
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "The weekly check passes again ($RUN_URL)."
+          fi
