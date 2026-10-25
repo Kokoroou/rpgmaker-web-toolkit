@@ -16,7 +16,7 @@ ${c.bold("rpgmaker-web-toolkit")}: publish RPG Maker MZ/MV games to Cloudflare W
 
 async function main() {
   const major = Number(process.versions.node.split(".")[0]);
-  if (major < 24) throw new Error(`Node.js 24 or newer is required (found ${process.versions.node}).`);
+  if (major < 22) throw new Error(`Node.js 22 or newer is required (found ${process.versions.node}).`);
 
   const [first, ...rest] = process.argv.slice(2);
   switch (first) {

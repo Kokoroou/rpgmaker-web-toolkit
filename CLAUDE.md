@@ -4,7 +4,7 @@ Publishes an RPG Maker MZ/MV game to Cloudflare Workers (free plan) with cloud s
 and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 
 ## Commands
-- Install: `npm ci` (Node.js 24+)
+- Install: `npm ci` (Node.js 22+)
 - Test:    `npm test` (node:test, no network)
 - Coverage: `node --test --experimental-test-coverage "test/*.test.js"`
 - Docs site: `cd site && npm ci && npm run dev`

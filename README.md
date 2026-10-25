@@ -13,7 +13,7 @@ Put an **RPG Maker MZ or MV** game online with one command, on **Cloudflare Work
 
 ## Quick start
 
-Windows with [Node.js](https://nodejs.org) 24+, and a free [Cloudflare account][cloudflare] (it asks for a payment method to turn on R2 and Access, even for free use). In PowerShell:
+Windows with [Node.js](https://nodejs.org) 22+, and a free [Cloudflare account][cloudflare] (it asks for a payment method to turn on R2 and Access, even for free use). In PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex

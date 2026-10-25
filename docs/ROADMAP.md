@@ -80,7 +80,7 @@ Plan:
 `run.ps1` and `rwk.cmd` only cover Windows PowerShell and `cmd`. `cli/` is plain Node.js, so the work is in the launchers and in anything that assumes Windows paths.
 
 - `run.sh`: the same job as `run.ps1` (download the toolkit into a temp folder, `npm ci`, run the CLI, clean up) with `curl` + `tar`/`unzip`, honouring `RWK_REF`. Usable as `curl -fsSL …/run.sh | bash -s -- <args>`.
-- `rwk.sh`: the same job as `rwk.cmd` for a local clone (check Node.js 24+, install missing dependencies, run `cli/index.js`).
+- `rwk.sh`: the same job as `rwk.cmd` for a local clone (check Node.js 22+, install missing dependencies, run `cli/index.js`).
 - Audit `cli/` for Windows assumptions: path separators and drive letters, case-sensitive file names (a game made on Windows may reference `Img/` and `img/`), the line endings of generated files, opening a browser (`start` vs `open` / `xdg-open`), the wrangler binary path.
 - Tests: run `npm test` on `ubuntu`, `macos` and `windows` in CI (a matrix in the quality workflow), plus a smoke test of both new scripts with `shellcheck`.
 - Docs: add macOS / Linux commands next to the Windows ones in the README and the setup guide in `site/`.
@@ -92,7 +92,7 @@ Goal: a game repository redeploys itself on every push (or tag), with no one at 
 - **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (already read in `cli/lib/wrangler.js`); document the minimal token permissions.
 - **Machine-readable output**: `--json` (final URL, build report, warnings) and `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` support, plus no ANSI colours when not a TTY (already the case in `cli/lib/ui.js`).
 - **Reusable GitHub Action** (`action.yml`, composite) that checks out the toolkit at a pinned ref, installs it, runs the CLI on the game folder and exposes the URL as an output. A copy-paste workflow example in `site/` (on push to `main`: deploy; on pull request: build only, then post the build report).
-- **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 24+ works.
+- **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works.
 - **Pull request previews** (later): deploy each PR to a preview URL such as `<game>-pr-<n>`, and clean it up when the PR closes. Needs decisions on the Worker's shared-assets model and Access policy.
 - **Safety**: never print tokens, skip deploy on forks, and keep the "game folder stays untouched" rule. The game's own assets are big, so document how to cache `node_modules` and the staged build between runs, and that the Workers free plan limits in `cli/limits.json` still apply.
 - Depends on: #3 (the build report), #16 (Linux runners), and the "build only" deploy target under [Later](#later).
