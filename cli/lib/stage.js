@@ -99,10 +99,9 @@ export function saveHistoryConfig(value) {
   return { keep: keep >= 1 ? Math.min(50, keep) : 10, days: days >= 1 ? Math.min(365, days) : 30 };
 }
 
-// Files the toolkit adds to / overrides in the web build.
-// files: from collectFiles(), for the MV phone audio / movie check.
-export function generatedFiles(game, gameConfig, files = []) {
-  const out = new Map();
+// RWK_Core's config parameter. files: from collectFiles(), for the MV phone
+// audio / movie check.
+export function runtimeConfigOf(game, gameConfig, files = []) {
   const runtimeConfig = {
     version: TOOLKIT_VERSION,
     gameId: storageIdOf(gameConfig),
@@ -122,24 +121,36 @@ export function generatedFiles(game, gameConfig, files = []) {
     const missing = mobileOnlyMissing(files);
     runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
   }
+  return runtimeConfig;
+}
+
+// The game's plugins.js with the toolkit's plugins (names, in load order) appended.
+export function pluginsJsWith(pluginsJs, names, runtimeConfig) {
+  const entries = names.map((name) => ({
+    name,
+    status: true,
+    description: "[rpgmaker-web-toolkit]",
+    parameters: name === "RWK_Core" ? { config: JSON.stringify(runtimeConfig) } : {},
+  }));
+  return (
+    `${pluginsJs.replace(/\s*$/, "")}\n\n// ---- rpgmaker-web-toolkit (web build only) ----\n` +
+    entries.map((e) => `$plugins.push(${JSON.stringify(e)});`).join("\n") +
+    "\n"
+  );
+}
+
+// Files the toolkit adds to / overrides in the web build.
+// files: from collectFiles(), for the MV phone audio / movie check.
+export function generatedFiles(game, gameConfig, files = []) {
+  const out = new Map();
+  const runtimeConfig = runtimeConfigOf(game, gameConfig, files);
 
   for (const name of RUNTIME_PLUGINS) {
     out.set(`js/plugins/${name}.js`, fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", `${name}.js`)));
   }
 
   const pluginsJs = fs.readFileSync(path.join(game.root, "js", "plugins.js"), "utf8");
-  const entries = RUNTIME_PLUGINS.map((name) => ({
-    name,
-    status: true,
-    description: "[rpgmaker-web-toolkit]",
-    parameters: name === "RWK_Core" ? { config: JSON.stringify(runtimeConfig) } : {},
-  }));
-  out.set(
-    "js/plugins.js",
-    `${pluginsJs.replace(/\s*$/, "")}\n\n// ---- rpgmaker-web-toolkit (web build only) ----\n` +
-      entries.map((e) => `$plugins.push(${JSON.stringify(e)});`).join("\n") +
-      "\n"
-  );
+  out.set("js/plugins.js", pluginsJsWith(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
 
   // Lets the game's creator, and anyone reading a bug report, tell this
   // build apart from an official release.
