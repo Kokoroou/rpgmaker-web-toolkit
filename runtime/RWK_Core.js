@@ -223,8 +223,9 @@
   }
 
   //---------------------------------------------------------------------------
-  // ⏸ menu: the toolkit's options sit behind one button so they don't crowd
-  // the screen, and the game pauses while the menu is open. The touch toolbar
+  // ⚙ menu: the toolkit's options sit behind one button so they don't crowd
+  // the screen, and the game pauses while the menu is open (the music keeps
+  // playing). The touch toolbar
   // hosts the button when it is shown (tools.mount); otherwise it is a faint
   // button in the top-left corner, also opened with F1. On phones the menu is
   // a bottom sheet in portrait and a panel on the left in landscape.
@@ -341,9 +342,9 @@
   function cornerEntry() {
     const btn = document.createElement("button");
     btn.className = "rwk-tools-btn";
-    btn.innerHTML = icons.pause;
-    btn.title = "Pause menu (F1)";
-    btn.setAttribute("aria-label", "Pause menu");
+    btn.innerHTML = icons.gear;
+    btn.title = "Settings (F1)";
+    btn.setAttribute("aria-label", "Settings");
     btn.addEventListener("click", openTools);
     shield(btn);
     document.body.appendChild(btn);
@@ -356,20 +357,29 @@
   // onSelect instead of closing it (toggles).
   function addTool(tool) {
     toolList.push(tool);
-    if (!entry) entry = mountEntry ? mountEntry(icons.pause, openTools) : cornerEntry();
+    if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
+  }
+
+  // Takes a tool out of the menu, e.g. one the touch toolbar shows instead.
+  function removeTool(tool) {
+    const i = toolList.indexOf(tool);
+    if (i >= 0) toolList.splice(i, 1);
+    if (!toolList.length && entry) {
+      entry.remove();
+      entry = null;
+    }
   }
 
   function mount(fn) {
     mountEntry = fn;
     if (entry) {
       entry.remove();
-      entry = fn(icons.pause, openTools);
+      entry = fn(icons.gear, openTools);
     }
   }
 
   // Paused: the scene stops updating (keys and taps read meanwhile are
-  // dropped), and sound and movies stop until the menu closes.
-  let pausedAudio = null;
+  // dropped) and movies stop until the menu closes. The music keeps playing.
   let pausedVideo = null;
   const _updateScene = SceneManager.updateScene;
   SceneManager.updateScene = function () {
@@ -377,18 +387,14 @@
   };
 
   function pause() {
-    const context = window.WebAudio && WebAudio._context;
-    pausedAudio = context && context.state === "running" ? context : null;
-    if (pausedAudio) Promise.resolve(pausedAudio.suspend()).catch(() => {});
     const video = document.querySelector("video");
     pausedVideo = video && !video.paused ? video : null;
     if (pausedVideo) pausedVideo.pause();
   }
 
   function resume() {
-    if (pausedAudio) Promise.resolve(pausedAudio.resume()).catch(() => {});
     if (pausedVideo) Promise.resolve(pausedVideo.play()).catch(() => {});
-    pausedAudio = pausedVideo = null;
+    pausedVideo = null;
     Input.clear();
     if (window.TouchInput) TouchInput.clear();
   }
@@ -407,11 +413,11 @@
     const box = document.createElement("div");
     box.className = "rwk-modal-box rwk-menu";
     box.setAttribute("role", "dialog");
-    box.setAttribute("aria-label", "Paused");
+    box.setAttribute("aria-label", "Settings");
     const head = document.createElement("div");
     head.className = "rwk-menu-head";
     const h = document.createElement("h2");
-    h.textContent = "Paused";
+    h.textContent = "Settings";
     const closeBtn = document.createElement("button");
     closeBtn.innerHTML = icons.close;
     closeBtn.title = "Resume (Esc)";
@@ -528,13 +534,15 @@
       .catch(() => {});
   }
 
+  // The touch toolbar shows it as a button instead (RWK.fullscreen.tool).
+  let fullscreenTool = null;
   if (((config.controls && config.controls.extras) || ["fullscreen"]).includes("fullscreen")) {
-    addTool({
+    addTool((fullscreenTool = {
       quick: true,
       icon: () => (isFullscreen() ? icons.minimize : icons.fullscreen),
       label: () => (isFullscreen() ? "Exit full screen" : "Full screen"),
       onSelect: toggleFullscreen,
-    });
+    }));
   }
 
   //---------------------------------------------------------------------------
@@ -572,6 +580,7 @@
     choose,
     shield,
     icons,
-    tools: { add: addTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
+    tools: { add: addTool, remove: removeTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
+    fullscreen: { toggle: toggleFullscreen, isOn: isFullscreen, tool: fullscreenTool },
   };
 })();

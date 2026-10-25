@@ -50,7 +50,7 @@
 
   //---------------------------------------------------------------------------
   // Controls: ⏩ in the touch toolbar (tap: on / off, hold: only while held),
-  // ` and held Tab on a keyboard, and the speed in the ⏸ menu.
+  // ` and held Tab on a keyboard, and the speed in the ⚙ menu.
   //---------------------------------------------------------------------------
 
   let button = null;

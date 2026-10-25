@@ -91,7 +91,7 @@
   };
 
   //---------------------------------------------------------------------------
-  // Controls: the mode and the Auto speed in the ⏸ menu, held Ctrl on a keyboard.
+  // Controls: the mode and the Auto speed in the ⚙ menu, held Ctrl on a keyboard.
   //---------------------------------------------------------------------------
 
   const next = (list, item) => list[(list.indexOf(item) + 1) % list.length];

@@ -3,13 +3,13 @@
 // Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
 // License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
-// Always dash from the ⏸ menu, for games that hide the engine's own option.
+// Always dash from the ⚙ menu, for games that hide the engine's own option.
 // It is the same setting as Options → Always Dash, so the game's menu shows
 // it too and it is saved (and synced) with the game's config.
 //=============================================================================
 /*:
  * @target MZ MV
- * @plugindesc [rpgmaker-web-toolkit] Always dash switch in the ⏸ menu. Requires RWK_Core.
+ * @plugindesc [rpgmaker-web-toolkit] Always dash switch in the ⚙ menu. Requires RWK_Core.
  * @author rpgmaker-web-toolkit
  */
 

@@ -54,27 +54,12 @@
   };
 
   //---------------------------------------------------------------------------
-  // ☁ sync state: an icon in the touch toolbar (tap: ⏸ menu) and a line in
-  // the menu's Saves group that uploads waiting saves.
+  // ☁ sync state: a line in the ⚙ menu's Saves group that uploads waiting
+  // saves. The toolbar has no icon for it, to keep the screen clear.
   //---------------------------------------------------------------------------
 
   if (sync) {
     const CLOUD = { synced: icons.cloudCheck, syncing: icons.cloudUpload, offline: icons.cloudOff, error: icons.cloudAlert };
-    if (RWK.controls) {
-      const style = document.createElement("style");
-      style.textContent = ".rwk-tool.rwk-tool-cloud.rwk-alert{background:rgba(190,60,40,.85);border-color:#fff}";
-      document.head.appendChild(style);
-      const button = RWK.controls.addTool("", "rwk-tool-cloud", () => RWK.tools.open(), "Cloud saves", "right");
-      const draw = () => {
-        const { state, text } = sync.status();
-        button.innerHTML = CLOUD[state];
-        button.title = "Cloud saves: " + text;
-        button.setAttribute("aria-label", button.title);
-        button.classList.toggle("rwk-alert", state === "error");
-      };
-      sync.onChange(draw);
-      draw();
-    }
     RWK.tools.add({
       icon: () => CLOUD[sync.status().state],
       group: "save",
@@ -224,7 +209,7 @@
     $gameSystem.onAfterLoad();
   }
 
-  // Loading drops unsaved progress, so ask first, over the paused ⏸ menu.
+  // Loading drops unsaved progress, so ask first, over the paused ⚙ menu.
   // No need on the title screen.
   async function askLoad(name, what) {
     if (!has(name)) {
@@ -254,7 +239,7 @@
   }
 
   //---------------------------------------------------------------------------
-  // Quick save / quick load: tiles in the ⏸ menu's top row, F6 / F7
+  // Quick save / quick load: tiles in the ⚙ menu's top row, F6 / F7
   //---------------------------------------------------------------------------
 
   if (quickCfg) {

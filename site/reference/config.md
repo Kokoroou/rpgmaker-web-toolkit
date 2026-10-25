@@ -15,11 +15,11 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `indexable` | `true` lets search engines list a public site | Yes |
 | `controls` | [On-screen buttons](/setup/controls) | Yes |
 | `controls.scannedKeys` | Plugin keys already seen, so updates only ask about new ones | No need |
-| `saveTools` | `false` removes ⏸ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
+| `saveTools` | `false` removes ⚙ → Saves | Yes, unless the creator's [policy](/creators/policy) turns it off |
 | `itemBatch` | `false` turns off using several items at once (item menu, battle and events that ask for an item) | Same |
 | `fastForward` | `false` turns off [fast forward](/play/speed) | Same |
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip) | Same |
-| `alwaysDash` | `false` removes ⏸ → [Always dash](/play/dash) | Same |
+| `alwaysDash` | `false` removes ⚙ → [Always dash](/play/dash) | Same |
 | `quickSave` | `false` turns off [quick save / load](/play/quick-save); `{ "ignoreSaveLock": false }` keeps it off where the game disallows saving | Same |
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |
 | `saveHistory` | `false` keeps no [older saves](/play/saves#bring-back-an-older-save); `{ "keep": 5, "days": 14 }` changes how many copies each save keeps (1–50, default 10) and for how long (1–365 days, default 30). Enforced by the Worker | Yes |

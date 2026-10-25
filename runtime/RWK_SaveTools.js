@@ -238,7 +238,7 @@
       `Delete ${slotName(id)}?` +
         (RWK.saveSync ? "\nIt is also removed from the cloud, on every device." : "") +
         (RWK.saveSync && RWK.config.saveHistory
-          ? "\n\n⏸ → Older saves can bring it back for " + RWK.config.saveHistory.days + " days."
+          ? "\n\n⚙ → Older saves can bring it back for " + RWK.config.saveHistory.days + " days."
           : "\n\nThis cannot be undone: export it first to keep a copy."),
       [
         { label: "Cancel", value: false, primary: true },

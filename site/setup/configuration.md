@@ -14,11 +14,11 @@ A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed. Ever
 
 | To | Set |
 |---|---|
-| Remove ⏸ → Saves | `"saveTools": false` |
+| Remove ⚙ → Saves | `"saveTools": false` |
 | Turn off using several items at once | `"itemBatch": false` |
 | Turn off fast forward | `"fastForward": false` |
 | Turn off message Auto and Skip | `"messageMode": false` |
-| Remove ⏸ → Always dash | `"alwaysDash": false` |
+| Remove ⚙ → Always dash | `"alwaysDash": false` |
 | Turn off quick save / load | `"quickSave": false` |
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
 | Turn off the autosave, or change how often | `"autoSave": false`, `"autoSave": { "minutes": 10 }` |

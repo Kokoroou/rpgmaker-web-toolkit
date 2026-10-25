@@ -91,7 +91,7 @@ function autoSaveConfig(value) {
 }
 
 // saveHistory: false | true | { keep, days } -> false | { keep: 1..50, default 10; days: 1..365, default 30 }
-// The Worker enforces it (RWK_SAVE_HISTORY); the ⏸ menu only shows the entry.
+// The Worker enforces it (RWK_SAVE_HISTORY); the ⚙ menu only shows the entry.
 export function saveHistoryConfig(value) {
   if (value === false) return false;
   const keep = Math.round(Number(value && value.keep));

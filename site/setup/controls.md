@@ -27,7 +27,7 @@ What players see is on [Touch controls](/play/controls). This page is the `contr
 | `dpad` | The D-pad | `true` |
 | `opacity` | 0 to 1 | `0.35` |
 | `scale` | Button size multiplier | `1` |
-| `extras` | `fullscreen` (⏸ → Full screen) and `editLayout` (⏸ → Edit button layout) | both |
+| `extras` | `fullscreen` (a toolbar button on touch screens, ⚙ → Full screen otherwise) and `editLayout` (⚙ → Edit button layout) | both |
 
 ## Extra keys (`buttons`)
 

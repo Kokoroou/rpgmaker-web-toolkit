@@ -265,7 +265,7 @@
   let lastSyncAt = 0;
 
   //---------------------------------------------------------------------------
-  // Status, for the ☁ toolbar icon and the ⏸ menu (RWK_SafeSaves):
+  // Status, for the ⚙ menu (RWK_SafeSaves):
   // synced | syncing | offline | error, with a sentence for the player.
   //---------------------------------------------------------------------------
 
@@ -295,7 +295,7 @@
   }
 
   // Readable names in dialogs.
-  const label = (name) => ({ "rwk-quick": "Quick save", "rwk-auto": "Autosave (⏸ menu)" })[name] || name;
+  const label = (name) => ({ "rwk-quick": "Quick save", "rwk-auto": "Autosave (⚙ menu)" })[name] || name;
 
   // The game waits for this to finish, so it must never write saves after the
   // engine has read them: network calls time out individually, while dialogs
@@ -538,7 +538,7 @@
     changed();
   }
 
-  // Upload whatever is waiting now, e.g. from the ⏸ menu.
+  // Upload whatever is waiting now, e.g. from the ⚙ menu.
   function syncNow() {
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
     clearTimeout(timer);
