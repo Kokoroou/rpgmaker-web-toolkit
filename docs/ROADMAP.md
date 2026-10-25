@@ -30,6 +30,10 @@ Build order for the toolkit. [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) l
 | 17 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 18 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
 | 19 | Enable Cloudflare Access through the API | M | Removes a manual setup step (also needed for unattended CD) |
+| **Wave 4: visibility and support** ||||
+| 21 | [Search engine and AI discoverability (SEO / AIEO)](#search-engine-and-ai-discoverability-seo--aieo) for the guide in `site/` | S–M | Cheap, and nobody finds the toolkit without it |
+| 22 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time |
+| 23 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/` |
 | **Later** ||||
 | 20+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
 
@@ -96,6 +100,55 @@ Goal: a game repository redeploys itself on every push (or tag), with no one at 
 - **Pull request previews** (later): deploy each PR to a preview URL such as `<game>-pr-<n>`, and clean it up when the PR closes. Needs decisions on the Worker's shared-assets model and Access policy.
 - **Safety**: never print tokens, skip deploy on forks, and keep the "game folder stays untouched" rule. The game's own assets are big, so document how to cache `node_modules` and the staged build between runs, and that the Workers free plan limits in `cli/limits.json` still apply.
 - Depends on: #3 (the build report), #16 (Linux runners), and the "build only" deploy target under [Later](#later).
+
+## Wave 4
+
+Planned only; nothing here is started.
+
+### Search engine and AI discoverability (SEO / AIEO)
+
+Goal: the guide at `kokoroou.github.io/rpgmaker-web-toolkit/` shows up for searches such as "play RPG Maker MZ on phone", "host RPG Maker game on Cloudflare", and is quotable by AI assistants (AIEO: answer-engine optimization).
+
+Plan:
+
+- Basics in `site/.vitepress/config.mjs`: `sitemap: { hostname }`, a `lang`/`description` per page in the front matter, `transformPageData` to add a canonical link, Open Graph and Twitter card tags (with a 1200×630 `og:image` in `site/public/img/`), and `head` JSON-LD (`SoftwareApplication` for the toolkit, `HowTo` for the first-deploy page, `FAQPage` where a page really is a Q&A).
+- `site/public/robots.txt` that allows crawlers and points to `sitemap.xml`. Also decide on AI crawlers explicitly (`GPTBot`, `ClaudeBot`, `PerplexityBot`…): allowing them is the point of AIEO, but it is a policy choice to confirm first.
+- `llms.txt` (and optionally `llms-full.txt`) generated at build time from the page titles and descriptions, so assistants get a clean summary of what the tool does, its limits and the key pages.
+- Content: write each page's first paragraph as a self-contained answer (what, for whom, limits), use question-style headings on the FAQ-like pages, keep titles under ~60 characters and descriptions under ~160, add alt text to every image.
+- Repository: GitHub description, topics (`rpg-maker`, `rpgmaker-mz`, `rpgmaker-mv`, `cloudflare-workers`, `pwa`…), the guide URL as the repository "website", and a social preview image.
+- Submit the site in Google Search Console and Bing Webmaster Tools (a verification file or meta tag goes in `site/public/` or `head`).
+- Check: Lighthouse SEO score, rich results test for the JSON-LD, `curl` on `robots.txt`, `sitemap.xml` and `llms.txt` after the `docs.yml` deploy. A test in `test/` can assert the sitemap and structured data exist if the build output is cheap to run.
+- Keep honest: the [hosting policy](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy) and "games you own" wording stay prominent; no keyword stuffing about pirated games.
+
+### Deployment architecture diagrams
+
+Goal: a clear picture of what a deploy creates (Worker, static assets, R2 for large files, Access in front, save API, browser runtime plugins) on the "How it works" page.
+
+Plan:
+
+- Use the [archify](https://github.com/tt-a1i/archify) skill to draw `architecture` (components and boundaries) and perhaps `sequence` (first load with Access login, save sync) diagrams from `site/reference/how-it-works.md`, `worker/` and `cli/`. Export as static SVG/PNG into `site/public/img/` (plus the standalone HTML if it can be linked), so the published guide does not depend on the skill or on scripts at view time. Give each diagram a text description next to it (also good for SEO / AIEO).
+- **Vet the skill first, at the time of the work, not before.** It is third-party code that runs in the agent's shell and may have changed since it was first looked at. Pin the commit or release tag being used, and check at least:
+  - the license (and that using its output in this project is allowed);
+  - what `SKILL.md` tells the agent to do beyond drawing (writing outside the working folder, editing global agent rules, installing or updating things);
+  - the scripts it runs: child processes, network access (update checks, brand-mark fetching), file writes and where, environment variables it reads;
+  - dependencies and lockfiles, and any `postinstall`-style hooks;
+  - that the generated HTML loads nothing remote.
+  Run it in a throwaway folder with network off if possible, never with Cloudflare credentials in the environment, and write the result in the PR description. If the check fails, hand-draw the SVG instead.
+- Keep the source JSON of each diagram in the repository (for example `site/diagrams/`) so it can be regenerated, and update it in the same PR as any architecture change.
+
+### Ways to say thanks: GitHub Sponsors and Ko-fi
+
+The toolkit stays free to use under its [license](../LICENSE). Support is a thank-you, never a purchase: no feature, priority or support is tied to it, and nothing in the toolkit asks for money.
+
+Plan:
+
+- Create the accounts: a [GitHub Sponsors](https://github.com/sponsors) profile (needs eligibility and a payout setup) and a [Ko-fi](https://ko-fi.com) page (one-time and monthly, no GitHub account needed for supporters). Decide which email and name appear publicly.
+- `.github/FUNDING.yml` with `github:` and `ko_fi:` entries, which adds the **Sponsor** button to the repository.
+- A short "Support the project" section in `README.md` and a page in `site/` (link in the footer and the Credits page), with plain wording: what the money pays for (time, a Cloudflare test account), and that it is optional.
+- Optionally a thank-you list of sponsors who agree to be named, kept in `site/` and updated by hand.
+- Check the [license](../LICENSE) (PolyForm Noncommercial) and the [hosting policy](https://kokoroou.github.io/rpgmaker-web-toolkit/creators/policy): donations must not turn the toolkit into a paid hosting service, and sponsors do not get to host other people's games. Mention this on the support page.
+- Check the tax and payout rules for the maintainer's country before switching it on.
+- Never put sponsor links in the CLI output or in the `runtime/` plugins inside games: players of someone's game did not ask for them.
 
 ## Later
 
