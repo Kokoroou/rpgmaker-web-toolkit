@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import LZString from "lz-string";
 import { choose, log } from "./ui.js";
 import { PROFILE, SCOPES, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
@@ -326,13 +327,43 @@ export function listSaveFiles(saveDir, engine) {
     .filter((s) => /^[A-Za-z0-9_.-]{1,64}$/.test(s.name));
 }
 
+// In a browser MV only lists a save whose title in global matches the game's
+// current title (the desktop game does not check), so saves made before an
+// update that renamed the game ("Ambrosia v1.05" -> "v1.07") cannot be
+// continued. Gives every slot the current title.
+// -> { text, fixed: number of slots changed }
+export function retitleMvGlobal(text, gameTitle) {
+  const json = LZString.decompressFromBase64(text.trim());
+  let info;
+  try {
+    info = JSON.parse(json);
+  } catch {
+    return { text, fixed: 0 };
+  }
+  if (!Array.isArray(info)) return { text, fixed: 0 };
+  let fixed = 0;
+  for (const slot of info) {
+    if (slot && typeof slot === "object" && slot.title !== gameTitle) {
+      slot.title = gameTitle;
+      fixed++;
+    }
+  }
+  return fixed ? { text: LZString.compressToBase64(JSON.stringify(info)), fixed } : { text, fixed };
+}
+
 // Desktop saves are the same strings the browser stores; MZ writes the pako
 // binary string as UTF-8, so read as UTF-8 and send one byte per char.
-export async function importSaves({ bucket, slug, email, saves }) {
+// The files in the game folder are never changed.
+export async function importSaves({ bucket, slug, email, saves, engine, gameTitle }) {
   const prefix = `saves/${userHash(email)}/${slug}/`;
   let count = 0;
   for (const save of saves) {
-    const text = fs.readFileSync(save.file, "utf8");
+    let text = fs.readFileSync(save.file, "utf8");
+    if (engine === "MV" && save.name === "global") {
+      const result = retitleMvGlobal(text, gameTitle);
+      if (result.fixed) log.info(`global: ${result.fixed} save(s) made under an older game title now show "${gameTitle}"`);
+      text = result.text;
+    }
     if ([...text].some((ch) => ch.charCodeAt(0) > 255)) {
       log.warn(`Skipping ${save.name}: not in the engine's binary string format.`);
       continue;

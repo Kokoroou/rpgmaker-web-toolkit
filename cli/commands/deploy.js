@@ -501,7 +501,7 @@ async function offerSaveImport(game, cfg, bucket, accountEmail, force) {
     cfg.auth.mode === "none"
       ? "public"
       : await ask("The email you use to sign in through Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Invalid email"));
-  const count = await importSaves({ bucket, slug: cfg.slug, email, saves });
+  const count = await importSaves({ bucket, slug: cfg.slug, email, saves, engine: game.engine, gameTitle: game.gameTitle });
   cfg.savesImportedAt = new Date().toISOString();
   log.ok(`Uploaded ${count} save(s) to the cloud`);
 }

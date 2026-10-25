@@ -3,7 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { overflowRoutes, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import LZString from "lz-string";
+import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
 import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
@@ -299,4 +300,15 @@ test("save history settings reach the plugin and the Worker", () => {
   };
   assert.equal(vars({ keep: 5, days: 30 }).RWK_SAVE_HISTORY, '{"keep":5,"days":30}');
   assert.equal(vars(false).RWK_SAVE_HISTORY, "off");
+});
+
+test("save import: MV saves made under an older game title get the current one", () => {
+  const slot = (title) => ({ globalId: "RPGMV", title, playtime: "08:11:17", timestamp: 1612715447909 });
+  const text = LZString.compressToBase64(JSON.stringify([null, slot("Game v1.05"), slot("Game v1.07"), null]));
+  const { text: out, fixed } = retitleMvGlobal(text, "Game v1.07");
+  assert.equal(fixed, 1);
+  assert.deepEqual(JSON.parse(LZString.decompressFromBase64(out)), [null, slot("Game v1.07"), slot("Game v1.07"), null]);
+
+  assert.deepEqual(retitleMvGlobal(out, "Game v1.07"), { text: out, fixed: 0 }, "already right: sent as is");
+  assert.deepEqual(retitleMvGlobal("not a save", "Game"), { text: "not a save", fixed: 0 });
 });

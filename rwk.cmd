@@ -10,8 +10,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "%RWK_HOME%node_modules\wrangler\bin\wrangler.js" (
-  echo [rwk] Installing dependencies (first run)...
+rem Also after an update that added a dependency.
+set "RWK_INSTALL="
+if not exist "%RWK_HOME%node_modules\wrangler\bin\wrangler.js" set "RWK_INSTALL=1"
+if not exist "%RWK_HOME%node_modules\lz-string\package.json" set "RWK_INSTALL=1"
+if defined RWK_INSTALL (
+  echo [rwk] Installing dependencies...
   pushd "%RWK_HOME%"
   call npm ci --no-fund --no-audit
   if errorlevel 1 (
