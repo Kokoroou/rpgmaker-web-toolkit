@@ -10,6 +10,7 @@
   },
   "scripts": {
     "deploy": "node cli/index.js deploy",
+    "perf": "node tools/perf/bench.js",
     "test": "node --test \"test/*.test.js\""
   },
   "engines": {

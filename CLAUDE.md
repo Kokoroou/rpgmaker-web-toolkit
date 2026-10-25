@@ -16,6 +16,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - `worker/` — the Cloudflare Worker shared by every game (assets, Access JWT, save API)
 - `test/` — tests for `cli/` and `worker/`
 - `scripts/check-workers-api.js` — checks update-from-link's Workers API calls (`cli/lib/workers-api.js`) against Cloudflare's OpenAPI schema; weekly in `workers-api.yml`
+- `tools/perf/` — `npm run perf -- "<game folder>"`: measures what the `runtime/` plugins cost a real game in Chrome (not shipped)
 - `site/` — VitePress user guide, published to GitHub Pages by `docs.yml`
 
 Details: `site/reference/how-it-works.md`. Contributor setup: `CONTRIBUTING.md`.

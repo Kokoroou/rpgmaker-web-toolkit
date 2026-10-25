@@ -14,6 +14,17 @@ npm test                         # CLI + Worker tests (node:test, no network)
 
 How the pieces fit: [How it works](site/reference/how-it-works.md).
 
+## Runtime performance (`tools/perf/`)
+
+`npm run perf -- "D:\Games\My Game"` loads a game in Chrome once per set of plugins (none, all, `RWK_Core` + each plugin) and compares: game logic per frame while walking and reading messages, frame CPU and frame times while it plays, style / layout work, a save on the map and its upload, decoded audio left in memory after sounds stop, phone rotations, boot time and the JS heap. It serves the game folder as is (never writes into it), puts your `runtime/` plugins in, and answers the save API with the real Worker over an in-memory bucket. It needs Chrome, Edge or Chromium, and no npm package.
+
+```powershell
+npm run perf -- "D:\Games\My Game" --variants none,all,+Report --rounds 3
+npm run perf -- "D:\Games\My Game" --cpu 4 --json perf.json   # a mid-range phone's CPU
+```
+
+`--help` lists the options. Every number is the median of the rounds; a difference from `none` is flagged with `!` when it passes the metric's limit (in `tools/perf/stats.js`) and twice the spread between rounds. Run it before and after a change to a plugin that runs every frame. Results and the optimization plan: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 ## User guide (`site/`)
 
 ```sh
