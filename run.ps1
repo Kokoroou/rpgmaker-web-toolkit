@@ -17,7 +17,7 @@
   $ref = if ($env:RWK_REF) { $env:RWK_REF } else { 'main' }
 
   if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host 'Node.js 24 or newer is required. Install it with: winget install OpenJS.NodeJS.LTS (then reopen the terminal).' -ForegroundColor Red
+    Write-Host 'Node.js 22 or newer is required. Install it with: winget install OpenJS.NodeJS.LTS (then reopen the terminal).' -ForegroundColor Red
     return
   }
 
