@@ -33,12 +33,16 @@ Check that the badge says **All traffic**, not **Previews only** (**Manage acces
 
 Only your Cloudflare account's email can sign in at first. To let other emails in, give the game a policy that lists them:
 
-1. [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Policies** → **Add a policy**. Name it after the game, **Action**: **Allow**, **Include** → **Emails** → type their emails (yours too). **Save**.
+1. [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Policies** → **Reusable policies** → **Add a policy**:
+   - **Policy rules** → **Include**: *Selector* **Emails**, *Value* their emails.
+   - **Policy Name**: the game's name. **Action**: **Allow**.
+   - Leave the rest as is, then **Save policy** at the bottom.
+
+   ![Add policy: Include rules on the left, name and action on the right](/img/cf-access-policy.png){.shot}
+
 2. **Workers & Pages** → the game → **Access** → **Manage access** → **Add policy** → under **Access policies**, pick the new policy. Keep **Cloudflare account** too if you want to sign in with your account's email. **Apply Access**.
 
 To add someone later, edit that policy in Zero Trust (select its name on the game's **Access** page). Do not add players to **Cloudflare account members**: other apps of your account use it too.
-
-<!-- Screenshot wanted: cf-access-policy.png, the policy editor with an Emails rule (addresses blurred) -->
 
 Players need no Cloudflare account: they get a one-time code by email and sign in as in [Open and play](/play/). Each game has its own list, and each email its own saves.
 
