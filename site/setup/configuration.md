@@ -8,7 +8,7 @@ $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpg
 & $rwk "D:\Games\My Game"               # 2. publish again to apply
 ```
 
-A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed. Every key: [Config keys](/reference/config).
+A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 
 ## Common changes
 

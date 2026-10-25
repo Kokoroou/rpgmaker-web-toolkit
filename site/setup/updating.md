@@ -25,4 +25,18 @@ $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpg
 Cloud saves with the same name (`file1`…) are replaced. For a single save, use [Import](/play/save-files#import) in the game instead.
 :::
 
+## Change the site address
+
+```powershell
+& $rwk rename "D:\Games\My Game"
+```
+
+It asks for the new site name, then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.
+
+1. With [Cloudflare Access](/setup/access), the new address needs it turned on again: the steps open in the browser, as on the first deploy. Emails you allowed on the old site must be allowed again.
+2. Once the new site works, the toolkit deletes the old Worker, after asking: the old link stops working. Answer no to keep it a while; the next deploy asks again.
+3. The old site's Access application stays in [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Applications**. Delete it there.
+
+Players open the new link. On their devices, saves come from the cloud on the first visit; saves that were never uploaded (made offline) stay on the old address.
+
 Other commands, and running a fixed toolkit version: [Commands](/reference/commands).

@@ -234,7 +234,7 @@ export function overflowRoutes(rels) {
 //---------------------------------------------------------------------------
 
 // saveHistory: from saveHistoryConfig() (stage.js)
-export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -259,7 +259,7 @@ export function writeWorkerProject({ buildDir, slug, bucket, overflowRels, auth,
       run_worker_first: locked ? true : overflowRoutes(overflowRels),
     },
     vars: {
-      GAME_ID: slug,
+      GAME_ID: gameId,
       AUTH_MODE: auth.mode || "locked",
       ACCESS_TEAM_DOMAIN: auth.teamDomain || "",
       ACCESS_AUD: auth.aud || "",
@@ -287,6 +287,15 @@ export async function deployWorker(configFile) {
   }
   const m = res.output.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/i);
   return m ? m[0] : null;
+}
+
+// Deletes a Worker, so its site stops working; the caller asks first.
+// -> true when it is gone, also if it was already deleted.
+export async function deleteWorker(name) {
+  // --force skips wrangler's own prompt (and the check for Workers bound to it: none).
+  const res = await wrangler(["delete", name, "--force"], { quiet: true });
+  if (res.code === 0) return true;
+  return /\[code: 10007\]|does not exist|not found/i.test(res.output);
 }
 
 //---------------------------------------------------------------------------

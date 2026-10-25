@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
 import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
-import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../cli/lib/game.js";
+import { compileGlobs, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
@@ -311,4 +311,31 @@ test("save import: MV saves made under an older game title get the current one",
 
   assert.deepEqual(retitleMvGlobal(out, "Game v1.07"), { text: out, fixed: 0 }, "already right: sent as is");
   assert.deepEqual(retitleMvGlobal("not a save", "Game"), { text: "not a save", fixed: 0 });
+});
+
+test("rename: a new Worker name, the same storage", () => {
+  const renamed = { slug: "new-name", storageId: "old-name", sync: {} };
+  assert.equal(storageIdOf(renamed), "old-name");
+  assert.equal(storageIdOf({ slug: "never-renamed" }), "never-renamed");
+
+  const buildDir = tmp();
+  const project = { buildDir, slug: renamed.slug, gameId: storageIdOf(renamed), bucket: "b", overflowRels: [], auth: {}, locked: false };
+  const config = JSON.parse(fs.readFileSync(writeWorkerProject({ ...project, toolkitRoot: path.join(import.meta.dirname, "..") }), "utf8"));
+  assert.equal(config.name, "new-name");
+  assert.equal(config.vars.GAME_ID, "old-name", "saves and large files stay where they are");
+
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const js = generatedFiles({ root, engine: "MZ", title: "G" }, renamed).get("js/plugins.js");
+  const runtime = JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  assert.equal(runtime.gameId, "old-name");
+
+  const configs = {
+    "mv:A": { slug: "a-new", storageId: "a", retiredWorkers: ["a"] },
+    "mv:B": { slug: "b" },
+  };
+  assert.deepEqual([...takenNames(configs, "mv:B")].sort(), ["a", "a-new"]);
+  assert.deepEqual([...takenNames(configs, "mv:A")], ["b"], "a game may go back to its own old name");
 });

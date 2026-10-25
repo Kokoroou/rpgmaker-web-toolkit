@@ -164,6 +164,24 @@ export function toSlug(text) {
     .replace(/-+$/g, "");
 }
 
+// Where the game's saves, save history, player list and large files live in
+// R2, and the Worker's GAME_ID: the first site name, kept when the site is
+// renamed so nothing has to move.
+export function storageIdOf(cfg) {
+  return cfg.storageId || cfg.slug;
+}
+
+// Site names other games use: their Worker, their storage, and old Workers
+// of a rename that are not deleted yet.
+export function takenNames(configs, fingerprint) {
+  const taken = new Set();
+  for (const [key, other] of Object.entries(configs)) {
+    if (key === fingerprint) continue;
+    for (const name of [other.slug, storageIdOf(other), ...(other.retiredWorkers || [])]) taken.add(name);
+  }
+  return taken;
+}
+
 export function validateSlug(slug) {
   if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(slug)) {
     return "Use lowercase a-z, digits and '-' only, not starting or ending with '-' (max 63 characters).";
