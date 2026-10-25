@@ -45,7 +45,7 @@ The game screenshots stay under CC BY-SA 4.0 (see `site/reference/credits.md`): 
 
 Both use the shared workflows of [agent-toolkit](https://github.com/kokoroou/agent-toolkit) (`@v0`).
 
-- **CI** (`.github/workflows/ci.yml`), on every PR and push to `main`: tests on Node.js 24 with a coverage gate (no drop compared to `main`), a Conventional Commit check on the PR title, Semgrep and Gitleaks.
+- **CI** (`.github/workflows/ci.yml`), on every PR and push to `main`: tests on Node.js 24 with a coverage gate (and on Node.js 22, the minimum) (no drop compared to `main`), a Conventional Commit check on the PR title, Semgrep and Gitleaks.
 - **Release** (`.github/workflows/release.yml`): release-please keeps a release PR with the version bump and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, publishes the GitHub Release and attaches `rpgmaker-web-toolkit-X.Y.Z.zip`. Run a release with `$env:RWK_REF = "vX.Y.Z"`.
 - **Docs** (`.github/workflows/docs.yml`) publishes `site/` to GitHub Pages.
 
