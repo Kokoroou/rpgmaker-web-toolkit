@@ -34,8 +34,8 @@ Full error details: set `$env:RWK_DEBUG = "1"` in PowerShell, then run the comma
 | Message | Fix |
 |---|---|
 | The page says *This game is being set up* | Access is not finished. Run the deploy again and [turn on Access](/setup/access#turn-on-access) |
-| `The site is not protected by Access yet` | Wait a minute, **Check again**, or enter the team domain and AUD manually |
-| `Cloudflare Access is NO LONGER protecting the site!` | Worker → **Settings** → **Domains & Routes** → **workers.dev** → turn Access back on |
+| `The site is not protected by Access yet` | Check that the Worker's **Access** page says **All traffic** (not **Previews only**), wait a minute, **Check again**, or enter the team domain and AUD manually |
+| `Cloudflare Access is NO LONGER protecting the site!` | Worker → **Access**: [turn Access back on](/setup/access#turn-on-access), scope **All traffic** |
 | `N different emails have saves for this game` | A reminder: sharing a copy is redistribution. Remove emails from the [policy](/setup/access#invite-players) (removed ones still count) |
 | A friend never gets the code | Their email is not allowed yet: [add it](/setup/access#invite-players) |
 
