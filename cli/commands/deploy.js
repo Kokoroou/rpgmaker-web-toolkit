@@ -163,7 +163,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   } else if (cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);
     if (probe.protected) log.ok("Cloudflare Access is protecting the site");
-    else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Settings → Domains & Routes)."));
+    else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Access)."));
   }
 
   // After a rename, once the new site works.
@@ -427,12 +427,13 @@ async function setupAuth(cfg, account, policy) {
   }
 
   if (!cfg.url) cfg.url = await ask("Worker URL (https://<name>.<username>.workers.dev)");
-  const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/settings`;
-  log.info("Follow these steps in the browser (opening the Worker's Settings page):");
-  log.info(`  1. Under ${c.bold("Domains & Routes")}, on the ${c.bold("workers.dev")} row, enable ${c.bold("Cloudflare Access")}.`);
-  log.info("  2. If this is your first time using Zero Trust: pick a team name and the Free plan.");
-  log.info("  3. By default only the Cloudflare account's email may sign in. To allow other emails:");
-  log.info("     Zero Trust → Access → Applications → the Worker's app → Policies.");
+  const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/access`;
+  log.info("Follow these steps in the browser (opening the Worker's Access page):");
+  log.info(`  1. Select ${c.bold("Protect this Worker behind Access")}.`);
+  log.info(`  2. Scope: ${c.bold("All traffic")} (${c.bold("Previews only")} leaves the game itself open).`);
+  log.info(`  3. Authentication policy: ${c.bold("Add policy")} → ${c.bold("Cloudflare account")}, then ${c.bold("Apply Access")}.`);
+  log.info("  4. If Cloudflare asks to set up Zero Trust (first time): pick a team name and the Free plan.");
+  log.info(`  Only the Cloudflare account's email may sign in at first. To invite players, see "Protect the site and invite players" in the guide.`);
   log.info(c.dim(`  ${dash}`));
   openBrowser(dash);
 

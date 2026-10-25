@@ -4,31 +4,45 @@
 
 ## Turn on Access
 
-At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit opens the game's settings in the Cloudflare dashboard:
+At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit opens the game's **Access** page in the Cloudflare dashboard (**Workers & Pages** → the game → **Access**):
 
-1. **Domains & Routes** → on the **workers.dev** row, select **Enable Cloudflare Access**.
-2. First time with Zero Trust? Pick a **team name**, the **Free** plan and a payment method: see [Zero Trust, during the first deploy](/setup/cloudflare#_4-zero-trust-during-the-first-deploy).
-3. Back in PowerShell, press **Enter**. Once Access is detected, the game is published unlocked.
+1. Select **Protect this Worker behind Access**.
+2. **Scope**: choose **All traffic**. The default, **Previews only**, protects only preview links and leaves the game itself open.
+3. **Authentication policy** → **Add policy** → **Cloudflare account** (only your Cloudflare account's email can sign in for now), then **Apply Access**.
+4. First time with Zero Trust? Pick a **team name**, the **Free** plan and a payment method: see [Zero Trust, during the first deploy](/setup/cloudflare#_4-zero-trust-during-the-first-deploy).
+5. Back in PowerShell, press **Enter**. Once Access is detected, the game is published unlocked.
 
-<!-- Screenshot wanted: cf-access-enable.png, Settings → Domains & Routes with Enable Cloudflare Access on the workers.dev row -->
+![The Access page before Access is on: Protect this Worker behind Access](/img/cf-access-tab.png){.shot}
+
+![Manage Worker access: the Scope (pick All traffic) and the policy list](/img/cf-access-manage.png){.shot}
+
+Done right, the page shows **Worker Access** with the **All traffic** badge:
+
+![Access is on: Worker Access, All traffic, and the Application values on the right](/img/cf-access-on.png){.shot}
 
 It can take a minute; choose **Check again** if needed. Chose **Later**? The site stays [locked](/setup/first-deploy#lock-protect-play); run the deploy again when ready.
 
 ::: details The toolkit does not detect Access
-Choose **Enter the team domain and AUD manually**:
+Check that the badge says **All traffic**, not **Previews only** (**Manage access** to change it). Then choose **Enter the team domain and AUD manually**, with the values from **Application values** on the right of the game's **Access** page:
 
-- **Team domain**: `<team name>.cloudflareaccess.com` (in the address bar of the login page).
-- **AUD tag**: [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Applications** → the game → *Application Audience (AUD) Tag*.
+- **Team domain**: the start of the **JWKS** URL, `<team name>.cloudflareaccess.com` (also in the address bar of the login page).
+- **AUD tag**: copy it with the button next to **AUD tag**.
 :::
 
 ## Invite players
 
-Only your Cloudflare account's email can sign in at first. Cloudflare made a policy for the game, named after its site: `<site name> - Production`. To add someone:
+Only your Cloudflare account's email can sign in at first. To let other emails in, give the game a policy that lists them:
 
-1. In **Workers & Pages** → the game → **Settings** → **Domains & Routes**, select **Manage Cloudflare Access**. Or: [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Policies** → `<site name> - Production`.
-2. Edit the policy → **Include** → add an **Emails** rule → type their email. **Save**.
+1. [Zero Trust](https://one.dash.cloudflare.com) → **Access controls** → **Policies** → **Reusable policies** → **Add a policy**:
+   - **Policy rules** → **Include**: *Selector* **Emails**, *Value* their emails.
+   - **Policy Name**: the game's name. **Action**: **Allow**.
+   - Leave the rest as is, then **Save policy** at the bottom.
 
-<!-- Screenshot wanted: cf-access-policy.png, the policy editor with an Emails rule (addresses blurred) -->
+   ![Add policy: Include rules on the left, name and action on the right](/img/cf-access-policy.png){.shot}
+
+2. **Workers & Pages** → the game → **Access** → **Manage access** → **Add policy** → under **Access policies**, pick the new policy. Keep **Cloudflare account** too if you want to sign in with your account's email. **Apply Access**.
+
+To add someone later, edit that policy in Zero Trust (select its name on the game's **Access** page). Do not add players to **Cloudflare account members**: other apps of your account use it too.
 
 Players need no Cloudflare account: they get a one-time code by email and sign in as in [Open and play](/play/). Each game has its own list, and each email its own saves.
 
@@ -49,6 +63,6 @@ Then whether search engines may list it (no by default; otherwise every site sen
 
 ## If Access gets turned off
 
-Every deploy checks. If it says `Cloudflare Access is NO LONGER protecting the site!`, redo step 1 above.
+Every deploy checks. If it says `Cloudflare Access is NO LONGER protecting the site!`, open the game's **Access** page and [turn it on](#turn-on-access) again, with **All traffic**.
 
 **Next:** [Update the game](/setup/updating)
