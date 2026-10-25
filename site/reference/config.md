@@ -4,7 +4,9 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 
 | Key | Meaning | Editable |
 |---|---|---|
-| `slug` | Site name: `https://<slug>.<subdomain>.workers.dev` | No |
+| `slug` | Site name: `https://<slug>.<subdomain>.workers.dev` | With the [`rename`](/setup/updating#change-the-site-address) command |
+| `storageId` | Set by `rename`: the first site name, under which saves and large files stay in R2 | No |
+| `retiredWorkers` | Set by `rename`: old Workers to delete once the new site works | No |
 | `fingerprint` | Identifies the game. MZ: `mz:<advanced.gameId>`; MV: `mv:<game title>` | No |
 | `title`, `engine`, `url` | For reference, filled in by the toolkit | No effect |
 | `include` | Extra top-level folders / files to publish, or patterns of files to keep | Yes |

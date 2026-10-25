@@ -17,6 +17,7 @@ $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpg
 | `& $rwk "D:\Games\My Game"` | First deploy, or update (changed files only) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk import-saves "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | [Update](/setup/updating#upload-desktop-saves-again) |
 | `& $rwk edit-config "D:\Games\My Game"` | Edits the game's settings in Notepad | [Customize](/setup/configuration) |
+| `& $rwk rename "D:\Games\My Game"` | Moves the site to a new name (address), keeping the saves | [Update](/setup/updating#change-the-site-address) |
 | `& $rwk help` | Lists the commands | |
 
 Each run downloads the toolkit to a temporary folder and deletes it at the end.

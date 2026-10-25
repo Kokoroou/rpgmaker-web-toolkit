@@ -8,6 +8,7 @@ ${c.bold("rpgmaker-web-toolkit")}: publish RPG Maker MZ/MV games to Cloudflare W
   rwk "<game folder>"                First deploy or update (uploads changed files only)
   rwk import-saves "<game folder>"   Upload local saves (the save/ folder) to the cloud
   rwk edit-config "<game folder>"    Edit the game's config stored in R2 (buttons, exclude…)
+  rwk rename "<game folder>"         Change the site name (its address); saves carry over
   rwk help                           Show this help
 `;
 
@@ -28,6 +29,8 @@ async function main() {
       return deploy(rest.join(" ") || undefined, { importOnly: true });
     case "edit-config":
       return deploy(rest.join(" ") || undefined, { editOnly: true });
+    case "rename":
+      return deploy(rest.join(" ") || undefined, { rename: true });
     default:
       return deploy(process.argv.slice(2).join(" ") || undefined);
   }

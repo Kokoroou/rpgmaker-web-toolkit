@@ -46,6 +46,8 @@ history/<sha256(email)>/<slug>/<name>/<time>
 rwk/players/<slug>.json              hashes of the emails that saved, with the first save time
 ```
 
+`<slug>` is the site name the game was first deployed under (`storageId` after a [rename](/setup/updating#change-the-site-address)), so a rename moves nothing.
+
 Saves are stored under a hash of the email, never the email itself.
 
 ## Save sync

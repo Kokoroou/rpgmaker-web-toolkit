@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
 import {
+  deleteWorker,
   deployWorker,
   ensureBucket,
   ensureLogin,
@@ -17,14 +18,14 @@ import {
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
-import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, suggestSlug, validateSlug } from "../lib/game.js";
+import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
 
-export async function deploy(inputPath, { importOnly = false, editOnly = false } = {}) {
+export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
   if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path");
   inputPath = inputPath.replace(/^["']|["']$/g, "");
 
@@ -56,13 +57,20 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   if (cfg) {
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
+  } else if (rename) {
+    throw new Error("This game is not published yet: run the deploy command, which asks for the site name.");
   } else {
     log.info("First deploy of this game: answer a few questions (Enter = use the default).");
-    const taken = new Set(Object.values(configs).map((other) => other.slug));
-    cfg = await createConfig(game, taken);
+    cfg = await createConfig(game, takenNames(configs, game.fingerprint));
   }
   await addNewKeys(game, cfg);
   await saveGameConfig();
+
+  // Then deploys as usual, under the new name.
+  if (rename) {
+    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint)))) return;
+    await saveGameConfig();
+  }
 
   if (editOnly) {
     cfg = editInNotepad(cfg);
@@ -117,7 +125,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   let r2 = null;
   if (overflow.length) {
     log.step("Large files on R2");
-    r2 = await syncOverflow({ bucket, slug: cfg.slug, files: overflow });
+    r2 = await syncOverflow({ bucket, slug: storageIdOf(cfg), files: overflow });
     log.ok(`Uploaded ${r2.uploaded}, unchanged ${r2.unchanged}, removed ${r2.removed}`);
   }
 
@@ -126,6 +134,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
   const project = {
     buildDir,
     slug: cfg.slug,
+    gameId: storageIdOf(cfg),
     bucket,
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
@@ -155,6 +164,12 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false }
     const probe = await probeAccess(cfg.url);
     if (probe.protected) log.ok("Cloudflare Access is protecting the site");
     else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Settings → Domains & Routes)."));
+  }
+
+  // After a rename, once the new site works.
+  if (isAuthReady(cfg.auth)) {
+    await retireWorkers(cfg);
+    await saveGameConfig();
   }
 
   //-------------------------------------------------------------------------
@@ -200,7 +215,8 @@ function editInNotepad(cfg) {
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
-        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint };
+        // The rename command changes the site name.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers };
       } catch (err) {
         log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
       }
@@ -332,6 +348,66 @@ async function addNewKeys(game, cfg) {
 }
 
 //---------------------------------------------------------------------------
+// Rename: the Worker's name is the site name, so the site moves to a new
+// Worker and the old one is deleted once the new site works. Saves, older
+// saves, the player list and large files stay where they are in R2
+// (storageId), so nothing is copied.
+//---------------------------------------------------------------------------
+
+async function renameSite(cfg, taken) {
+  log.step("New site name");
+  log.info(`Now: ${cfg.url || cfg.slug}`);
+  const slug = await ask("New site name (becomes <name>.<username>.workers.dev)", "", (v) => {
+    if (v === cfg.slug) return "That is the current name.";
+    const problem = validateSlug(v);
+    if (problem) return problem;
+    return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
+  });
+  const access = cfg.auth.mode === "access";
+  log.info("What happens next:");
+  log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
+  if (access) {
+    log.info("  2. Cloudflare Access is set up again for the new address (the steps open in the browser).");
+    log.info("     Emails you allowed on the old site must be allowed again in the new Access policy.");
+  }
+  log.info(`  ${access ? 3 : 2}. The old Worker "${cfg.slug}" is deleted: its link stops working.`);
+  if (!(await confirm(`Rename "${cfg.slug}" to "${slug}"?`, true))) return false;
+
+  cfg.storageId = storageIdOf(cfg);
+  cfg.retiredWorkers = [...new Set([...(cfg.retiredWorkers || []), cfg.slug])].filter((name) => name !== slug);
+  cfg.slug = slug;
+  delete cfg.url;
+  if (access) cfg.auth = {}; // the new hostname needs its own Access application
+  return true;
+}
+
+async function retireWorkers(cfg) {
+  if (!cfg.retiredWorkers) return;
+  if (!cfg.retiredWorkers.length) {
+    delete cfg.retiredWorkers; // renamed back to the old name
+    return;
+  }
+  log.step("Old site address");
+  for (const name of cfg.retiredWorkers) {
+    if (!(await confirm(`Delete the old Worker "${name}" now? Its link stops working; saves are kept.`, true))) {
+      log.info(c.dim("Asked again at the next deploy."));
+      continue;
+    }
+    if (await deleteWorker(name)) {
+      log.ok(`Deleted the Worker "${name}"`);
+      cfg.retiredWorkers = cfg.retiredWorkers.filter((other) => other !== name);
+    } else {
+      log.warn(`Could not delete "${name}". Delete it in the dashboard: Workers & Pages → ${name} → Settings → Delete.`);
+    }
+  }
+  if (cfg.retiredWorkers.length) return;
+  delete cfg.retiredWorkers;
+  if (cfg.auth.mode === "access") {
+    log.info(c.dim("Its Access application is still listed in Zero Trust → Access controls → Applications: delete it there if you like."));
+  }
+}
+
+//---------------------------------------------------------------------------
 // Access protection
 //---------------------------------------------------------------------------
 
@@ -450,7 +526,7 @@ const SHARE_WARN_AT = 5;
 async function checkPlayers(bucket, cfg, policy) {
   let players;
   try {
-    players = await loadPlayers(bucket, cfg.slug);
+    players = await loadPlayers(bucket, storageIdOf(cfg));
   } catch {
     return; // Only a reminder: never fail a deploy over it.
   }
@@ -501,7 +577,7 @@ async function offerSaveImport(game, cfg, bucket, accountEmail, force) {
     cfg.auth.mode === "none"
       ? "public"
       : await ask("The email you use to sign in through Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Invalid email"));
-  const count = await importSaves({ bucket, slug: cfg.slug, email, saves, engine: game.engine, gameTitle: game.gameTitle });
+  const count = await importSaves({ bucket, slug: storageIdOf(cfg), email, saves, engine: game.engine, gameTitle: game.gameTitle });
   cfg.savesImportedAt = new Date().toISOString();
   log.ok(`Uploaded ${count} save(s) to the cloud`);
 }
