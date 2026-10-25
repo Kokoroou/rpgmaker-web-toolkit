@@ -166,7 +166,7 @@
 .rwk-panel .rwk-key b{font-size:calc(var(--u)*.36)}
 .rwk-panel .rwk-key small{white-space:normal;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 @media (orientation:portrait){
-  body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #UpperCanvas{bottom:var(--rwk-game-bottom,0px)!important}
+  body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #GameCanvas,body.rwk-ctl #GameVideo,body.rwk-ctl #UpperCanvas{bottom:var(--rwk-game-bottom,0px)!important}
 }
 `;
   document.head.appendChild(style);
@@ -634,10 +634,13 @@
     return top;
   }
 
+  // MZ names the canvas gameCanvas, MV GameCanvas.
+  const gameCanvas = () => document.getElementById("gameCanvas") || document.getElementById("GameCanvas");
+
   // In portrait, center the game in the space above the controls instead of
   // the whole screen; it may cover them only when it doesn't fit otherwise.
   function fitGame() {
-    const canvas = document.getElementById("gameCanvas");
+    const canvas = gameCanvas();
     let bottom = 0;
     if (canvas && docked()) bottom = clamp(vh() - controlsTop() + 8, 0, Math.max(0, vh() - canvas.offsetHeight));
     document.body.style.setProperty("--rwk-game-bottom", bottom + "px");
@@ -653,7 +656,7 @@
   // In landscape on a touch screen, a toolbar group that would cover the
   // game stands in a column instead of a row.
   function stackTools() {
-    const canvas = document.getElementById("gameCanvas");
+    const canvas = gameCanvas();
     const r = canvas && canvas.offsetWidth ? canvas.getBoundingClientRect() : null;
     const landscape = isTouch && orientation() === "landscape";
     for (const [group, room] of [[toolbarLeft, r && r.left], [toolbarRight, r && vw() - r.right]]) {
@@ -717,7 +720,7 @@
   ready = true;
   layout();
   // The engine creates the canvas after plugins load.
-  const waitCanvas = () => (document.getElementById("gameCanvas") ? fitGame() : requestAnimationFrame(waitCanvas));
+  const waitCanvas = () => (gameCanvas() ? fitGame() : requestAnimationFrame(waitCanvas));
   waitCanvas();
   window.addEventListener("resize", relayout);
   window.addEventListener("orientationchange", relayout);
