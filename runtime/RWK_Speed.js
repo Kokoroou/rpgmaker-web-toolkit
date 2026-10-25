@@ -116,7 +116,7 @@
         } else setToggled(!toggled);
       },
       "Fast forward (tap: on / off, hold: while held)",
-      "right",
+      "left",
       () => {
         clearTimeout(timer);
         timer = setTimeout(() => {

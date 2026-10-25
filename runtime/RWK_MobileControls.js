@@ -303,7 +303,7 @@
   // Default layout (px, recomputed on every resize):
   //   D-pad bottom-left, A/B/X/Y bottom-right, L/R above them.
   //   On-screen extra keys: portrait - centered rows above L/R; landscape -
-  //   columns down the right edge.
+  //   columns down the left edge.
   //---------------------------------------------------------------------------
 
   const margin = () => unit() * 0.3 + 8;
@@ -433,12 +433,12 @@
       }
       if (row.length) flush();
     } else {
-      // Columns down the right edge, between the toolbar and R, or beside a
+      // Columns down the left edge, between the toolbar and L, or beside a
       // toolbar column.
-      const beside = toolbarRight.classList.contains("stacked");
+      const beside = toolbarLeft.classList.contains("stacked");
       const top = beside ? m : m + unit() * 0.66 + gap;
       const bottom = vh() - (gamepadOn ? shoulderY() + unit() * 0.41 : margin() + clusterHeight()) - gap;
-      let x = beside ? m + toolbarRight.offsetWidth + gap : m;
+      let x = beside ? m + toolbarLeft.offsetWidth + gap : m;
       let y = top;
       let colWidth = 0;
       for (const item of flow) {
@@ -448,7 +448,7 @@
           y = top;
           colWidth = 0;
         }
-        extraSlots.set(item, { h: "r", x: x + item.el.offsetWidth / 2, v: "t", y: y + h / 2 });
+        extraSlots.set(item, { h: "l", x: x + item.el.offsetWidth / 2, v: "t", y: y + h / 2 });
         colWidth = Math.max(colWidth, item.el.offsetWidth);
         y += h + gap;
       }
@@ -456,9 +456,9 @@
   }
 
   //---------------------------------------------------------------------------
-  // Toolbar, in two groups: ⚙ menu, ⌨ game keys and full screen on the left,
-  // show/hide on the right. Top corners in landscape, in columns on a touch
-  // screen so they stay beside the game; in portrait both groups sit on the
+  // Toolbar, in two groups: ⚙ menu, fast forward and ⌨ game keys on the
+  // left, full screen and show/hide on the right. Top corners in landscape,
+  // in a column on a touch screen when a row would cover the game; in portrait both groups sit on the
   // L/R line, next to L and R, or in the top corners when they do not fit.
   // Hidden controls leave only the show/hide button.
   //---------------------------------------------------------------------------
@@ -540,16 +540,15 @@
     return btn;
   });
 
-  // Full screen (which also turns a landscape game sideways) is a toolbar
-  // button here instead of a tile in the ⚙ menu.
+  // Full screen, which also turns a landscape game sideways, is a toolbar
+  // button on the right here instead of a tile in the ⚙ menu.
   const fullscreen = RWK.fullscreen;
   if (fullscreen && fullscreen.tool) {
     RWK.tools.remove(fullscreen.tool);
-    const fsBtn = addTool("", "rwk-tool-fullscreen", fullscreen.toggle, "");
+    const fsBtn = addTool(icons.rotate, "rwk-tool-fullscreen", fullscreen.toggle, "", toolbarRight);
+    toolbarRight.insertBefore(fsBtn, toggleBtn);
     const drawFullscreen = () => {
-      const on = fullscreen.isOn();
-      fsBtn.innerHTML = on ? icons.minimize : icons.fullscreen;
-      fsBtn.title = on ? "Exit full screen" : "Full screen";
+      fsBtn.title = fullscreen.isOn() ? "Exit full screen" : "Full screen, turned sideways";
       fsBtn.setAttribute("aria-label", fsBtn.title);
     };
     drawFullscreen();
@@ -648,16 +647,26 @@
   const _updateAllElements = Graphics._updateAllElements;
   Graphics._updateAllElements = function () {
     _updateAllElements.apply(this, arguments);
-    fitGame();
+    if (ready) layout(); // the toolbar may now fit beside the game
   };
+
+  // In landscape on a touch screen, a toolbar group that would cover the
+  // game stands in a column instead of a row.
+  function stackTools() {
+    const canvas = document.getElementById("gameCanvas");
+    const r = canvas && canvas.offsetWidth ? canvas.getBoundingClientRect() : null;
+    const landscape = isTouch && orientation() === "landscape";
+    for (const [group, room] of [[toolbarLeft, r && r.left], [toolbarRight, r && vw() - r.right]]) {
+      group.classList.remove("stacked");
+      if (landscape && r && margin() + group.offsetWidth + 4 > room) group.classList.add("stacked");
+    }
+  }
 
   //---------------------------------------------------------------------------
 
   function layout() {
     pad.style.setProperty("--u", unit().toFixed(1) + "px");
-    const stacked = isTouch && orientation() === "landscape";
-    toolbarLeft.classList.toggle("stacked", stacked);
-    toolbarRight.classList.toggle("stacked", stacked);
+    stackTools();
     for (const item of items) {
       item.el.classList.toggle("rwk-off", off.has(item.id));
       item.badge.textContent = off.has(item.id) ? "+" : "−";
@@ -717,12 +726,14 @@
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", relayout);
 
   // Lets later plugins add buttons to the toolbar (other options go in the
-  // ⚙ menu, RWK.tools, instead). side "right" puts it before the eye;
-  // onDown runs when the button is pressed, onTap when it is released.
+  // ⚙ menu, RWK.tools, instead). side "right" puts it before the eye,
+  // otherwise it goes right after ⚙; onDown runs when the button is
+  // pressed, onTap when it is released.
   RWK.controls = {
     addTool(label, extraClass, onTap, name, side, onDown) {
       const btn = addTool(label, extraClass, onTap, name, side === "right" ? toolbarRight : toolbarLeft, onDown);
       if (side === "right") toolbarRight.insertBefore(btn, toggleBtn);
+      else toolbarLeft.insertBefore(btn, toolbarLeft.querySelector(".rwk-tool-menu + *"));
       layout();
       return btn;
     },

@@ -290,6 +290,7 @@
     pause: svg('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'),
     close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
     fullscreen: svg('<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'),
+    rotate: svg('<rect x="9" y="7.5" width="6" height="9" rx="1"/><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
     minimize: svg('<path d="M8 3v5H3M16 3v5h5M21 16h-5v5M3 16h5v5"/>'),
     eye: svg(EYE),
     eyeOff: svg(EYE + '<path d="M3 3l18 18"/>'),

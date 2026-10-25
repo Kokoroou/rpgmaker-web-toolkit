@@ -2,7 +2,7 @@
 
 Speeds up the whole game ×2, ×3 or ×4: walking, battles, animations, text and cutscenes. Music and sound keep their normal speed.
 
-![The ⏩ ×2 button in the toolbar, next to 👁](/img/controls-landscape.png){.shot .landscape}
+![The ⏩ ×2 button in the toolbar, next to ⚙](/img/controls-landscape.png){.shot .landscape}
 
 | On | Turn on / off | Only while held |
 |---|---|---|

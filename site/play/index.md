@@ -19,7 +19,7 @@ Sign in with the same email everywhere to keep playing the same game. See [Saves
 | iPhone / iPad (Safari) | Share → **Add to Home Screen** |
 | Android (Chrome) | ⋮ → **Add to Home screen** (or **Install app**) |
 
-Or tap the full screen button in the game's toolbar (⚙ → **Full screen** on a PC). It also turns a landscape game sideways.
+Or tap ⟳ in the game's toolbar (⚙ → **Full screen** on a PC). It also turns a landscape game sideways.
 
 ## Controls and tools
 
