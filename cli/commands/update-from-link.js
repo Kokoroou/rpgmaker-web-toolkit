@@ -4,11 +4,12 @@
 // (worker/toolkit.js). Settings come from R2, as for a normal deploy.
 
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, deployKeepingAssets, keepAssetsForm, loadGameConfigs, loadOverflowRels, probeAccess } from "../lib/cloudflare.js";
+import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess } from "../lib/cloudflare.js";
 import { findGameBySite, siteNameFromLink, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable } from "../lib/policy.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, runtimeConfigOf, runtimeSources, saveHistoryConfig } from "../lib/stage.js";
 import { ask, c, confirm, log } from "../lib/ui.js";
+import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
 import { checkPlayers, connect, isAuthReady } from "./deploy.js";
 
 export async function updateFromLink(link) {
@@ -50,7 +51,7 @@ export async function updateFromLink(link) {
   const overflowRels = await loadOverflowRels(bucket, storageIdOf(cfg));
 
   log.step("Updating the Worker (the game files stay as uploaded)");
-  const form = keepAssetsForm({
+  const patch = keepAssetsPatch({
     slug: cfg.slug,
     gameId: storageIdOf(cfg),
     bucket,
@@ -63,7 +64,7 @@ export async function updateFromLink(link) {
   });
   const token = await apiToken();
   if (!token) throw new Error("Not logged in to Cloudflare.");
-  await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, form });
+  await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch });
   log.ok(`Worker "${cfg.slug}" updated`);
 
   if (cfg.auth.mode === "access" && cfg.url) {

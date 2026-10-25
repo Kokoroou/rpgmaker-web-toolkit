@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
-import { WORKERS_API, deployKeepingAssets, keepAssetsForm, overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
 import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
@@ -356,11 +357,11 @@ test("update-from-link: which game a link names", () => {
   assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
 });
 
-test("update-from-link: the Worker upload keeps the deployed files", async () => {
+test("update-from-link: the Worker patch keeps the deployed files", async () => {
   const toolkit = { names: RUNTIME_PLUGINS, plugins: runtimeSources(), config: runtimeConfigOf("MV", { slug: "g", storageId: "first", sync: { enabled: true } }), keepOff: false };
   assert.equal(toolkit.config.gameId, "first");
   assert.equal(toolkit.config.media, undefined, "taken from the deployed build by the Worker");
-  const form = keepAssetsForm({
+  const patch = keepAssetsPatch({
     slug: "g",
     gameId: "first",
     bucket: "b",
@@ -370,10 +371,9 @@ test("update-from-link: the Worker upload keeps the deployed files", async () =>
     saveHistory: { keep: 5, days: 30 },
     toolkit,
   });
-  const metadata = JSON.parse(await form.get("metadata").text());
-  assert.equal(metadata.keep_assets, true);
-  assert.equal(metadata.main_module, "worker.js");
-  const vars = Object.fromEntries(metadata.bindings.filter((b) => b.type === "plain_text").map((b) => [b.name, b.text]));
+  assert.equal(patch.main_module, "worker.js");
+  assert.equal(patch.assets.jwt, undefined, "no new files: the deployed ones carry over");
+  const vars = Object.fromEntries(patch.bindings.filter((b) => b.type === "plain_text").map((b) => [b.name, b.text]));
   assert.deepEqual(vars, {
     GAME_ID: "first",
     AUTH_MODE: "access",
@@ -383,24 +383,25 @@ test("update-from-link: the Worker upload keeps the deployed files", async () =>
     RWK_INDEXABLE: "0",
     RWK_SAVE_HISTORY: '{"keep":5,"days":30}',
   });
-  assert.ok(metadata.bindings.some((b) => b.type === "r2_bucket" && b.name === "BUCKET" && b.bucket_name === "b"));
-  assert.ok(metadata.bindings.some((b) => b.type === "assets" && b.name === "ASSETS"));
-  const routes = metadata.assets.config.run_worker_first;
+  assert.ok(patch.bindings.some((b) => b.type === "r2_bucket" && b.name === "BUCKET" && b.bucket_name === "b"));
+  assert.ok(patch.bindings.some((b) => b.type === "assets" && b.name === "ASSETS"));
+  const routes = patch.assets.config.run_worker_first;
   for (const r of ["/api/*", "/js/plugins.js", "/js/plugins/RWK_Core.js", "/movies/big.webm"]) assert.ok(routes.includes(r), r);
 
+  const modules = new Map(patch.modules.map((m) => [m.name, m]));
   for (const name of ["worker.js", "rwk-overflow.js", "rwk-toolkit.js", "worker/index.js", "worker/auth.js", "worker/saves.js", "worker/players.js", "worker/toolkit.js"]) {
-    assert.equal(form.get(name)?.type, "application/javascript+module", name);
+    assert.equal(modules.get(name)?.content_type, "application/javascript+module", name);
   }
-  // Uploaded unbundled: every relative import must name another part.
-  for (const [name, part] of form.entries()) {
-    if (name === "metadata") continue;
-    for (const [, spec] of (await part.text()).matchAll(/^(?:import|export) .* from "(\.[^"]+)";$/gm)) {
+  const source = (name) => Buffer.from(modules.get(name).content_base64, "base64").toString("utf8");
+  // Uploaded unbundled: every relative import must name another module.
+  for (const name of modules.keys()) {
+    for (const [, spec] of source(name).matchAll(/^(?:import|export) .* from "(\.[^"]+)";$/gm)) {
       const target = path.posix.join(path.posix.dirname(name), spec);
-      assert.ok(form.has(target), `${name} imports ${spec}: no part "${target}"`);
+      assert.ok(modules.has(target), `${name} imports ${spec}: no module "${target}"`);
     }
   }
-  const toolkitModule = await form.get("rwk-toolkit.js").text();
-  const { default: uploaded } = await import(`data:text/javascript,${encodeURIComponent(toolkitModule)}`);
+  assert.equal(source("worker/toolkit.js"), fs.readFileSync(new URL("../worker/toolkit.js", import.meta.url), "utf8"));
+  const { default: uploaded } = await import(`data:text/javascript,${encodeURIComponent(source("rwk-toolkit.js"))}`);
   assert.deepEqual(uploaded, toolkit);
 });
 
@@ -413,8 +414,8 @@ test("update-from-link: Workers API calls and their errors", async (t) => {
     return new Response(JSON.stringify(body), { status, headers });
   });
   t.mock.method(console, "log", () => {});
-  const form = new FormData();
-  const run = () => deployKeepingAssets({ token: "tok", accountId: "acc", slug: "g", form });
+  const patch = { main_module: "worker.js" };
+  const run = () => deployKeepingAssets({ token: "tok", accountId: "acc", slug: "g", patch });
 
   replies = [
     [200, { success: true, result: {} }],
@@ -422,11 +423,13 @@ test("update-from-link: Workers API calls and their errors", async (t) => {
   ];
   warnings.length = 0;
   await run();
-  assert.equal(calls[0].url, `${WORKERS_API.base}/accounts/acc/workers/scripts/g/settings`);
+  assert.equal(calls[0].url, `${WORKERS_API.base}/accounts/acc/workers/workers/g`);
   assert.equal(calls[0].init.method, "GET");
-  assert.equal(calls[1].url, `${WORKERS_API.base}/accounts/acc/workers/scripts/g`);
-  assert.equal(calls[1].init.method, "PUT");
-  assert.equal(calls[1].init.body, form);
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[1].url, `${WORKERS_API.base}/accounts/acc/workers/workers/g/versions/latest?deploy=true`);
+  assert.equal(calls[1].init.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[1].init.body), patch);
+  assert.equal(calls[1].init.headers["content-type"], "application/merge-patch+json");
   assert.equal(calls[1].init.headers.authorization, "Bearer tok");
   assert.match(warnings[0], /going away \(deprecation: true\).*checked against the Cloudflare API on/);
   warnings.length = 0;
@@ -437,9 +440,9 @@ test("update-from-link: Workers API calls and their errors", async (t) => {
   await assert.rejects(run, /Could not read the Worker: HTTP 500/);
   replies = [
     [200, { success: true }],
-    [400, { success: false, errors: [{ code: 10021, message: "Unknown field keep_assets" }] }],
+    [400, { success: false, errors: [{ code: 10021, message: "Unknown field" }] }],
   ];
-  await assert.rejects(run, (err) => /Could not update the Worker: Unknown field keep_assets \[code: 10021\]/.test(err.message) && err.message.includes(WORKERS_API.checked));
+  await assert.rejects(run, (err) => /Could not update the Worker: Unknown field \[code: 10021\]/.test(err.message) && err.message.includes(WORKERS_API.checked));
   replies = [
     [200, { success: true }],
     [200, { success: false, errors: [{ message: "odd" }] }],
@@ -447,27 +450,67 @@ test("update-from-link: Workers API calls and their errors", async (t) => {
   await assert.rejects(run, /Could not update the Worker: odd\n/);
 });
 
-// The upload in keepAssetsForm() copies how the pinned wrangler builds its
-// own. A wrangler bump fails this test until that is checked again and
-// WORKERS_API (cli/lib/cloudflare.js) records the new version and date.
-test("update-from-link: the Workers API upload was checked against the pinned wrangler", (t) => {
-  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(pkg.devDependencies.wrangler, WORKERS_API.wrangler, "wrangler was bumped: check keepAssetsForm() against it, then update WORKERS_API");
+// A trimmed copy of the parts of Cloudflare's OpenAPI schema the patch relies on.
+function workersSchema() {
+  const prop = (properties) => ({ type: "object", properties });
+  return {
+    paths: {
+      [WORKERS_API.worker]: { get: {} },
+      [WORKERS_API.patchLatest]: {
+        patch: {
+          description: "Creates a new Worker version by applying a JSON Merge Patch (RFC 7396) to the latest version. Omitted fields are inherited from the latest version.",
+          parameters: [{ $ref: "#/components/parameters/deploy" }],
+          requestBody: {
+            content: {
+              "application/merge-patch+json": {
+                schema: {
+                  allOf: [
+                    prop({ main_module: {}, compatibility_date: {}, bindings: {} }),
+                    prop({
+                      modules: { type: "array", items: prop({ name: {}, content_type: {}, content_base64: {} }) },
+                      assets: { $ref: "#/components/schemas/assets" },
+                    }),
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      parameters: { deploy: { name: "deploy", in: "query" } },
+      schemas: {
+        assets: prop({ config: prop({ not_found_handling: {}, run_worker_first: {} }), jwt: {} }),
+        workers_binding_kind_plain_text: prop({ name: {}, type: {}, text: {} }),
+        workers_binding_kind_r2_bucket: prop({ name: {}, type: {}, bucket_name: {} }),
+        workers_binding_kind_assets: prop({ name: {}, type: {} }),
+      },
+    },
+  };
+}
+
+test("update-from-link: noticing Workers API changes in Cloudflare's schema", () => {
+  assert.deepEqual(checkWorkersApi(workersSchema()), []);
   assert.match(WORKERS_API.checked, /^\d{4}-\d{2}-\d{2}$/);
-  const cli = new URL("../node_modules/wrangler/wrangler-dist/cli.js", import.meta.url);
-  if (!fs.existsSync(cli)) return t.skip("wrangler is not installed (npm ci)");
-  const installed = JSON.parse(fs.readFileSync(new URL("../node_modules/wrangler/package.json", import.meta.url), "utf8")).version;
-  assert.equal(installed, WORKERS_API.wrangler, "run npm ci");
-  const source = fs.readFileSync(cli, "utf8");
-  for (const snippet of [
-    "...keep_assets !== void 0 && { keep_assets }",
-    'metadataBindings.push({ name: binding, type: "plain_text", text: value });',
-    'type: "r2_bucket",',
-    'type: "assets"',
-    'esm: "application/javascript+module"',
-    "run_worker_first: assets?.run_worker_first",
-    "main_module: main2.name",
-  ]) {
-    assert.ok(source.includes(snippet), `wrangler no longer has: ${snippet}`);
-  }
+
+  const broken = (change) => {
+    const schema = workersSchema();
+    change(schema, schema.paths[WORKERS_API.patchLatest].patch);
+    return checkWorkersApi(schema);
+  };
+  assert.deepEqual(broken((s) => delete s.paths[WORKERS_API.worker]), [`GET ${WORKERS_API.worker} is gone`]);
+  assert.deepEqual(broken((s) => delete s.paths[WORKERS_API.patchLatest]), [`PATCH ${WORKERS_API.patchLatest} is gone`]);
+  assert.deepEqual(broken((s, p) => (p.parameters = [])), ["the version patch has no ?deploy= any more"]);
+  assert.match(broken((s, p) => (p.description = "Fields are reset."))[0], /omitted fields are inherited/);
+  assert.deepEqual(broken((s, p) => delete p.requestBody.content["application/merge-patch+json"]), ["the version patch no longer takes application/merge-patch+json"]);
+  assert.deepEqual(broken((s, p) => delete p.requestBody.content["application/merge-patch+json"].schema.allOf[1].properties.modules), [
+    'the version patch has no "modules" field',
+    'modules[] has no "name"',
+    'modules[] has no "content_type"',
+    'modules[] has no "content_base64"',
+  ]);
+  assert.deepEqual(broken((s) => delete s.components.schemas.assets.properties.config.properties.run_worker_first), ['assets.config has no "run_worker_first"']);
+  assert.deepEqual(broken((s) => delete s.components.schemas.workers_binding_kind_r2_bucket), ['the r2_bucket binding has no "bucket_name"']);
+  assert.deepEqual(broken((s) => (s.components.schemas.assets = { $ref: "#/components/schemas/assets" })), ['assets.config has no "not_found_handling"', 'assets.config has no "run_worker_first"'], "a $ref loop ends");
 });

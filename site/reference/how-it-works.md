@@ -35,9 +35,13 @@ The game folder is never written to. Each run:
 
 ## Update from the link
 
-[`update-from-link`](/setup/updating#new-toolkit-version-game-folder-gone) works without the game folder. Cloudflare cannot hand back a Worker's static files, and `wrangler deploy` always replaces all of them. So the CLI uploads the new Worker through the Workers API itself (`PUT /accounts/{id}/workers/scripts/{name}`), with `keep_assets: true`, which keeps the files already there. The new Worker contains the new `RWK_*.js` plugins and runs before static assets for `js/plugins.js` and those plugins. It serves the plugins itself and rewrites `js/plugins.js`: the game's own part stays and the toolkit's part (after the `rpgmaker-web-toolkit` marker) is replaced. MV's phone audio / movie flags come from the deployed copy.
+[`update-from-link`](/setup/updating#new-toolkit-version-game-folder-gone) works without the game folder. Cloudflare cannot hand back a Worker's static files, and `wrangler deploy` always replaces all of them. So the CLI calls the Workers API itself: `PATCH /accounts/{id}/workers/workers/{name}/versions/latest?deploy=true` creates a new version from the latest one, and every field the patch leaves out (the static files among them) carries over.
 
-`WORKERS_API` in `cli/lib/cloudflare.js` records the API it was written against: endpoints, metadata fields, the wrangler version whose upload it copies, and the date it was checked. A test fails when `wrangler` in `package.json` no longer matches that version, or when the installed wrangler stops building its upload the same way. At run time, an API error, or a `Deprecation` / `Sunset` header from Cloudflare, prints that date.
+The patch holds the new Worker, with the new `RWK_*.js` plugins inside it, and sets the asset routing so the Worker runs first for `js/plugins.js` and those plugins. The Worker serves the plugins itself and rewrites `js/plugins.js`: the game's own part stays, and the toolkit's part (after the `rpgmaker-web-toolkit` marker) is replaced. MV's phone audio / movie flags come from the deployed copy.
+
+A script upload with `keep_assets: true` also keeps the files, but it keeps the old routing too, so the Worker never sees `js/plugins.js`.
+
+`WORKERS_API` in `cli/lib/workers-api.js` records the endpoints and fields used, and the date they were checked. `scripts/check-workers-api.js` compares them with [Cloudflare's published OpenAPI schema](https://github.com/cloudflare/api-schemas). The [Workers API workflow](https://github.com/Kokoroou/rpgmaker-web-toolkit/actions/workflows/workers-api.yml) runs it every Monday and fails when something the command relies on has changed. At run time, an API error, or a `Deprecation` / `Sunset` header from Cloudflare, prints that date.
 
 ## Storage
 
