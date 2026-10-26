@@ -11,7 +11,7 @@ import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.
 import { cleanHint, gamepadKeys, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
 import { LIVE_KEYS, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
-import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, remapConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
 import { splitToolkit } from "../worker/toolkit.js";
@@ -107,12 +107,13 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(parsePolicy({}).problems.length, 1);
 
   const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
-  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, backlog: false, quickSave: false, autoSave: false, cheats: false, sync: false } }));
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, backlog: false, remap: false, quickSave: false, autoSave: false, cheats: false, sync: false } }));
   assert.equal(locked.saveTools, false);
   assert.equal(locked.fastForward, false);
   assert.equal(locked.messageMode, false);
   assert.equal(locked.alwaysDash, false);
   assert.equal(locked.backlog, false);
+  assert.equal(locked.remap, false);
   assert.equal(locked.quickSave, false);
   assert.equal(locked.autoSave, false);
   assert.equal(locked.cheats, false);
@@ -255,6 +256,7 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   assert.ok(out.has("js/plugins/RWK_Message.js"));
   assert.ok(out.has("js/plugins/RWK_Dash.js"));
   assert.ok(out.has("js/plugins/RWK_Backlog.js"));
+  assert.ok(out.has("js/plugins/RWK_Remap.js"));
   assert.ok(out.has("js/plugins/RWK_SafeSaves.js"));
   assert.ok(out.has("js/plugins/RWK_SaveHistory.js"));
   const js = out.get("js/plugins.js");
@@ -295,6 +297,16 @@ test("backlog settings reach the plugin", () => {
   assert.deepEqual(backlogConfig("x"), { max: 100 });
   assert.deepEqual(runtimeConfigOf("MV", { slug: "g" }).backlog, { max: 100 });
   assert.equal(runtimeConfigOf("MV", { slug: "g", backlog: false }).backlog, false);
+});
+
+test("remap settings reach the plugin", () => {
+  assert.deepEqual(remapConfig(undefined), { keyboard: true, gamepad: true });
+  assert.deepEqual(remapConfig(true), { keyboard: true, gamepad: true });
+  assert.equal(remapConfig(false), false);
+  assert.deepEqual(remapConfig({ gamepad: false }), { keyboard: true, gamepad: false });
+  assert.equal(remapConfig({ keyboard: false, gamepad: false }), false);
+  assert.deepEqual(runtimeConfigOf("MZ", { slug: "g" }).remap, { keyboard: true, gamepad: true });
+  assert.equal(runtimeConfigOf("MZ", { slug: "g", remap: false }).remap, false);
 });
 
 test("save history settings reach the plugin and the Worker", () => {

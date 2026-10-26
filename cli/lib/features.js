@@ -60,7 +60,7 @@ export function baseConfig(game, { slug, include = [], syncEnabled = true, prese
 }
 
 // Keys a preset or a player's entry may set.
-export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats"];
+export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats"];
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 

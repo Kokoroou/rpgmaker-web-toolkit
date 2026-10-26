@@ -74,6 +74,11 @@ test("backlog takes a number", async () => {
   assert.equal(out.backlog, 200);
 });
 
+test("remap can be limited to the keyboard", async () => {
+  const out = await guidedEdit(base(), { io: scripted(["features", "remap", true, true, true, false, "back", "save"]) });
+  assert.deepEqual(out.remap, { gamepad: false });
+});
+
 test("the starting point changes the preset", async () => {
   const out = await guidedEdit(base(), { io: scripted(["features", "preset", "shared", "back", "save"]) });
   assert.equal(out.preset, "shared");

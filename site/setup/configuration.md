@@ -35,6 +35,7 @@ The menu's last entries are **Save and finish** and **Quit without saving**. For
 | Keep Auto, turn off Skip | `"messageMode": { "skip": false }` |
 | Start in Auto at a slow pace | `"messageMode": { "mode": "auto", "autoSpeed": "slow" }` (add `"lock": true` so it stays that way) |
 | Remove ⚙ → Messages log, or keep more messages | `"backlog": false`, `"backlog": 200` |
+| Remove ⚙ → Keys and buttons, or allow only the keyboard | `"remap": false`, `"remap": { "gamepad": false }` |
 | Remove ⚙ → Always dash | `"alwaysDash": false` |
 | Players run unless they turn it off, or always run | `"alwaysDash": { "on": true }`, `"alwaysDash": { "on": true, "lock": true }` |
 | Let players export saves but not import edited ones | `"saveTools": { "import": false }` |
@@ -77,6 +78,7 @@ Each feature key takes one of three kinds of value:
 | `alwaysDash` | `on` (`true` / `false` for players who never chose), `lock` (stays at `on`; Options → Always Dash cannot change it) |
 | `saveTools` | `export`, `import`, `delete` (default `true` each) |
 | `cheats` | `party`, `items`, `battle`, `switches`, `movement` (default `true` each). Off when the key is missing, whatever the preset |
+| `remap` | `keyboard`, `gamepad` (default `true` each; both `false` is the same as `false`) |
 | `quickSave`, `autoSave`, `backlog`, `saveHistory` | See [Config keys](/reference/config) |
 
 The game creator's [policy](/creators/policy) still wins: a feature it turns off stays off, whatever the config says.
@@ -95,7 +97,7 @@ With Cloudflare Access, `"players"` gives some emails settings of their own, on 
 }
 ```
 
-Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. A change applies without publishing again, like the other feature settings.
+Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `remap`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. A change applies without publishing again, like the other feature settings.
 
 The emails never reach the web build: the deploy gives the Worker only a hash of each email, with the settings that differ. When a player opens the game, the Worker checks their Access login and puts their settings in the copy of `js/plugins.js` it sends them. A public site (no Access) cannot tell players apart, so everyone gets the shared settings.
 
