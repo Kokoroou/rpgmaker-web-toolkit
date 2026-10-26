@@ -57,8 +57,8 @@ The action installs Node.js and the toolkit at the tag you pin, then publishes t
 | Input | Default | |
 |---|---|---|
 | `game-folder` | `.` | The game folder, from the repository's root. For `upgrade`, the game's link or site name |
-| `command` | `deploy` | Or `saves import`, `upgrade` |
-| `cloudflare-api-token` | | Required |
+| `command` | `deploy` | Or `analyze`, `saves import`, `upgrade` |
+| `cloudflare-api-token` | | Required, except for `analyze` |
 | `cloudflare-account-id` | | When the token reaches several accounts |
 | `node-version` | `22` | |
 
@@ -69,7 +69,30 @@ The action installs Node.js and the toolkit at the tag you pin, then publishes t
 | `warnings` | How many warnings the run had |
 | `result` | The whole result as JSON (see [below](#the-result)) |
 
-Do not publish on `pull_request`: a pull request would replace the live site. A build-only run for pull requests is planned.
+Do not publish on `pull_request`: a pull request would replace the live site. Check it instead, as [below](#check-pull-requests-without-publishing).
+
+## Check pull requests without publishing
+
+`deploy --dry-run` (or `analyze`) analyzes the game and counts its files against the free plan limits, with no Cloudflare token and nothing published. It fails the job when the build would not deploy (too many files, or a creator who does not allow publishing) and lists the warnings, so it suits `pull_request`:
+
+```yaml
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Kokoroou/rpgmaker-web-toolkit@v0.4.0 # a release that has `analyze` (after v0.4.0)
+        with:
+          command: analyze
+          game-folder: game
+```
+
+No `cloudflare-api-token` is needed, so a pull request from a fork can run it too.
+
+Or from the shell: `node cli/index.js deploy ./game --dry-run --json`. The result has `"dryRun": true` and the `build` report (see [Commands](/reference/commands#check-without-publishing)). It uses the first-deploy defaults, so a game with `exclude` patterns saved in R2 may count more files than its real deploy.
 
 ## GitLab CI
 

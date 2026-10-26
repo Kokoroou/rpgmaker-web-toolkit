@@ -21,12 +21,13 @@ inputs:
     required: false
     default: "."
   command:
-    description: "deploy (default), saves import or upgrade"
+    description: "deploy (default), analyze (checks the game, publishes nothing, needs no token), saves import or upgrade"
     required: false
     default: deploy
   cloudflare-api-token:
-    description: A Cloudflare API token (see the guide for its permissions). Keep it in the repository's secrets.
-    required: true
+    description: A Cloudflare API token (see the guide for its permissions). Keep it in the repository's secrets. Not needed for analyze.
+    required: false
+    default: ""
   cloudflare-account-id:
     description: The Cloudflare account ID, when the token reaches several accounts.
     required: false
@@ -72,9 +73,9 @@ runs:
         RWK_TARGET: ${{ inputs.game-folder }}
       run: |
         case "$RWK_COMMAND" in
-          deploy | upgrade) args=("$RWK_COMMAND") ;;
+          deploy | analyze | upgrade) args=("$RWK_COMMAND") ;;
           "saves import") args=(saves import) ;;
-          *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, saves import or upgrade)"; exit 1 ;;
+          *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, analyze, saves import or upgrade)"; exit 1 ;;
         esac
         result="$RUNNER_TEMP/rwk-result.json"
         status=0

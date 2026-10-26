@@ -25,7 +25,7 @@ import { editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
 import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
-import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
+import { DEFAULT_PRESET, PRESETS, baseConfig, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
 import { connect, siteOf } from "../lib/session.js";
 import { expectTarget } from "../lib/target.js";
@@ -246,19 +246,19 @@ export function editInEditor(cfg) {
   }
 }
 
-function formatMiB(bytes) {
+export function formatMiB(bytes) {
   return `${+(bytes / 1024 ** 2).toFixed(1)} MiB`;
 }
 
 // MV wants .m4a / .mp4 on phones; RWK_Core falls back to Ogg / WebM where the
 // browser plays them, which leaves out older iPhones.
-function warnMobileMedia(files) {
+export function warnMobileMedia(files) {
   const missing = mobileOnlyMissing(files);
   if (missing.audio) log.warn(`${missing.audio} audio file(s) have no .m4a version: phones whose browser cannot play Ogg (older iPhones) will have no sound for them.`);
   if (missing.movies) log.warn(`${missing.movies} movie(s) have no .mp4 version: phones whose browser cannot play WebM (older iPhones) will not show them.`);
 }
 
-function tooManyFiles(assets, count, max) {
+export function tooManyFiles(assets, count, max) {
   const byTop = new Map();
   for (const f of assets) {
     const top = f.rel.split("/")[0];
@@ -298,28 +298,7 @@ async function createConfig(game, takenSlugs) {
     presetNames.indexOf(DEFAULT_PRESET)
   );
 
-  const cfg = {
-    slug,
-    title: game.title,
-    engine: game.engine,
-    fingerprint: game.fingerprint,
-    include,
-    exclude: [],
-    sync: { enabled: syncEnabled },
-    preset,
-    auth: {},
-    controls: {
-      enabled: false,
-      showOn: "touch",
-      gamepad: true,
-      shoulder: false,
-      dpad: true,
-      opacity: 0.2,
-      scale: 1,
-      buttons: [],
-      scannedKeys: [],
-    },
-  };
+  const cfg = baseConfig(game, { slug, include, syncEnabled, preset });
 
   const keys = scanKeys(game.root);
   cfg.controls.scannedKeys = keys.map((k) => k.key);
@@ -584,7 +563,7 @@ async function checkPublic(cfg, policy) {
   cfg.auth = auth || {};
 }
 
-function showPolicy(policy) {
+export function showPolicy(policy) {
   if (!policy) return;
   log.step("The game creator's hosting policy");
   log.info(`${path.basename(policy.file)}: the creator ${c.bold(describeHosting(policy.hosting))}.`);
