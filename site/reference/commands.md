@@ -1,5 +1,5 @@
 ---
-description: "Every rpgmaker-web-toolkit command: deploy a game, upgrade it from its link, edit its config, import saves, rename the site; flags, targets and exit codes."
+description: "Every rpgmaker-web-toolkit command: deploy a game, upgrade it from its link, edit its config, import and export saves, check the site, read logs, rename or delete it; flags and exit codes."
 lang: en
 ---
 
@@ -45,6 +45,12 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | folder | [Update](/setup/updating#upload-desktop-saves-again) |
 | `& $rwk config "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
 | `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks | folder | [Update](/setup/updating#change-the-site-address) |
+| `& $rwk status my-game` | Whether the site is up, whether Access is in front of it, how many emails have saves | link, name | |
+| `& $rwk saves export my-game --email me@example.com` | Downloads that player's cloud saves into `my-game-saves/` (`--out <folder>` to choose), as `.rmmzsave` / `.rpgsave` files. Needs the token permission *Workers R2 Storage → Read* when you use `CLOUDFLARE_API_TOKEN` | link, name | |
+| `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
+| `& $rwk open my-game` | Opens the site in the browser | link, name | |
+| `& $rwk list` | Lists the games published in this Cloudflare account | none | |
+| `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2; the Access application stays in the dashboard. Never runs with `--yes` | link, name | |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 
@@ -72,6 +78,7 @@ A name that is also a folder in the current directory is read as the folder: giv
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
 | `--to <name>` | Only `rename`: the new site name |
+| `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
 
 ## What it prints
 

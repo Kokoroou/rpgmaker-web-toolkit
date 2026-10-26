@@ -30,6 +30,12 @@ const DONE = {
   "saves import": "saves uploaded",
   "rename": "renamed",
   "config": "config saved",
+  status: "status",
+  "saves export": "saves downloaded",
+  logs: "logs",
+  open: "opened",
+  list: "sites",
+  delete: "deleted",
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.
@@ -40,6 +46,7 @@ export function renderSummary(result) {
   if (result.locked) rows.push(["Access", c.yellow("still locked: run the command again in a terminal to finish its protection")]);
   const b = result.build;
   if (b) rows.push(["Files", `${b.files} (${formatBytes(b.bytes)})${b.r2Files ? `, ${b.r2Files} on R2 (${b.r2Uploaded} uploaded)` : ""}`]);
+  for (const [label, text] of result.facts || []) rows.push([label, text]);
   rows.push(["Warnings", result.warnings.length ? c.yellow(String(result.warnings.length)) : "none"]);
   const lines = ["", `${c.green(sym.ok)} ${c.bold(name)}: ${DONE[result.command] || "done"}`, ...rows.map(([k, v]) => `  ${c.dim(k.padEnd(9))}${v}`)];
   for (const w of result.warnings) lines.push(`    ${c.yellow(sym.warn)} ${w}`);
@@ -66,6 +73,7 @@ export function stepSummary(result) {
   const b = result.build;
   if (b) rows.push(["Files", `${b.files} (${formatBytes(b.bytes)})${b.r2Files ? `, ${b.r2Files} on R2 (${b.r2Uploaded} uploaded)` : ""}`]);
   if (!result.ok) rows.push(["Error", result.error], ...(result.hint ? [["Try", result.hint]] : []), ["Exit code", `${result.exitCode}${result.exitCode === 2 ? " (a question needs a person: run the command once in a terminal)" : ""}`]);
+  for (const [label, text] of result.facts || []) rows.push([label, text]);
   rows.push(["Warnings", result.warnings.length || "none"]);
   lines.push("| | |", "|---|---|", ...rows.map(([k, v]) => `| ${k} | ${cell(v)} |`), "");
   for (const w of result.warnings) lines.push(`- ${cell(w)}`);

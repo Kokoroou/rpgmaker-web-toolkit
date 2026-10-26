@@ -47,6 +47,43 @@ export const COMMANDS = [
     options: { to: "The new site name; without it the command asks" },
     examples: ['rwk rename "D:\\Games\\My Game" --to new-name'],
   },
+  {
+    name: "status",
+    summary: "Show whether the site is up, its Access protection, and how many players have saves",
+    targets: ["link", "name"],
+    examples: ["rwk status my-game", "rwk status my-game --json"],
+  },
+  {
+    name: "saves export",
+    summary: "Download one player's cloud saves into a folder (the counterpart of saves import)",
+    targets: ["link", "name"],
+    options: { email: "The player's email (a site with Access keeps saves per email); without it the command asks", out: "The folder to write to (default: <site name>-saves)" },
+    examples: ["rwk saves export my-game --email me@example.com", "rwk saves export my-game --out ./backup"],
+  },
+  {
+    name: "logs",
+    summary: "Show the site's Worker logs as they happen, until Ctrl+C",
+    targets: ["link", "name"],
+    examples: ["rwk logs my-game"],
+  },
+  {
+    name: "open",
+    summary: "Open the site in the browser",
+    targets: ["link", "name"],
+    examples: ["rwk open my-game"],
+  },
+  {
+    name: "list",
+    summary: "List the games published in this Cloudflare account",
+    targets: [],
+    examples: ["rwk list", "rwk list --json"],
+  },
+  {
+    name: "delete",
+    summary: "Delete the site's Worker (saves stay in R2); asks you to type the site name",
+    targets: ["link", "name"],
+    examples: ["rwk delete my-game"],
+  },
 ];
 
 const GROUPS = [...new Set(COMMANDS.filter((cmd) => cmd.name.includes(" ")).map((cmd) => cmd.name.split(" ")[0]))];
@@ -62,9 +99,11 @@ export const FLAGS = [
   ["-V, --version", "Show the toolkit version"],
 ];
 
+const OPTION_VALUES = { to: "name", email: "address", out: "folder" };
+
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
-  const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${o === "to" ? "name" : "value"}>]`).join("") : "";
+  const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${OPTION_VALUES[o] || "value"}>]`).join("") : "";
   return `rwk ${spec.name}${target}${options} [flags]`;
 };
 export const usage = (spec) => usageOf(spec);
@@ -134,7 +173,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, help, version, to }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, help, version, to, email, out }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -152,11 +191,13 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
         to: { type: "string" },
+        email: { type: "string" },
+        out: { type: "string" },
       },
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --to new-name." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --to new-name or --email me@example.com." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -170,6 +211,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     help: !!values.help,
     version: !!values.version,
     to: values.to,
+    email: values.email,
+    out: values.out,
   };
   // --json implies --yes: a script reads the result. No terminal on stdin means nobody to answer.
   const unattended = flags.json || flags.yes || !stdinIsTTY;
@@ -195,8 +238,10 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  if (flags.to !== undefined && !spec.options?.to) {
-    throw new UsageError(`Unknown option --to for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
+  for (const option of ["to", "email", "out"]) {
+    if (flags[option] !== undefined && !spec.options?.[option]) {
+      throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
+    }
   }
   result.spec = spec;
   // An unquoted path with spaces arrives as several words: join them back.
