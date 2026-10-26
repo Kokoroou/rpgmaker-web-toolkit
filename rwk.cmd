@@ -1,6 +1,6 @@
 @echo off
 rem rpgmaker-web-toolkit launcher (Windows).
-rem   rwk.cmd "D:\Games\My Game"
+rem   rwk.cmd deploy "D:\Games\My Game"
 setlocal
 set "RWK_HOME=%~dp0"
 

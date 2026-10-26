@@ -17,11 +17,11 @@ branding:
 
 inputs:
   game-folder:
-    description: The game folder (with index.html and js/), relative to the workspace. For update-from-link, the game's link.
+    description: The game folder (with index.html and js/), relative to the workspace. For upgrade, the game's link or site name.
     required: false
     default: "."
   command:
-    description: "deploy (default), import-saves or update-from-link"
+    description: "deploy (default), saves import or upgrade"
     required: false
     default: deploy
   cloudflare-api-token:
@@ -72,9 +72,9 @@ runs:
         RWK_TARGET: ${{ inputs.game-folder }}
       run: |
         case "$RWK_COMMAND" in
-          deploy) args=() ;;
-          import-saves | update-from-link) args=("$RWK_COMMAND") ;;
-          *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, import-saves or update-from-link)"; exit 1 ;;
+          deploy | upgrade) args=("$RWK_COMMAND") ;;
+          "saves import") args=(saves import) ;;
+          *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, saves import or upgrade)"; exit 1 ;;
         esac
         result="$RUNNER_TEMP/rwk-result.json"
         status=0

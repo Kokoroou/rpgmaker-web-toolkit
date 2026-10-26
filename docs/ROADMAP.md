@@ -26,6 +26,7 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | ⚙ → Game files on this device: what the cache holds, and a button to clear it (#1b) | next |
 | Basic cheats, off unless the deployer turns them on, per player too (#6, Ideas #5) | next |
 | Non-interactive CLI (`--yes`, or no terminal), exit code 2 when a question needs a person, `CLOUDFLARE_API_TOKEN` login (#10a) | next |
+| CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config edit`, `rename` → `site rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
@@ -42,6 +43,8 @@ Order of work from here. Row numbers stay as they were, so "needs #n" still poin
 | **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
 | **Wave C: running the toolkit anywhere** ||||
+| 16 | [CLI: from the deployed site's link](#cli-commands-from-a-folder-and-from-a-link): `status`, `saves export`, `logs`, `site rename` and `site delete` without the folder | M | Needs #16a (shipped): the target already accepts a link or a site name, and `config edit` works that way today |
+| 17 | [CLI: from the game folder, without Cloudflare](#cli-commands-from-a-folder-and-from-a-link): `analyze` / `deploy --dry-run`, `doctor`, the current folder as the default target | S | Same parser; the analysis already runs before the first Cloudflare call |
 | 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; the last question a first deploy in CI cannot answer |
 | **Wave D: narrower audiences** ||||
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
@@ -53,6 +56,25 @@ Order of work from here. Row numbers stay as they were, so "needs #n" still poin
 | 15+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
 
 ## Details
+
+### CLI commands: from a folder and from a link
+
+The toolkit works two ways, and the command line is shaped for both: `rwk <command> [<target>] [flags]`, where the target is a game **folder** on this PC, a deployed game's **link**, or its **site name** (`cli/lib/target.js`). Each command lists the kinds it accepts (`cli/lib/args.js`, the one list that `--help`, the parser and the docs read). Shipped as #16a:
+
+| Command | Folder | Link / name |
+|---|---|---|
+| `deploy` | yes | no (needs the game files) |
+| `upgrade` | not yet | yes |
+| `saves import` | yes (reads `save/`) | no |
+| `config edit` | yes | yes |
+| `site rename` | yes | not yet |
+
+Not built yet, in the order they would pay off:
+
+- **From a link or name** (#16): `status` (is the site up, is Access on, which toolkit version, how many emails have saves); `saves export` (download the cloud saves to a folder, the counterpart of `saves import`); `logs` (Worker logs); `site rename` and `site delete` without the folder (rename needs the Workers API to create a Worker with the existing static files, as `upgrade` already patches one); `open` (the link in the browser); `upgrade` with a folder target, to take the site name from the game's config; `list` (every site in the account).
+- **From a folder** (#17): `analyze` / `deploy --dry-run` (the warnings and the file count, without logging in to Cloudflare or touching anything); `doctor` (Node.js version, login, token permissions, wrangler); the current directory as the default target when it holds a game; a `rwk.json` next to `index.html` with the site name and exclude patterns, so a repository carries them; `config get` / `config set <key> <value>` without an editor, for scripts.
+- **Everywhere**: `--account` to pick one of several Cloudflare accounts; `--dry-run` for `site rename` and `saves import`; progress for uploads (one line that updates in place on a terminal, plain lines in CI); GitHub Actions annotations (`::warning::`) for the run's warnings; `[n/N]` on the steps once their number is known; shell completion; and a `--yes` that also answers the Access setup once #9 removes that question.
+- **Deploy from a download link** (to decide before building): a game that is not on this PC but at a URL (a zip), with the questions of who may redistribute it that [the hosting policy](../site/creators/policy.md) already raises.
 
 ### Service Worker cache for game files (important when playing over 4G)
 

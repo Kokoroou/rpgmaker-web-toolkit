@@ -23,22 +23,22 @@ Install [Node.js](/setup/requirements), run the same command and log in to the *
 
 ## New toolkit version, game folder gone
 
-Deleted the game from your PC? Paste the game's link instead of the folder:
+Deleted the game from your PC? Give the game's link (or just its site name) instead of the folder:
 
 ::: code-group
 ```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk update-from-link "https://my-game.alice.workers.dev"
+& $rwk upgrade "https://my-game.alice.workers.dev"
 ```
 ```sh [macOS / Linux]
 rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
-rwk update-from-link "https://my-game.alice.workers.dev"
+rwk upgrade "https://my-game.alice.workers.dev"
 ```
 :::
 
-(Or run the one-liner and paste the link when it asks for the folder.)
+(Or run the one-liner and paste the link when it asks for the game.)
 
-Log in to the **same Cloudflare account**. The toolkit finds the game from its link and updates the Worker and the in-game plugins (on-screen controls, save sync, the ⚙ menu…) to the new version. It uses the settings stored in your account, including what you changed with [`edit-config`](/setup/configuration). Players get the new version on their next reload and keep their saves.
+Log in to the **same Cloudflare account**. The toolkit finds the game from its link and updates the Worker and the in-game plugins (on-screen controls, save sync, the ⚙ menu…) to the new version. It uses the settings stored in your account, including what you changed with [`config edit`](/setup/configuration). Players get the new version on their next reload and keep their saves.
 
 What stays as it was:
 
@@ -53,11 +53,11 @@ The site must already be set up (Access, or public). This command calls the Clou
 ::: code-group
 ```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk import-saves "D:\Games\My Game"
+& $rwk saves import "D:\Games\My Game"
 ```
 ```sh [macOS / Linux]
 rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
-rwk import-saves ~/Games/"My Game"
+rwk saves import ~/Games/"My Game"
 ```
 :::
 
@@ -68,14 +68,14 @@ Cloud saves with the same name (`file1`…) are replaced. For a single save, use
 ## Change the site address
 
 ```powershell
-& $rwk rename "D:\Games\My Game"      # Windows
+& $rwk site rename "D:\Games\My Game" --to new-name      # Windows
 ```
 
 ```sh
-rwk rename ~/Games/"My Game"           # macOS / Linux
+rwk site rename ~/Games/"My Game" --to new-name           # macOS / Linux
 ```
 
-It asks for the new site name, then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.
+Without `--to`, it asks for the new site name. It then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.
 
 1. With [Cloudflare Access](/setup/access), the new address needs it turned on again: the steps open in the browser, as on the first deploy. Emails you allowed on the old site must be allowed again.
 2. Once the new site works, the toolkit deletes the old Worker, after asking: the old link stops working. Answer no to keep it a while; the next deploy asks again.

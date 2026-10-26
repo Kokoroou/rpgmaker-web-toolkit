@@ -1,4 +1,4 @@
-// Update without the game files (update-from-link). Cloudflare cannot hand
+// Update without the game files (upgrade). Cloudflare cannot hand
 // back a Worker's static files, and `wrangler deploy` always replaces all of
 // them, so the CLI patches the Worker's latest version through the Workers
 // API instead: fields left out of a JSON Merge Patch, the static files among

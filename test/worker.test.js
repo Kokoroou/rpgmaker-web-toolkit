@@ -228,7 +228,7 @@ test("save history can be turned off", async () => {
   assert.equal((await call(makeEnv({ RWK_SAVE_HISTORY: "{" }), "/api/history")).status, 200);
 });
 
-test("update-from-link: the Worker serves the newer toolkit over the deployed files", async () => {
+test("upgrade: the Worker serves the newer toolkit over the deployed files", async () => {
   const { appendToolkit } = await import("../worker/toolkit.js");
   const game = 'var $plugins =\n[\n{"name":"GameOne","status":true,"description":"","parameters":{}}\n];\n';
   const old = { version: "0.1.0", gameId: "g", engine: "MV", sync: { enabled: true }, saveTools: false, media: { oggOnly: true, webmOnly: false } };
@@ -280,7 +280,7 @@ test("update-from-link: the Worker serves the newer toolkit over the deployed fi
   assert.equal(res.status, 404, "no plugins.js: left to static assets");
 });
 
-test("update-from-link: toolkit part of plugins.js", async () => {
+test("upgrade: toolkit part of plugins.js", async () => {
   const { appendToolkit, mergeConfig, splitToolkit, toolkitRoutes } = await import("../worker/toolkit.js");
   assert.deepEqual(splitToolkit("var $plugins = [];\n"), { game: "var $plugins = [];\n", config: null }, "not a toolkit build");
   const js = appendToolkit("var $plugins = [];", ["RWK_Core"], { a: 1 }) + "$plugins.push({broken);\n";

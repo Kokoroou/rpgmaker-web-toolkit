@@ -1,7 +1,7 @@
 // Worker entry shared by every deployed game. The CLI generates a tiny
 // `worker.js` per game that calls createWorker() with that game's
 // overflow list (files > 25 MiB that live in R2 instead of static assets),
-// the deployer's per-player settings, and, after `rwk update-from-link`, the
+// the deployer's per-player settings, and, after `rwk upgrade`, the
 // newer toolkit to serve (toolkit.js).
 //
 // playerSettings: { [userHash(email)]: { key: runtime value } }, made by the
@@ -77,7 +77,7 @@ async function handleApi(request, env, path, whoIs) {
 }
 
 // js/plugins.js with the settings from R2 and the player's own settings in
-// RWK_Core's config. res: the toolkit's plugins.js (update-from-link), or
+// RWK_Core's config. res: the toolkit's plugins.js (upgrade), or
 // null for the static one.
 async function servePlugins(request, env, res, settingsOf, whoIs) {
   const { config, players } = await settingsOf(env);

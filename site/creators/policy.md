@@ -33,7 +33,7 @@ A game with no policy file: the player chooses. A public site needs an answer to
 
 ## `features`
 
-Set a feature to `false` to turn it off in every web copy. The player cannot turn it back on with `edit-config`.
+Set a feature to `false` to turn it off in every web copy. The player cannot turn it back on with `config edit`.
 
 | Key | Turns off |
 |---|---|

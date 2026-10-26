@@ -172,7 +172,7 @@ export function saveToolsConfig(value) {
 }
 
 // RWK_Core's config. engine: "MZ" | "MV"; gameConfig: after applyPolicy().
-// Without the game's files (update-from-link) MV's `media` is left out: the
+// Without the game's files (upgrade) MV's `media` is left out: the
 // Worker keeps the deployed build's. Never holds the players' emails.
 export function runtimeConfigOf(engine, gameConfig) {
   gameConfig = withPreset(gameConfig);
@@ -216,7 +216,7 @@ const BUILD_KEYS = ["version", "gameId", "engine", "cache", "media"];
 export const LIVE_KEYS = [...FEATURE_KEYS, "preset", "players", "controls", "sync"];
 
 // The settings file the Worker reads from R2 (worker/settings.js), so
-// edit-config applies without a redeploy: everyone's RWK_Core settings
+// config edit applies without a redeploy: everyone's RWK_Core settings
 // but the build's own keys, and each player's (with Access only).
 // -> { config, players }
 export function liveSettingsOf(engine, cfg, policy) {

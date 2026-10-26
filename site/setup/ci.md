@@ -13,7 +13,7 @@ A game kept in a Git repository can publish itself: each push to `main` updates 
 2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts.
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
-The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`edit-config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
+The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config edit`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
 
 ## GitHub Actions
 
@@ -56,8 +56,8 @@ The action installs Node.js and the toolkit at the tag you pin, then publishes t
 
 | Input | Default | |
 |---|---|---|
-| `game-folder` | `.` | The game folder, from the repository's root. For `update-from-link`, the game's link |
-| `command` | `deploy` | Or `import-saves`, `update-from-link` |
+| `game-folder` | `.` | The game folder, from the repository's root. For `upgrade`, the game's link or site name |
+| `command` | `deploy` | Or `saves import`, `upgrade` |
 | `cloudflare-api-token` | | Required |
 | `cloudflare-account-id` | | When the token reaches several accounts |
 | `node-version` | `22` | |
@@ -84,7 +84,7 @@ publish-game:
   variables:
     RWK_REF: v0.4.0 # a release tag: v0.4.0 or later
   script:
-    - curl -fsSL "https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/$RWK_REF/run.sh" | bash -s -- --json "$CI_PROJECT_DIR/game" > rwk-result.json
+    - curl -fsSL "https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/$RWK_REF/run.sh" | bash -s -- deploy "$CI_PROJECT_DIR/game" --json > rwk-result.json
   artifacts:
     when: always
     paths: [rwk-result.json]
@@ -95,31 +95,33 @@ publish-game:
 Anything with Node.js 22 or newer, `curl` and `tar` runs the same line as GitLab, with `CLOUDFLARE_API_TOKEN` (and maybe `CLOUDFLARE_ACCOUNT_ID`) in the environment:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/v0.4.0/run.sh | bash -s -- --json ./game > rwk-result.json
+curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/v0.4.0/run.sh | bash -s -- deploy ./game --json > rwk-result.json
 ```
 
-From a clone of the toolkit: `node cli/index.js --json ./game` after `npm ci`.
+From a clone of the toolkit: `node cli/index.js deploy ./game --json` after `npm ci`.
 
 ## The result
 
-With `--json`, the log goes to stderr and stdout holds one JSON object:
+The log always goes to stderr. With `--json`, stdout holds one JSON object:
 
 ```json
 {
+  "schema": 1,
   "ok": true,
   "command": "deploy",
   "site": "my-game",
   "url": "https://my-game.alice.workers.dev",
   "locked": false,
   "build": { "files": 1834, "bytes": 412301204, "r2Files": 2, "r2Uploaded": 0 },
+  "next": ["On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen."],
   "warnings": ["3 audio file(s) have no .m4a version: …"]
 }
 ```
 
-A failed run has `"ok": false`, `error` and `exitCode` instead: `1` for a failure (Cloudflare, wrangler, a file), `2` for a question only a person can answer. In GitHub Actions the toolkit also writes `ok`, `site`, `url` and `warnings` as step outputs and the summary, with or without `--json`.
+A failed run has `"ok": false`, `error`, `hint` (what to try, or `null`) and `exitCode` instead: `1` for a failure (Cloudflare, wrangler, a file), `2` for a question only a person can answer, `64` for a wrong command line. `schema` changes only when a field is removed or changes meaning. In GitHub Actions the toolkit also writes `ok`, `site`, `url` and `warnings` as step outputs and the summary, with or without `--json`.
 
 ## Good to know
 
 - Each run uploads only the files that changed, as on your PC; the [free plan limits](/reference/limits) still apply.
 - The game folder in the checkout is never changed. The toolkit never prints the token; keep it in the CI's secrets, never in the repository.
-- Unattended, a deploy does not upload the `save/` folder (`import-saves` does) and never deletes the old Worker after a [`rename`](/setup/updating#change-the-site-address): run those from a terminal.
+- Unattended, a deploy does not upload the `save/` folder (`saves import` does) and never deletes the old Worker after a [`site rename`](/setup/updating#change-the-site-address): run those from a terminal.

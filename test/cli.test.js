@@ -361,7 +361,7 @@ test("rename: a new Worker name, the same storage", () => {
   assert.deepEqual([...takenNames(configs, "mv:A")], ["b"], "a game may go back to its own old name");
 });
 
-test("update-from-link: which game a link names", () => {
+test("upgrade: which game a link names", () => {
   assert.equal(siteNameFromLink("https://my-game.alice.workers.dev/"), "my-game");
   assert.equal(siteNameFromLink(' "my-game.alice.workers.dev/index.html" '), "my-game");
   assert.equal(siteNameFromLink("HTTPS://My-Game.Alice.Workers.Dev"), "my-game");
@@ -376,7 +376,7 @@ test("update-from-link: which game a link names", () => {
   assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
 });
 
-test("update-from-link: the Worker patch keeps the deployed files", async () => {
+test("upgrade: the Worker patch keeps the deployed files", async () => {
   const toolkit = { names: RUNTIME_PLUGINS, plugins: runtimeSources(), config: runtimeConfigOf("MV", { slug: "g", storageId: "first", sync: { enabled: true } }), keepOff: false };
   assert.equal(toolkit.config.gameId, "first");
   assert.equal(toolkit.config.media, undefined, "taken from the deployed build by the Worker");
@@ -427,7 +427,7 @@ test("update-from-link: the Worker patch keeps the deployed files", async () => 
   assert.deepEqual(settings, { abc: { fastForward: false } });
 });
 
-test("update-from-link: Workers API calls and their errors", async (t) => {
+test("upgrade: Workers API calls and their errors", async (t) => {
   const calls = [];
   let replies = [];
   t.mock.method(globalThis, "fetch", async (url, init) => {
@@ -512,7 +512,7 @@ function workersSchema() {
   };
 }
 
-test("update-from-link: noticing Workers API changes in Cloudflare's schema", () => {
+test("upgrade: noticing Workers API changes in Cloudflare's schema", () => {
   assert.deepEqual(checkWorkersApi(workersSchema()), []);
   assert.match(WORKERS_API.checked, /^\d{4}-\d{2}-\d{2}$/);
 
