@@ -115,9 +115,9 @@ function readWranglerVersion() {
   }
 }
 
-export async function doctor({ envTokenIgnored = false } = {}) {
+export async function doctor({ envTokenIgnored = false, run = runChecks } = {}) {
   log.step("Checking this PC");
-  const checks = await runChecks({ envTokenIgnored });
+  const checks = await run({ envTokenIgnored });
   for (const { status, label, detail, hint } of checks) {
     const line = `${label}: ${detail}`;
     if (status === "ok") log.ok(line);

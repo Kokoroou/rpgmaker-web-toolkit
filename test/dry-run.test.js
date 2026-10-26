@@ -7,7 +7,8 @@ import path from "node:path";
 import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { analyze } from "../cli/commands/analyze.js";
-import { runChecks } from "../cli/commands/doctor.js";
+import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "../cli/lib/build-checks.js";
+import { doctor, runChecks } from "../cli/commands/doctor.js";
 import { renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
 import { currentGameFolder } from "../cli/lib/target.js";
 import { warnings } from "../cli/lib/ui.js";
@@ -144,4 +145,77 @@ test("doctor: the browser login is not asked about Access, and an unreachable AP
 test("doctor: a token set but not read is pointed out", async () => {
   const checks = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => null, envTokenIgnored: true });
   assert.equal(by(checks, "CLOUDFLARE_API_TOKEN").status, "warn");
+});
+
+const base = { nodeVersion: "22.1.0", wranglerVersion: "4.1.0" };
+const respond = (status, result, success = status === 200) => async () => Response.json({ success, result, errors: [] }, { status });
+
+test("doctor: a login that cannot be read, or that reaches no account, is a failure", async () => {
+  const broken = await runChecks({ ...base, getToken: async () => { throw new Error("corrupt"); } });
+  assert.match(by(broken, "Cloudflare login").detail, /corrupt/);
+  assert.equal(by(broken, "Cloudflare login").status, "fail");
+
+  const denied = await runChecks({ ...base, getToken: async () => "tok", usingEnvToken: true, fetchImpl: respond(403, []) });
+  assert.match(by(denied, "Account").hint, /Account Settings/);
+  const expired = await runChecks({ ...base, getToken: async () => "tok", fetchImpl: respond(401, []) });
+  assert.match(by(expired, "Account").hint, /log in again/);
+
+  const empty = await runChecks({ ...base, getToken: async () => "tok", fetchImpl: respond(200, []) });
+  assert.equal(by(empty, "Account").status, "fail");
+});
+
+test("doctor: several accounts and none chosen is a warning, and odd answers are 'could not tell'", async () => {
+  const two = [{ id: "a1", name: "One" }, { id: "a2", name: "Two" }];
+  const fetchImpl = async (url) => {
+    if (url.includes("/accounts?")) return Response.json({ success: true, result: two });
+    if (url.endsWith("/user")) return new Response("oops", { status: 500 });
+    if (url.includes("/access/apps")) return Response.json({ success: false, result: null }, { status: 400 });
+    return Response.json({ success: true, result: [] });
+  };
+  const checks = await runChecks({ ...base, getToken: async () => "tok", usingEnvToken: true, accountId: "nope", fetchImpl });
+  const warn = checks.filter((x) => x.label === "Account");
+  assert.equal(warn[0].status, "warn");
+  assert.match(warn[0].detail, /One, Two/);
+  assert.equal(by(checks, "User details").status, "warn");
+  assert.match(by(checks, "User details").detail, /could not tell/);
+  assert.match(by(checks, "Access applications").detail, /no Zero Trust team/);
+});
+
+test("doctor: the result counts the passed checks, and a failed one stops with its hint", async () => {
+  const ok = { status: "ok", label: "Node.js", detail: "22.1.0", hint: null };
+  const warn = { status: "warn", label: "Cloudflare login", detail: "not logged in", hint: "Log in" };
+  const result = await doctor({ run: async () => [ok, warn] });
+  assert.deepEqual(result.facts, [["Checks", "1 of 2 passed"]]);
+
+  const fail = { status: "fail", label: "wrangler", detail: "not installed", hint: "Run npm ci" };
+  await assert.rejects(doctor({ run: async () => [ok, fail] }), (err) => /1 check\(s\) failed: wrangler/.test(err.message) && err.hint === "Run npm ci");
+});
+
+//---------------------------------------------------------------------------
+// The checks deploy and analyze share
+//---------------------------------------------------------------------------
+
+test("build checks: sizes, the file-count error and the mobile media warnings", () => {
+  assert.equal(formatMiB(25 * 1024 ** 2), "25 MiB");
+  assert.equal(formatMiB(1.5 * 1024 ** 2), "1.5 MiB");
+
+  const err = tooManyFiles([{ rel: "img/a.png" }, { rel: "img/b.png" }, { rel: "audio/c.ogg" }], 3, 2);
+  assert.match(err.message, /3 files, over the Workers limit of 2/);
+  assert.ok(err.message.indexOf("img: 2") < err.message.indexOf("audio: 1"), "the biggest folder first");
+
+  warnings.length = 0;
+  warnMobileMedia([{ rel: "audio/bgm/Theme.ogg" }, { rel: "movies/Intro.webm" }, { rel: "audio/bgm/Ok.ogg" }, { rel: "audio/bgm/Ok.m4a" }]);
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /1 audio file\(s\) have no \.m4a/);
+  assert.match(warnings[1], /1 movie\(s\) have no \.mp4/);
+  warnings.length = 0;
+});
+
+test("build checks: the hosting policy is shown, problems warned about, and 'none' stops", () => {
+  warnings.length = 0;
+  assert.equal(showPolicy(null), undefined);
+  showPolicy({ file: "/g/rwk-policy.json", hosting: "shared", problems: ["unknown key"], message: "Hi", contact: "me@x", features: { cheats: false } });
+  assert.match(warnings[0], /unknown key/);
+  assert.throws(() => showPolicy({ file: "/g/rwk-policy.json", hosting: "none", problems: [], features: {} }), /does not allow publishing/);
+  warnings.length = 0;
 });
