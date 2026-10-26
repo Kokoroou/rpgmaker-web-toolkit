@@ -22,10 +22,13 @@ Not finished from those waves and moved down: `storage.persist()` in the save fl
 
 ## Build order
 
-Order of work from here. The first three rows come first because each one changes what the others can rely on: the cache fixes the biggest day-to-day cost for phone players, the config tiers let creators control the features already shipped (and unblock cheats), and discoverability is cheap and independent, so it can be done in a gap between the larger items.
+Order of work from here. P1 and P2 are small fixes for problems the performance run found; after them, the next three rows come first because each one changes what the others can rely on: the cache fixes the biggest day-to-day cost for phone players, the config tiers let creators control the features already shipped (and unblock cheats), and discoverability is cheap and independent, so it can be done in a gap between the larger items.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
+| **Wave 0: performance findings** ([PERFORMANCE.md](PERFORMANCE.md), measured 2026-10-25) ||||
+| P1 | `RWK_Report` keeps decoded audio alive: use `WeakRef` ([details](PERFORMANCE.md#1-rwk_report-giữ-âm-thanh-cao)) | S | A real bug in a released version (`fix(runtime)`): on MV it holds ~90 MB of decoded sound, enough to reload or crash a phone tab. Do this before anything else |
+| P2 | `RWK_MobileControls`: batch the layouts on rotation ([details](PERFORMANCE.md#2-xoay-màn-hình-trung-bình)) | S | About 100 ms stutter per rotation on a slow phone (`fix(controls)`) |
 | **Wave A: next up** ||||
 | 1 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) | M–L | Highest value left: 10–27 MB images are downloaded again on every launch over 4G. Also the base of #5 |
 | 2 | Two-tier config, presets, per-email `/api/config` (FEATURE_IDEAS §5) | M–L | Fast forward, Skip, quick save and always dash already ship with no creator switch except the ones that exist today; cheats must not ship before this |
@@ -131,6 +134,7 @@ Plan:
 
 ## Later
 
+- From [PERFORMANCE.md](PERFORMANCE.md), measure first: bundle the `RWK_*.js` files into one at build time (boot +150–200 ms locally, worth it only if a real 4G / Cloudflare run shows more); time autosave with a large save (`--save <file>` in `tools/perf/`) and, if one save blocks over ~100 ms on a phone, wait for a still moment before autosaving. Re-run `npm run perf` after P1, P2 and any change to a per-frame plugin.
 - Leftovers from the finished waves: "Try to continue" and "Back to a safe map" buttons on the problem report; an optional ffmpeg conversion of `ogg → m4a` / `webm → mp4` into the build folder for browsers that cannot play Ogg (older iOS). Encrypted audio (`.ogg_` / `.rpgmvo`) would need to be decrypted and re-encrypted with the game's own key, so check this against the "no decryption" stance in [IMPACT.md](IMPACT.md) first. Reference: [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 - Optionally rename non-ASCII files in the build folder and rewrite the references (the analyze step only warns today).
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
