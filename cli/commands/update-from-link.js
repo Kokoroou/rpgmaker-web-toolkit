@@ -14,7 +14,11 @@ import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
 import { checkPlayers, connect, isAuthReady, perPlayerSettings } from "./deploy.js";
 
 export async function updateFromLink(link) {
-  if (!link) link = await ask("Paste the game's link (https://<site name>.<username>.workers.dev)");
+  if (!link) {
+    link = await ask("Paste the game's link (https://<site name>.<username>.workers.dev)", "", null, {
+      hint: 'Pass it after the command: rwk --yes update-from-link "<game link>".',
+    });
+  }
   const name = siteNameFromLink(link);
 
   const { account } = await connect(loadSettings());
