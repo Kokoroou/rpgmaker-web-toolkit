@@ -7,15 +7,20 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import LZString from "lz-string";
-import { choose, log } from "./ui.js";
-import { PROFILE, SCOPES, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
+import { NeedsAnswer, choose, isUnattended, log } from "./ui.js";
+import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
 //---------------------------------------------------------------------------
 // Account
 //---------------------------------------------------------------------------
 
+// CI without a login: what to set instead.
+const TOKEN_HINT =
+  "Set CLOUDFLARE_API_TOKEN (and CLOUDFLARE_ACCOUNT_ID) for a non-interactive run, or run the command once in a terminal to log in.";
+
 export async function ensureLogin(settings) {
   let who = await whoami();
+  if (!who.loggedIn && isUnattended()) throw new NeedsAnswer(`Not logged in to Cloudflare. ${TOKEN_HINT}`);
   if (!who.loggedIn) {
     log.info("Not logged in to Cloudflare: a browser window will open to log in…");
     log.info(`The toolkit only asks for: ${SCOPES.join(", ")}.`);
@@ -24,7 +29,8 @@ export async function ensureLogin(settings) {
     if (!who.loggedIn) throw new Error("Cloudflare login failed.");
   }
   const accounts = who.accounts || [];
-  let account = accounts.find((a) => a.id === settings.accountId);
+  const wanted = (isUnattended() && process.env.CLOUDFLARE_ACCOUNT_ID) || settings.accountId;
+  let account = accounts.find((a) => a.id === wanted);
   if (!account) {
     if (!accounts.length) throw new Error("This login has no Cloudflare account.");
     account =
@@ -32,7 +38,9 @@ export async function ensureLogin(settings) {
         ? accounts[0]
         : await choose(
             "Choose the Cloudflare account to host on:",
-            accounts.map((a) => ({ label: `${a.name} (${a.id})`, value: a }))
+            accounts.map((a) => ({ label: `${a.name} (${a.id})`, value: a })),
+            0,
+            { whenUnattended: null, hint: "Set CLOUDFLARE_ACCOUNT_ID to the account's ID." }
           );
     settings.accountId = account.id;
   }
@@ -45,12 +53,15 @@ export async function ensureLogin(settings) {
 async function whoami() {
   const token = await apiToken();
   if (!token) return { loggedIn: false };
-  const [user, accounts] = await Promise.all([cfApi(token, "/user"), cfApi(token, "/accounts?per_page=50")]);
-  return { loggedIn: true, email: user.email, accounts: accounts.map((a) => ({ id: a.id, name: a.name })) };
+  // An API token may lack "User Details: Read": the email is only a default answer.
+  const user = envApiToken() ? cfApi(token, "/user").catch(() => ({})) : cfApi(token, "/user");
+  const [{ email }, accounts] = await Promise.all([user, cfApi(token, "/accounts?per_page=50")]);
+  return { loggedIn: true, email, accounts: accounts.map((a) => ({ id: a.id, name: a.name })) };
 }
 
 // -> the toolkit profile's API token, or null when not logged in
 export async function apiToken() {
+  if (envApiToken()) return envApiToken();
   const res = await wrangler(["auth", "token", "--json", "--profile", PROFILE], { quiet: true });
   try {
     return JSON.parse(res.stdout.slice(res.stdout.indexOf("{"))).token || null;
@@ -82,10 +93,15 @@ export async function ensureBucket(bucket, accountId) {
     if (/enable R2|10042|purchase/i.test(res.output)) {
       log.warn("R2 is not enabled for this account (a one-time step; the free tier has 10 GB).");
       log.info(`Open https://dash.cloudflare.com/${accountId}/r2/overview, enable R2, then come back here.`);
-      const retry = await choose("Is R2 enabled now?", [
-        { label: "Yes, try again", value: true },
-        { label: "Quit", value: false },
-      ]);
+      const retry = await choose(
+        "Is R2 enabled now?",
+        [
+          { label: "Yes, try again", value: true },
+          { label: "Quit", value: false },
+        ],
+        0,
+        { whenUnattended: 1 }
+      );
       if (retry) continue;
     }
     throw new Error(`Could not create R2 bucket "${bucket}":\n${res.output.trim().split("\n").slice(-5).join("\n")}`);

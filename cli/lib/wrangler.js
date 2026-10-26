@@ -20,21 +20,39 @@ export function useAccount(id) {
   accountId = id;
 }
 
+// Non-interactive runs (CI) may log in with an API token instead of the
+// profile: CLOUDFLARE_API_TOKEN, read only when the CLI says so, since an
+// interactive run must not pick up a token the user set for something else.
+let envToken = null;
+export function useEnvToken(env = process.env) {
+  envToken = env.CLOUDFLARE_API_TOKEN || null;
+  return !!envToken;
+}
+export const envApiToken = () => envToken;
+
+// The environment and the extra arguments of one wrangler run.
+export function wranglerRun(args, base = process.env) {
+  const env = { ...base, WRANGLER_SEND_METRICS: "false" };
+  for (const name of ENV_CREDENTIALS) delete env[name];
+  if (envToken) env.CLOUDFLARE_API_TOKEN = envToken;
+  if (accountId) env.CLOUDFLARE_ACCOUNT_ID = accountId;
+  else delete env.CLOUDFLARE_ACCOUNT_ID;
+  // With a token, wrangler reads it from the environment; a profile would win over it.
+  const extra = args[0] === "auth" || envToken ? [] : ["--profile", PROFILE];
+  return { env, args: [...args, ...extra] };
+}
+
 // Runs the toolkit's pinned wrangler (no shell, so paths with spaces are safe).
 // Every command runs under PROFILE; `auth` commands name it themselves.
 // interactive: hand the terminal to wrangler (login prompts).
 // quiet: capture output without echoing it.
 export function wrangler(args, { interactive = false, quiet = false, cwd = TOOLKIT_ROOT } = {}) {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env, WRANGLER_SEND_METRICS: "false" };
-    for (const name of ENV_CREDENTIALS) delete env[name];
-    if (accountId) env.CLOUDFLARE_ACCOUNT_ID = accountId;
-    else delete env.CLOUDFLARE_ACCOUNT_ID;
-    const profileArgs = args[0] === "auth" ? [] : ["--profile", PROFILE];
-    const child = spawn(process.execPath, [WRANGLER_BIN, ...args, ...profileArgs], {
+    const run = wranglerRun(args);
+    const child = spawn(process.execPath, [WRANGLER_BIN, ...run.args], {
       cwd,
       stdio: interactive ? "inherit" : ["inherit", "pipe", "pipe"],
-      env,
+      env: run.env,
     });
     let stdout = "";
     let stderr = "";
