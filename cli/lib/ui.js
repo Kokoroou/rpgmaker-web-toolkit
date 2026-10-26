@@ -1,6 +1,15 @@
 import readline from "node:readline/promises";
 
-const color = (code) => (s) => (process.stdout.isTTY ? `\x1b[${code}m${s}\x1b[0m` : String(s));
+// --json: stdout carries only the run's result (report.js), so the log goes
+// to stderr.
+let jsonOutput = false;
+export const setJsonOutput = (on) => (jsonOutput = !!on);
+export const isJsonOutput = () => jsonOutput;
+const stream = () => (jsonOutput ? process.stderr : process.stdout);
+// A line of the log.
+export const print = (msg = "") => (jsonOutput ? console.error(msg) : console.log(msg));
+
+const color = (code) => (s) => (stream().isTTY ? `\x1b[${code}m${s}\x1b[0m` : String(s));
 export const c = {
   bold: color(1),
   dim: color(2),
@@ -14,12 +23,12 @@ export const c = {
 export const warnings = [];
 
 export const log = {
-  step: (msg) => console.log(`\n${c.cyan("▶")} ${c.bold(msg)}`),
-  info: (msg) => console.log(`  ${msg}`),
-  ok: (msg) => console.log(`  ${c.green("✓")} ${msg}`),
+  step: (msg) => print(`\n${c.cyan("▶")} ${c.bold(msg)}`),
+  info: (msg) => print(`  ${msg}`),
+  ok: (msg) => print(`  ${c.green("✓")} ${msg}`),
   warn: (msg) => {
     warnings.push(msg);
-    console.log(`  ${c.yellow("!")} ${msg}`);
+    print(`  ${c.yellow("!")} ${msg}`);
   },
   error: (msg) => console.error(`${c.red("✗")} ${msg}`),
 };
@@ -41,19 +50,21 @@ export class NeedsAnswer extends Error {
   }
 }
 
-// args (process.argv after the script) -> { unattended, rest }: --yes, -y and
-// --non-interactive are flags, the rest is the command and its folder / link.
+// args (process.argv after the script) -> { unattended, json, rest }: --yes,
+// -y, --non-interactive and --json are flags, the rest is the command and its
+// folder / link. --json implies --yes: a script reads the result.
 export function splitFlags(args, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
   const flags = new Set(["--yes", "-y", "--non-interactive"]);
-  const rest = args.filter((a) => !flags.has(a));
-  return { unattended: rest.length !== args.length || !stdinIsTTY, rest };
+  const json = args.includes("--json");
+  const rest = args.filter((a) => !flags.has(a) && a !== "--json");
+  return { unattended: json || args.some((a) => flags.has(a)) || !stdinIsTTY, json, rest };
 }
 
 function noAnswer(text, hint) {
   throw new NeedsAnswer(`Nobody can answer "${text}" in a non-interactive run.${hint ? ` ${hint}` : ""}`);
 }
 
-const answered = (text, answer) => console.log(`  ${c.yellow("?")} ${text}: ${answer} ${c.dim("(non-interactive)")}`);
+const answered = (text, answer) => print(`  ${c.yellow("?")} ${text}: ${answer} ${c.dim("(non-interactive)")}`);
 
 // A fresh interface per question so child processes (wrangler login) can
 // own stdin in between prompts.
@@ -104,8 +115,8 @@ export async function choose(text, options, defaultIndex = 0, { whenUnattended =
     answered(text, options[whenUnattended].label);
     return options[whenUnattended].value;
   }
-  console.log(`  ${c.yellow("?")} ${text}`);
-  options.forEach((o, i) => console.log(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`));
+  print(`  ${c.yellow("?")} ${text}`);
+  options.forEach((o, i) => print(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`));
   const answer = await ask("Enter a number", String(defaultIndex + 1), (v) => {
     const n = Number(v);
     return Number.isInteger(n) && n >= 1 && n <= options.length ? null : `Enter a number from 1 to ${options.length}`;

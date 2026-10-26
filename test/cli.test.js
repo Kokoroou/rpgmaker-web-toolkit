@@ -588,14 +588,16 @@ test("feature settings: false, true or an object with limits and a lock", () => 
 test("cheats: off unless the deployer turns them on, for everyone or one player", () => {
   assert.equal(cheatsConfig(undefined), false);
   assert.equal(cheatsConfig(false), false);
-  assert.deepEqual(cheatsConfig(true), { party: true, items: true, battle: true });
-  assert.deepEqual(cheatsConfig({ battle: false }), { party: true, items: true, battle: false });
-  assert.equal(cheatsConfig({ party: false, items: false, battle: false }), false, "no group left");
+  const all = { party: true, items: true, battle: true, switches: true, movement: true };
+  assert.deepEqual(cheatsConfig(true), all);
+  assert.deepEqual(cheatsConfig({ battle: false }), { ...all, battle: false });
+  assert.deepEqual(cheatsConfig({ party: false, items: false, battle: false, switches: false }), { party: false, items: false, battle: false, switches: false, movement: true });
+  assert.equal(cheatsConfig({ party: false, items: false, battle: false, switches: false, movement: false }), false, "no group left");
   for (const preset of ["comfortable", "original", "shared"]) assert.equal(runtimeConfigOf("MZ", { slug: "g", preset }).cheats, false, preset);
   assert.ok(RUNTIME_PLUGINS.includes("RWK_Cheats"));
 
   const cfg = { slug: "g", players: { "me@example.com": { cheats: { items: false } } } };
-  assert.deepEqual(playerOverrides("MZ", cfg, null), { [userHash("me@example.com")]: { cheats: { party: true, items: false, battle: true } } });
+  assert.deepEqual(playerOverrides("MZ", cfg, null), { [userHash("me@example.com")]: { cheats: { ...all, items: false } } });
   const policy = parsePolicy({ hosting: "personal", features: { cheats: false } });
   assert.deepEqual(playerOverrides("MZ", cfg, policy), {}, "the creator's policy wins over a player's entry");
   assert.equal(runtimeConfigOf("MZ", applyPolicy({ slug: "g", cheats: true }, policy)).cheats, false);

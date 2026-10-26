@@ -112,13 +112,15 @@ export function saveHistoryConfig(value) {
 
 const bool = (v, fallback) => (typeof v === "boolean" ? v : fallback);
 
-// cheats: false (default) | true | { party, items, battle }
-// -> false | { party, items, battle } (each default true once cheats are on)
+const CHEAT_GROUPS = ["party", "items", "battle", "switches", "movement"];
+
+// cheats: false (default) | true | { party, items, battle, switches, movement }
+// -> false | { party, items, battle, switches, movement } (each default true once cheats are on)
 export function cheatsConfig(value) {
   if (!value) return false;
   const v = typeof value === "object" ? value : {};
-  const out = { party: bool(v.party, true), items: bool(v.items, true), battle: bool(v.battle, true) };
-  return out.party || out.items || out.battle ? out : false;
+  const out = Object.fromEntries(CHEAT_GROUPS.map((group) => [group, bool(v[group], true)]));
+  return CHEAT_GROUPS.some((group) => out[group]) ? out : false;
 }
 const clampInt = (v, min, max, fallback) => {
   const n = Math.round(Number(v));

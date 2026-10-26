@@ -7,10 +7,11 @@ import { NeedsAnswer, ask, choose, confirm, isUnattended, pause, setUnattended, 
 import { PROFILE, envApiToken, useEnvToken, wranglerRun } from "../cli/lib/wrangler.js";
 
 test("non-interactive: --yes, --non-interactive or no terminal on stdin", () => {
-  assert.deepEqual(splitFlags(["--yes", "D:\\Games\\My", "Game"], { stdinIsTTY: true }), { unattended: true, rest: ["D:\\Games\\My", "Game"] });
-  assert.deepEqual(splitFlags(["import-saves", "-y", "g"], { stdinIsTTY: true }), { unattended: true, rest: ["import-saves", "g"] });
+  assert.deepEqual(splitFlags(["--yes", "D:\\Games\\My", "Game"], { stdinIsTTY: true }), { unattended: true, json: false, rest: ["D:\\Games\\My", "Game"] });
+  assert.deepEqual(splitFlags(["import-saves", "-y", "g"], { stdinIsTTY: true }), { unattended: true, json: false, rest: ["import-saves", "g"] });
   assert.equal(splitFlags(["--non-interactive", "g"], { stdinIsTTY: true }).unattended, true);
-  assert.deepEqual(splitFlags(["g"], { stdinIsTTY: true }), { unattended: false, rest: ["g"] });
+  assert.deepEqual(splitFlags(["g"], { stdinIsTTY: true }), { unattended: false, json: false, rest: ["g"] });
+  assert.deepEqual(splitFlags(["--json", "g"], { stdinIsTTY: true }), { unattended: true, json: true, rest: ["g"] }, "--json implies --yes");
   assert.equal(splitFlags(["g"], { stdinIsTTY: false }).unattended, true, "CI: stdin is not a terminal");
 });
 

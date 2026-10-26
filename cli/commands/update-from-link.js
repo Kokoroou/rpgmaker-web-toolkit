@@ -9,9 +9,9 @@ import { findGameBySite, siteNameFromLink, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
-import { ask, c, confirm, log } from "../lib/ui.js";
+import { ask, c, confirm, log, print } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
-import { checkPlayers, connect, isAuthReady, perPlayerSettings } from "./deploy.js";
+import { checkPlayers, connect, isAuthReady, perPlayerSettings, siteOf } from "./deploy.js";
 
 export async function updateFromLink(link) {
   if (!link) {
@@ -45,7 +45,7 @@ export async function updateFromLink(link) {
   log.info("  2. The game files already uploaded stay as they are: nothing is downloaded or uploaded from this PC.");
   log.info("  3. Saves and older saves are not touched.");
   log.info(c.dim("  To change the game itself (a patch, a translation), deploy from the game folder."));
-  if (!(await confirm(`Update "${cfg.slug}"?`, true))) return;
+  if (!(await confirm(`Update "${cfg.slug}"?`, true))) return siteOf(cfg);
 
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
   const gameConfig = applyPolicy(cfg, policy);
@@ -91,6 +91,7 @@ export async function updateFromLink(link) {
     await checkPlayers(bucket, cfg, policy);
   }
 
-  console.log(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
+  print(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
   log.info("Players get the new version on their next reload. In game: ⚙ → Report a problem shows the toolkit version.");
+  return siteOf(cfg);
 }
