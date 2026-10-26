@@ -19,7 +19,8 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_SaveTools       save export / import / delete (desktop save file format)
              RWK_SaveHistory     older saves from the cloud: list and restore
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
-             RWK_Cheats          cheats, off by default: party, gold and items, win a battle (god mode: Game_Actor.setHp)
+             RWK_Cheats          cheats, off by default: party, gold and items, win a battle, switches and variables, movement
+                                 (god mode: Game_Actor.setHp; walk through walls: Game_Player.isDebugThrough)
              RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
              index.js            static files + large files from R2 (with Range) + /api, each player's settings

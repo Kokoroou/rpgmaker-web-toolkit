@@ -42,7 +42,7 @@ On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use ano
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
 | Turn off the autosave, or change how often | `"autoSave": false`, `"autoSave": { "minutes": 10 }` |
 | Keep fewer older saves, or none (saves R2 space) | `"saveHistory": { "keep": 5, "days": 14 }`, `"saveHistory": false` |
-| Turn on [cheats](/play/cheats), or only gold and items | `"cheats": true`, `"cheats": { "party": false, "battle": false }` |
+| Turn on [cheats](/play/cheats), or only gold and items | `"cheats": true`, `"cheats": { "party": false, "battle": false, "switches": false, "movement": false }` |
 | Cheats for you only | `"players": { "me@example.com": { "cheats": true } }` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
@@ -76,7 +76,7 @@ Each feature key takes one of three kinds of value:
 | `messageMode` | `auto`, `skip` (default `true`), `mode` (`"normal"` or `"auto"` to start in), `autoSpeed` (`"slow"`, `"normal"`, `"fast"`), `lock` (players keep `mode` and `autoSpeed`) |
 | `alwaysDash` | `on` (`true` / `false` for players who never chose), `lock` (stays at `on`; Options → Always Dash cannot change it) |
 | `saveTools` | `export`, `import`, `delete` (default `true` each) |
-| `cheats` | `party`, `items`, `battle` (default `true` each). Off when the key is missing, whatever the preset |
+| `cheats` | `party`, `items`, `battle`, `switches`, `movement` (default `true` each). Off when the key is missing, whatever the preset |
 | `quickSave`, `autoSave`, `backlog`, `saveHistory` | See [Config keys](/reference/config) |
 
 The game creator's [policy](/creators/policy) still wins: a feature it turns off stays off, whatever the config says.

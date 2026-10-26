@@ -159,6 +159,8 @@ test("save tools: only the allowed actions", () => {
   assert.equal(load("RWK_SaveTools", { saveTools: false }).tools.length, 0);
 });
 
+const ALL_CHEATS = { party: true, items: true, battle: true, switches: true, movement: true };
+
 function cheatGlobals() {
   class Game_Actor {
     constructor(name, hp, level) {
@@ -228,6 +230,47 @@ function cheatGlobals() {
     },
     $gameTroop: { aliveMembers: () => enemies.filter((e) => !e.states.includes(1)) },
     BattleManager: { _phase: "input" },
+    ...movementGlobals(),
+  };
+}
+
+// Switches, variables, maps and the player, for the switches and movement groups.
+function movementGlobals() {
+  class Scene_Map {}
+  class Game_Player {
+    isDebugThrough() {
+      return false;
+    }
+  }
+  const switches = new Map();
+  const variables = new Map([[3, "text"]]);
+  const transfers = [];
+  const fetched = [];
+  const state = { eventRunning: false };
+  const $gamePlayer = Object.assign(new Game_Player(), {
+    x: 4,
+    y: 7,
+    direction: () => 2,
+    isTransferring: () => false,
+    reserveTransfer: (...args) => transfers.push(args),
+  });
+  return {
+    Scene_Map,
+    Game_Player,
+    transfers,
+    fetched,
+    state,
+    SceneManager: { updateScene() {}, _scene: new Scene_Map() },
+    $dataSystem: { switches: ["", "Door open", "", "Boss beaten"], variables: ["", "Gold found", "", "Name", "Steps"] },
+    $gameSwitches: { value: (id) => !!switches.get(id), setValue: (id, on) => switches.set(id, on) },
+    $gameVariables: { value: (id) => variables.get(id) ?? 0, setValue: (id, v) => variables.set(id, v) },
+    $dataMapInfos: [null, { id: 1, name: "Town" }, null, { id: 3, name: "Dungeon" }],
+    $gameMap: { mapId: () => 1, isEventRunning: () => state.eventRunning },
+    $gamePlayer,
+    fetch: async (url) => {
+      fetched.push(url);
+      return url.endsWith("Map003.json") ? { ok: true, json: async () => ({ width: 20, height: 15 }) } : { ok: false, status: 404 };
+    },
   };
 }
 
@@ -237,6 +280,8 @@ test("cheats: off unless the deployer turns them on; the groups it allows", () =
   assert.deepEqual(on.labels(), ["Cheats"]);
   assert.equal(on.tools[0].group, "cheat");
   assert.equal(value(on.tools[0].detail), "party, gold and items");
+  const all = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals: cheatGlobals() });
+  assert.equal(value(all.tools[0].detail), "party, gold and items, battle, switches and variables, movement");
 });
 
 test("cheats: god mode, heal, level, gold, items, win a battle", () => {
@@ -280,4 +325,66 @@ test("cheats: god mode is per game and only with the party group", () => {
   load("RWK_Cheats", { cheats: { party: false, items: true, battle: true } }, { globals, stored });
   globals.actors[0].setHp(0);
   assert.equal(globals.actors[0].hp, 0, "a god mode left on before the deployer took the group away does nothing");
+});
+
+test("cheats: switches and variables by name or number", () => {
+  const globals = cheatGlobals();
+  const cheats = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals }).context.window.RWK.cheats;
+  const ids = (list) => [...list].map((e) => e.id);
+  assert.deepEqual(ids(cheats.findSwitches("")), [1, 3], "switches without a name are left out");
+  assert.deepEqual(ids(cheats.findSwitches("boss")), [3]);
+  assert.deepEqual(ids(cheats.findSwitches("2")), [2], "a number finds that switch, named or not");
+  assert.deepEqual(ids(cheats.findSwitches("0002")), [2]);
+  assert.deepEqual(ids(cheats.findVariables("")), [1, 3, 4]);
+
+  assert.equal(cheats.toggleSwitch(1), true);
+  assert.equal(globals.$gameSwitches.value(1), true);
+  assert.equal(cheats.toggleSwitch(1), false);
+  assert.equal(cheats.setVariable(4, "12.6"), true);
+  assert.equal(globals.$gameVariables.value(4), 13);
+  assert.equal(cheats.setVariable(4, "abc"), false, "not a number: left as it was");
+  assert.equal(globals.$gameVariables.value(4), 13);
+});
+
+test("cheats: walk through walls, per game and only with the movement group", () => {
+  const globals = cheatGlobals();
+  const { context, stored } = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals });
+  const cheats = context.window.RWK.cheats;
+  const player = globals.$gamePlayer;
+  assert.equal(player.isDebugThrough(), false);
+  cheats.setThrough(true);
+  assert.equal(player.isDebugThrough(), true);
+  assert.equal(stored["rwk.cheats.through.g"], true, "remembered in this browser");
+  assert.equal(value(load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals: cheatGlobals(), stored }).tools[0].detail), "Walk through walls: on");
+
+  const without = cheatGlobals();
+  load("RWK_Cheats", { cheats: { ...ALL_CHEATS, movement: false } }, { globals: without, stored: { "rwk.cheats.through.g": true } });
+  assert.equal(without.$gamePlayer.isDebugThrough(), false, "not patched without the group");
+});
+
+test("cheats: teleport to a map or a remembered place, only on the map", async () => {
+  const globals = cheatGlobals();
+  const { context, stored } = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals });
+  const cheats = context.window.RWK.cheats;
+  assert.deepEqual([...cheats.findMaps("")].map((m) => m.name), ["Town", "Dungeon"]);
+  assert.deepEqual([...cheats.findMaps("3")].map((m) => m.name), ["Dungeon"]);
+
+  assert.deepEqual({ ...(await cheats.teleport(3)) }, { ok: true, message: "Dungeon (10, 7)" }, "the middle of the map");
+  assert.equal(globals.fetched[0], "data/Map003.json");
+  assert.deepEqual({ ...(await cheats.teleport(3, 50, -2)) }, { ok: true, message: "Dungeon (19, 0)" }, "kept inside the map");
+  assert.deepEqual([...globals.transfers[1]], [3, 19, 0, 2, 0]);
+  assert.match((await cheats.teleport(1)).message, /Could not read Town \(HTTP 404\)/);
+
+  globals.state.eventRunning = true;
+  assert.deepEqual({ ...(await cheats.teleport(3)) }, { ok: false, message: "Not while an event is running." });
+  globals.state.eventRunning = false;
+  globals.SceneManager._scene = {};
+  assert.match((await cheats.teleport(3)).message, /Only on the map/);
+  assert.equal(globals.transfers.length, 2);
+
+  assert.equal(cheats.rememberPlace(), "Remembered: Town (4, 7)");
+  cheats.rememberPlace();
+  assert.deepEqual([...stored["rwk.cheats.places.g"]].map((p) => ({ ...p })), [{ mapId: 1, x: 4, y: 7 }], "the same place once");
+  cheats.forgetPlace(0);
+  assert.equal(cheats.places().length, 0);
 });
