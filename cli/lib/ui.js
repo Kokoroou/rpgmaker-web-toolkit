@@ -110,50 +110,82 @@ async function question(text) {
   }
 }
 
+// Terminal rows a printed line takes, wrapping included.
+const rowsOf = (line, columns) => Math.max(1, Math.ceil([...String(line).replace(/\x1b\[[0-9;]*m/g, "")].length / columns));
+
+// Erases the last `lines` printed lines (a question and its answer) so a menu
+// shown in a loop does not pile up. Only on a real terminal; elsewhere (a pipe,
+// a log file) the lines stay, as they are the record.
+export function eraseLines(lines) {
+  if (!process.stderr.isTTY || process.env.TERM === "dumb" || !(lines > 0)) return;
+  process.stderr.write("\x1b[1A\x1b[2K".repeat(lines) + "\r");
+}
+
 // hint: what to do instead, when an unattended run cannot take the default.
-export async function ask(text, defaultValue = "", validate, { hint } = {}) {
+// clear: erase the question and its answer once answered.
+export async function ask(text, defaultValue = "", validate, { hint, clear = false } = {}) {
   if (unattended) {
     if (defaultValue === "" || (validate && validate(defaultValue))) noAnswer(text, hint);
     answered(text, defaultValue);
     return defaultValue;
   }
+  const columns = process.stderr.columns || 80;
+  let rows = 0;
   for (;;) {
     const hint = defaultValue !== "" ? c.dim(` [${defaultValue}]`) : "";
-    const answer = (await question(`  ${c.yellow(sym.ask)} ${text}${hint}: `)).trim();
+    const prompt = `  ${c.yellow(sym.ask)} ${text}${hint}: `;
+    const answer = (await question(prompt)).trim();
+    rows += rowsOf(prompt + answer, columns);
     const value = answer === "" ? defaultValue : answer;
     const problem = validate ? validate(value) : null;
-    if (!problem) return value;
+    if (!problem) {
+      if (clear) eraseLines(rows);
+      return value;
+    }
     log.warn(problem);
+    rows += rowsOf(`  ! ${problem}`, columns);
   }
 }
 
 // whenUnattended: the answer with no one there (default: defaultYes).
-export async function confirm(text, defaultYes = true, { whenUnattended = defaultYes } = {}) {
+export async function confirm(text, defaultYes = true, { whenUnattended = defaultYes, clear = false } = {}) {
   if (unattended) {
     answered(text, whenUnattended ? "yes" : "no");
     return whenUnattended;
   }
-  const answer = (await question(`  ${c.yellow(sym.ask)} ${text} ${c.dim(defaultYes ? "[Y/n]" : "[y/N]")}: `))
-    .trim()
-    .toLowerCase();
+  const prompt = `  ${c.yellow(sym.ask)} ${text} ${c.dim(defaultYes ? "[Y/n]" : "[y/N]")}: `;
+  const raw = await question(prompt);
+  if (clear) eraseLines(rowsOf(prompt + raw, process.stderr.columns || 80));
+  const answer = raw.trim().toLowerCase();
   if (answer === "") return defaultYes;
   return answer === "y" || answer === "yes";
 }
 
 // options: [{ label, value }] -> value
 // whenUnattended: the option's index with no one there (default: defaultIndex), null: stop the run.
-export async function choose(text, options, defaultIndex = 0, { whenUnattended = defaultIndex, hint } = {}) {
+// clear: erase the menu once a choice is made.
+export async function choose(text, options, defaultIndex = 0, { whenUnattended = defaultIndex, hint, clear = false } = {}) {
   if (unattended) {
     if (whenUnattended === null) noAnswer(text, hint);
     answered(text, options[whenUnattended].label);
     return options[whenUnattended].value;
   }
-  print(`  ${c.yellow(sym.ask)} ${text}`);
-  options.forEach((o, i) => print(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`));
-  const answer = await ask("Enter a number", String(defaultIndex + 1), (v) => {
-    const n = Number(v);
-    return Number.isInteger(n) && n >= 1 && n <= options.length ? null : `Enter a number from 1 to ${options.length}`;
-  });
+  const columns = process.stderr.columns || 80;
+  const lines = [
+    `  ${c.yellow(sym.ask)} ${text}`,
+    ...options.map((o, i) => `     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`),
+  ];
+  lines.forEach((l) => print(l));
+  const answer = await ask(
+    "Enter a number",
+    String(defaultIndex + 1),
+    (v) => {
+      const n = Number(v);
+      return Number.isInteger(n) && n >= 1 && n <= options.length ? null : `Enter a number from 1 to ${options.length}`;
+    },
+    { clear }
+  );
+  if (clear) eraseLines(lines.reduce((n, l) => n + rowsOf(l, columns), 0));
   return options[Number(answer) - 1].value;
 }
 
