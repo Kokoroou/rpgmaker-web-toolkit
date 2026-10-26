@@ -12,7 +12,8 @@ import { readPolicy } from "../lib/policy.js";
 import { keysNeedingDeploy, liveSettingsOf } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, isUnattended, log } from "../lib/ui.js";
-import { addNewKeys, connect, editInEditor, siteOf } from "./deploy.js";
+import { addNewKeys, editInEditor } from "./deploy.js";
+import { connect, siteOf } from "../lib/session.js";
 
 export async function editConfig(input) {
   const usage = 'rwk config <game folder | game link | site name>';

@@ -3,13 +3,12 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, createBuildDir, loadSettings, saveSettings } from "../lib/config.js";
+import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, createBuildDir, loadSettings } from "../lib/config.js";
 import {
   apiToken,
   deleteWorker,
   deployWorker,
   ensureBucket,
-  ensureLogin,
   importSaves,
   listSaveFiles,
   loadGameConfigs,
@@ -28,6 +27,7 @@ import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
+import { connect, siteOf } from "../lib/session.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
@@ -200,17 +200,6 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
       "On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.",
     ],
   };
-}
-
-// The run's result (cli/lib/report.js) for a command that stops before the build.
-export const siteOf = (cfg) => ({ site: cfg.slug, url: cfg.url || null });
-
-export async function connect(settings) {
-  log.step("Cloudflare");
-  const session = await ensureLogin(settings);
-  saveSettings({ accountId: settings.accountId });
-  log.ok(`Account: ${session.account.name}`);
-  return session;
 }
 
 // The deployer's per-player settings for the Worker, with a word on what they do.

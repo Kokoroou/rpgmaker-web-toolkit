@@ -2,6 +2,8 @@
 import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args.js";
 import { deploy } from "./commands/deploy.js";
 import { editConfig } from "./commands/config.js";
+import { exportSaves } from "./commands/saves-export.js";
+import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
 import { TOOLKIT_VERSION } from "./lib/stage.js";
@@ -59,6 +61,18 @@ async function main() {
       return editConfig(target);
     case "rename":
       return deploy(target, { rename: true, to: flags.to });
+    case "status":
+      return status(target);
+    case "saves export":
+      return exportSaves(target, { email: flags.email, out: flags.out });
+    case "logs":
+      return logs(target);
+    case "open":
+      return open(target);
+    case "list":
+      return list();
+    case "delete":
+      return deleteSite(target);
     default:
       throw new UsageError(`Unknown command "${name}".`, { hint: `Commands: ${COMMANDS.map((s) => s.name).join(", ")}` });
   }

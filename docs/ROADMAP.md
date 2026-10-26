@@ -33,18 +33,18 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | `config` asks questions (a wizard in `cli/lib/config-wizard.js`) instead of opening a JSON file | next |
 | Fixes: the missing `print` import that failed every deploy at its end, and credentials sent when fetching the web manifest | next |
 | CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
+| CLI from a link (#16b): `status`, `saves export` (via the R2 API: `cli/lib/r2-api.js`), `logs`, `open`, `list` and `delete` take a link or site name, no folder needed | next |
 | Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is the CLI from a link and from a folder, the two rows share the parser, so expect a merge on `cli/lib/args.js` between #16 and #17. #9 (Access through the API), #10, #7 and #2b shipped.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is down to #17, the CLI from the game folder. #16 shipped, apart from `rename` without the folder (see Details); #9, #10, #7 and #2b shipped too.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
 | **Wave A: next up** ||||
-| 16 | [CLI: from the deployed site's link](#cli-commands-from-a-folder-and-from-a-link): `status`, `saves export`, `logs`, `rename` and `site delete` without the folder | M | Needs #16a (shipped): the target already accepts a link or a site name, and `config` works that way today |
 | 17 | [CLI: from the game folder, without Cloudflare](#cli-commands-from-a-folder-and-from-a-link): `analyze` / `deploy --dry-run`, `doctor`, the current folder as the default target | S | Same parser; the analysis already runs before the first Cloudflare call. `deploy --dry-run` is also the "build only" run the CI page still lacks for pull requests |
 | **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
@@ -70,10 +70,12 @@ The toolkit works two ways, and the command line is shaped for both: `rwk <comma
 | `saves import` | yes (reads `save/`) | no |
 | `config` | yes | yes |
 | `rename` | yes | not yet |
+| `status`, `saves export`, `logs`, `open`, `delete` | no | yes |
+| `list` | no target: every site in the account | |
 
 Not built yet, in the order they would pay off:
 
-- **From a link or name** (#16): `status` (is the site up, is Access on, which toolkit version, how many emails have saves); `saves export` (download the cloud saves to a folder, the counterpart of `saves import`); `logs` (Worker logs); `rename` and `site delete` without the folder (rename needs the Workers API to create a Worker with the existing static files, as `upgrade` already patches one); `open` (the link in the browser); `upgrade` with a folder target, to take the site name from the game's config; `list` (every site in the account).
+- **From a link or name** (#16b, shipped): `status`, `saves export`, `logs`, `open`, `list`, `delete`. Left: `rename` without the folder (needs the Workers API to create a Worker with the existing static files, as `upgrade` already patches one); `upgrade` with a folder target, to take the site name from the game's config; the site's toolkit version in `status` (nothing records it yet: a `toolkitVersion` in the stored config at each deploy / upgrade would do); `delete --purge` for the saves and large files in R2.
 - **From a folder** (#17): `analyze` / `deploy --dry-run` (the warnings and the file count, without logging in to Cloudflare or touching anything); `doctor` (Node.js version, login, token permissions, wrangler); the current directory as the default target when it holds a game; a `rwk.json` next to `index.html` with the site name and exclude patterns, so a repository carries them; `config get` / `config set <key> <value>` without an editor, for scripts.
 - **Everywhere**: `--account` to pick one of several Cloudflare accounts; `--dry-run` for `rename` and `saves import`; progress for uploads (one line that updates in place on a terminal, plain lines in CI); GitHub Actions annotations (`::warning::`) for the run's warnings; `[n/N]` on the steps once their number is known; shell completion; and a `--yes` flag per first-deploy question other than Access (the site name).
 - **Deploy from a download link** (to decide before building): a game that is not on this PC but at a URL (a zip), with the questions of who may redistribute it that [the hosting policy](../site/creators/policy.md) already raises.
