@@ -10,27 +10,32 @@ import { TOOLKIT_VERSION } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, log } from "../lib/ui.js";
 import { wrangler } from "../lib/wrangler.js";
-import { connect, siteOf } from "./deploy.js";
+import { connect, siteOf } from "../lib/session.js";
+
+// What the commands call: the Cloudflare and terminal steps, replaceable in tests.
+const realDeps = { connect, loadSettings, loadGameConfigs, saveGameConfigs, deleteWorker, ask, spawn, wrangler };
+const depsOf = (deps) => ({ ...realDeps, ...deps });
 
 // The game's stored config for a link or name target. Needs the Cloudflare login (connect() first).
-export async function findSite(target) {
-  return (await findEntry(target))[1];
+export async function findSite(target, deps) {
+  return (await findEntry(target, deps))[1];
 }
 
 // -> [fingerprint, cfg]
-async function findEntry(target) {
+async function findEntry(target, deps) {
   log.step("Finding the game");
-  const entry = findGameBySite(await loadGameConfigs(DEFAULT_BUCKET), siteNameOf(target));
+  const entry = findGameBySite(await depsOf(deps).loadGameConfigs(DEFAULT_BUCKET), siteNameOf(target));
   log.ok(`${entry[1].engine} · ${entry[1].title}`);
   return entry;
 }
 
-async function targetOf(input, usage) {
+async function targetOf(input, usage, deps) {
+  const d = depsOf(deps);
   if (!input) {
-    input = await ask("Paste the game's link or its site name", "", null, { hint: `Pass it after the command: ${usage}` });
+    input = await d.ask("Paste the game's link or its site name", "", null, { hint: `Pass it after the command: ${usage}` });
   }
   const target = expectTarget(input, ["link", "name"], usage);
-  await connect(loadSettings());
+  await d.connect(d.loadSettings());
   return target;
 }
 
@@ -62,17 +67,18 @@ export async function describeSite(cfg, { probe = probeAccess, players = loadPla
   return { facts, up };
 }
 
-export async function status(input) {
-  const target = await targetOf(input, "rwk status <game link | site name>");
-  const cfg = await findSite(target);
+export async function status(input, deps = {}) {
+  const target = await targetOf(input, "rwk status <game link | site name>", deps);
+  const cfg = await findSite(target, deps);
   log.step("Checking the site");
-  const { facts, up } = await describeSite(cfg);
+  const { facts, up } = await describeSite(cfg, deps);
   return { ...siteOf(cfg), engine: cfg.engine, title: cfg.title, up, facts, next: [] };
 }
 
-export async function list() {
-  await connect(loadSettings());
-  const configs = await loadGameConfigs(DEFAULT_BUCKET);
+export async function list(deps = {}) {
+  const d = depsOf(deps);
+  await d.connect(d.loadSettings());
+  const configs = await d.loadGameConfigs(DEFAULT_BUCKET);
   const games = Object.values(configs).sort((a, b) => a.slug.localeCompare(b.slug));
   log.step("Games in this account");
   for (const cfg of games) log.info(`${cfg.slug.padEnd(24)} ${cfg.engine}  ${cfg.url || c.dim("(no link recorded)")}`);
@@ -84,53 +90,54 @@ export async function list() {
   };
 }
 
-export async function open(input) {
-  const target = await targetOf(input, "rwk open <game link | site name>");
-  const cfg = await findSite(target);
+export async function open(input, deps = {}) {
+  const target = await targetOf(input, "rwk open <game link | site name>", deps);
+  const cfg = await findSite(target, deps);
   if (!cfg.url) throw new CliError(`No link is recorded for "${cfg.slug}".`, { hint: "Deploy it again from the game folder." });
   const { cmd, args } = openUrlCommand(cfg.url);
   // A missing opener (xdg-open on a bare server) reports through 'error', not by throwing.
-  spawn(cmd, args, { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
+  depsOf(deps).spawn(cmd, args, { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
   log.ok(`Opening ${cfg.url}`);
   return { ...siteOf(cfg), next: [] };
 }
 
 // Streams the Worker's logs (wrangler tail) until Ctrl+C.
-export async function logs(input) {
+export async function logs(input, deps = {}) {
   if (!process.stdin.isTTY) throw new NeedsAnswer("logs streams until you stop it with Ctrl+C.", "Run it in a terminal.");
-  const target = await targetOf(input, "rwk logs <game link | site name>");
-  const cfg = await findSite(target);
+  const target = await targetOf(input, "rwk logs <game link | site name>", deps);
+  const cfg = await findSite(target, deps);
   log.info(c.dim("Showing requests and errors as they happen. Press Ctrl+C to stop."));
   // Ctrl+C ends wrangler, not the toolkit with "Cancelled".
   process.removeAllListeners("SIGINT");
   process.on("SIGINT", () => {});
-  const res = await wrangler(["tail", cfg.slug, "--format", "pretty"], { interactive: true });
+  const res = await depsOf(deps).wrangler(["tail", cfg.slug, "--format", "pretty"], { interactive: true });
   if (res.code && res.code !== 130) throw new CliError(`wrangler tail stopped with exit code ${res.code}.`);
   return null;
 }
 
 // Deletes the Worker and forgets the game's config. Saves and large files stay in R2.
-export async function deleteSite(input) {
-  const target = await targetOf(input, "rwk delete <game link | site name>");
-  const [fingerprint, cfg] = await findEntry(target);
+export async function deleteSite(input, deps = {}) {
+  const d = depsOf(deps);
+  const target = await targetOf(input, "rwk delete <game link | site name>", deps);
+  const [fingerprint, cfg] = await findEntry(target, deps);
 
   log.warn(`This deletes the Worker "${cfg.slug}": ${cfg.url || "its link"} stops working for everyone.`);
   log.info("The saves, the save history and the large files stay in R2, so the game can be published again.");
   // No default: a run without a person stops here with exit code 2.
-  await ask(`Type the site name (${cfg.slug}) to delete it`, "", (v) => (v === cfg.slug ? null : `That is not "${cfg.slug}".`), {
+  await d.ask(`Type the site name (${cfg.slug}) to delete it`, "", (v) => (v === cfg.slug ? null : `That is not "${cfg.slug}".`), {
     hint: "Deleting needs a person: run it in a terminal.",
   });
 
   log.step("Deleting the Worker");
-  if (!(await deleteWorker(cfg.slug))) {
+  if (!(await d.deleteWorker(cfg.slug))) {
     throw new CliError(`Could not delete the Worker "${cfg.slug}".`, { hint: "Delete it in the Cloudflare dashboard: Workers & Pages → the game → Settings → Delete." });
   }
   for (const name of cfg.retiredWorkers || []) {
-    if (!(await deleteWorker(name))) log.warn(`The old Worker "${name}" could not be deleted: remove it in the dashboard.`);
+    if (!(await d.deleteWorker(name))) log.warn(`The old Worker "${name}" could not be deleted: remove it in the dashboard.`);
   }
-  const configs = await loadGameConfigs(DEFAULT_BUCKET);
+  const configs = await d.loadGameConfigs(DEFAULT_BUCKET);
   delete configs[fingerprint];
-  await saveGameConfigs(DEFAULT_BUCKET, configs);
+  await d.saveGameConfigs(DEFAULT_BUCKET, configs);
   log.ok(`Worker "${cfg.slug}" deleted`);
   return {
     ...siteOf(cfg),

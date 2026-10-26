@@ -12,7 +12,8 @@ import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runt
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, ask, c, confirm, log } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
-import { checkPlayers, connect, isAuthReady, perPlayerSettings, siteOf } from "./deploy.js";
+import { checkPlayers, isAuthReady, perPlayerSettings } from "./deploy.js";
+import { connect, siteOf } from "../lib/session.js";
 
 export async function upgrade(input) {
   const usage = "rwk upgrade <game link | site name>";

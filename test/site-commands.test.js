@@ -1,10 +1,14 @@
 // Commands that work from a deployed site's link or name: status, saves export, logs, open, list, delete.
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
-import { saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
-import { describeSite } from "../cli/commands/site.js";
+import { exportSaves, saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
+import { deleteSite, describeSite, list, logs, open, status } from "../cli/commands/site.js";
+import { userHash as userHashOf } from "../cli/lib/cloudflare.js";
 import { getObject, listObjects } from "../cli/lib/r2-api.js";
 import { renderSummary, runResult } from "../cli/lib/report.js";
 
@@ -82,4 +86,104 @@ test("report: facts become rows of the closing summary", () => {
   const out = renderSummary(result);
   assert.match(out, /my-game: status/);
   assert.match(out, /Players\s+2 email\(s\)/);
+});
+
+// The commands with the Cloudflare and terminal steps replaced.
+const CFG = { title: "Game", engine: "MZ", slug: "my-game", url: "https://my-game.a.workers.dev", auth: { mode: "access" }, sync: { enabled: true } };
+const quiet = (t) => {
+  t.mock.method(console, "log", () => {});
+  t.mock.method(process.stderr, "write", () => true);
+};
+const baseDeps = (configs = { fp1: { ...CFG } }) => ({
+  connect: async () => ({ email: "me@x.y", account: { id: "acc" } }),
+  loadSettings: () => ({}),
+  loadGameConfigs: async () => structuredClone(configs),
+  ask: async () => "",
+});
+
+test("status, list and open: work from a name, with no folder", async (t) => {
+  quiet(t);
+  const deps = { ...baseDeps(), probe: async () => ({ protected: true }), players: async () => ({ h: 1 }) };
+  const result = await status("my-game", deps);
+  assert.deepEqual([result.title, result.up], ["Game", true]);
+  assert.ok(result.facts.some(([k]) => k === "Players"));
+
+  const listed = await list(deps);
+  assert.deepEqual(listed.sites.map((s) => s.site), ["my-game"]);
+  assert.equal((await list({ ...deps, loadGameConfigs: async () => ({}) })).sites.length, 0);
+
+  const spawned = [];
+  const child = { on: () => child, unref: () => {} };
+  await open("my-game", { ...deps, spawn: (cmd, args) => (spawned.push([cmd, args]), child) });
+  assert.equal(spawned.length, 1);
+  assert.ok(spawned[0][1].some((a) => a.includes("my-game.a.workers.dev")) || spawned[0][0].includes("my-game"));
+
+  const noLink = { ...deps, loadGameConfigs: async () => ({ fp1: { ...CFG, url: undefined } }) };
+  await assert.rejects(open("my-game", noLink), /No link is recorded/);
+  await assert.rejects(status("./some/folder", deps), { exitCode: 64 });
+  await assert.rejects(status("other-game", deps), /No game in this Cloudflare account/);
+  assert.equal((await status("", { ...deps, ask: async () => "my-game" })).title, "Game");
+});
+
+test("delete: needs the site name typed, then removes the Worker and the config", async (t) => {
+  quiet(t);
+  const deleted = [];
+  let saved = null;
+  const configs = { fp1: { ...CFG, retiredWorkers: ["old-name"] }, fp2: { ...CFG, slug: "other" } };
+  const deps = {
+    ...baseDeps(configs),
+    deleteWorker: async (name) => (deleted.push(name), name !== "old-name"),
+    saveGameConfigs: async (bucket, value) => {
+      saved = value;
+    },
+  };
+  const result = await deleteSite("my-game", deps);
+  assert.deepEqual(deleted, ["my-game", "old-name"]);
+  assert.deepEqual(Object.keys(saved), ["fp2"]);
+  assert.equal(result.url, null);
+
+  deleted.length = 0;
+  await assert.rejects(deleteSite("my-game", { ...deps, deleteWorker: async () => false }), /Could not delete the Worker/);
+});
+
+test("logs: needs a terminal", async (t) => {
+  quiet(t);
+  const tty = process.stdin.isTTY;
+  t.after(() => {
+    process.stdin.isTTY = tty;
+  });
+  process.stdin.isTTY = false;
+  await assert.rejects(logs("my-game", baseDeps()), /Ctrl\+C/);
+});
+
+test("saves export: lists, downloads and writes the player's saves", async (t) => {
+  quiet(t);
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-export-"));
+  t.after(() => fs.rmSync(out, { recursive: true, force: true }));
+  const listed = [];
+  const deps = {
+    connect: async () => ({ email: "me@x.y", account: { id: "acc" } }),
+    loadSettings: () => ({}),
+    findSite: async () => ({ ...CFG }),
+    ask: async () => "Player@X.y",
+    apiToken: async () => "tok",
+    listObjects: async ({ prefix }) => (listed.push(prefix), [{ key: `${prefix}file1`, size: 3 }, { key: `${prefix}global`, size: 1 }, { key: `${prefix}x/y`, size: 1 }]),
+    getObject: async ({ key }) => (key.endsWith("global") ? null : Buffer.from("abc")),
+  };
+  const result = await exportSaves("my-game", { out }, deps);
+  assert.match(listed[0], /^saves\/[0-9a-f]{32}\/my-game\/$/);
+  assert.deepEqual(fs.readdirSync(out), ["file1.rmmzsave"]);
+  assert.equal(fs.readFileSync(path.join(out, "file1.rmmzsave"), "utf8"), "abc");
+  assert.equal(result.facts[0][1].startsWith("2 "), true);
+
+  // A public site keeps saves under "public"; MV uses .rpgsave.
+  const mv = path.join(out, "mv");
+  await exportSaves("my-game", { out: mv }, { ...deps, findSite: async () => ({ ...CFG, engine: "MV", auth: { mode: "none" } }) });
+  assert.match(listed[1], new RegExp(userHashOf("public")));
+  assert.ok(fs.existsSync(path.join(mv, "file1.rpgsave")));
+
+  await assert.rejects(exportSaves("my-game", { out }, { ...deps, findSite: async () => ({ ...CFG, sync: { enabled: false } }) }), /sync is off/);
+  await assert.rejects(exportSaves("my-game", { out }, { ...deps, apiToken: async () => null }), /Not logged in/);
+  await assert.rejects(exportSaves("my-game", { out }, { ...deps, listObjects: async () => [] }), /No cloud saves/);
+  assert.equal((await exportSaves("", { out: mv, email: "a@b.c" }, { ...deps, ask: async () => "my-game" })).facts.length, 2);
 });
