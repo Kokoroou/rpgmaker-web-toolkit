@@ -38,7 +38,7 @@ Step by step: [Before you start][requirements] → [Set up Cloudflare][cloudflar
 | | |
 |---|---|
 | <img src="site/public/img/sync-conflict.png" width="150" alt=""> | **Cloud saves.** Same email, any device. Offline saves upload later, and two devices never silently overwrite each other. [More][saves] |
-| <img src="site/public/img/game-keys.png" width="150" alt=""> | **Touch controls.** D-pad, A/B/X/Y and L/R like JoiPlay, plus buttons for the keys the game's plugins use. Players can move or hide any button. [More][controls] |
+| <img src="site/public/img/game-keys.png" width="150" alt=""> | **Touch controls.** D-pad, A/B/X/Y (and optional L/R) like JoiPlay, plus buttons for the keys the game's plugins use. Players can move or hide any button. [More][controls] |
 | <img src="site/public/img/saves-panel.png" width="150" alt=""> | **Save files.** Export a slot as a desktop save, edit it, import it back, or delete it. [More][save-files] |
 | <img src="site/public/img/item-batch.png" width="150" alt=""> | **Several items at once.** Use 10 potions in one go. [More][items] |
 | <img src="site/public/img/locked-page.png" width="150" alt=""> | **Private by default.** Locked until Cloudflare Access (email login) is on. [More][access] |

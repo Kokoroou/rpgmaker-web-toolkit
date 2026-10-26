@@ -31,7 +31,8 @@ These are the keys of *GameDev: The Beginning*, the game in this guide's screens
 |---|---|---|
 | `enabled` | The whole on-screen gamepad | first-deploy answer |
 | `showOn` | `touch` (touch screens), `always`, `never` | `touch` |
-| `gamepad` | A / B / X / Y and L / R (`ok`, `cancel`, `shift`, `menu`, `pageup` / `pagedown`) | `true` |
+| `gamepad` | A / B / X / Y (`ok`, `cancel`, `shift`, `menu`) | `true` |
+| `shoulder` | L / R (`pageup` / `pagedown`), needs `gamepad`. Off because most games never use them | `false` |
 | `dpad` | The D-pad | `true` |
 | `opacity` | 0 to 1 | `0.35` |
 | `scale` | Button size multiplier | `1` |

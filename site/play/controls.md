@@ -1,5 +1,5 @@
 ---
-description: "On-screen controls for RPG Maker games on a phone: D-pad, A / B / X / Y and L / R, extra plugin keys, and how to move, resize or hide each button."
+description: "On-screen controls for RPG Maker games on a phone: D-pad, A / B / X / Y, optional L / R, extra plugin keys, and how to move, resize or hide each button."
 lang: en
 ---
 
@@ -20,7 +20,7 @@ lang: en
 | **B** | Back |
 | **X** | Dash (hold) |
 | **Y** | Menu |
-| **L / R** | Previous / next page |
+| **L / R** | Previous / next page (off by default; turn on with `shoulder` in `rwk config`) |
 | Keycaps (**Candle**…) | Keys this game's plugins use. A keycap with **▾** opens a row of more keys |
 
 The controls fade after a few seconds without a touch. Touch the screen and they come back.

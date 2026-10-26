@@ -22,7 +22,7 @@ import {
 import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
 import { editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
-import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
+import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
@@ -321,6 +321,7 @@ async function createConfig(game, takenSlugs) {
       enabled: false,
       showOn: "touch",
       gamepad: true,
+      shoulder: false,
       dpad: true,
       opacity: 0.35,
       scale: 1,
@@ -337,18 +338,19 @@ async function createConfig(game, takenSlugs) {
   } else {
     log.info("No plugin uses special keys.");
   }
-  if (await confirm("Add an on-screen gamepad for touch screens (D-pad, A/B/X/Y, L/R)?", true)) {
+  if (await confirm("Add an on-screen gamepad for touch screens (D-pad, A/B/X/Y)?", true)) {
     cfg.controls.enabled = true;
     cfg.controls.dpad = await confirm("Include the D-pad? (No = move by tapping the map only)", true);
-    cfg.controls.buttons = await askButtons(keys);
+    cfg.controls.buttons = await askButtons(keys, false);
     log.info(c.dim("Labels, groups, size and opacity can be changed with rwk config; in game, ⚙ → Edit button layout moves buttons around."));
   }
   return cfg;
 }
 
-async function askButtons(keys) {
-  // A/B/X/Y and L/R already press these.
-  keys = keys.filter((k) => !GAMEPAD_KEYS.has(k.key.toLowerCase()));
+async function askButtons(keys, shoulder) {
+  // A/B/X/Y (and L/R when on) already press these.
+  const covered = gamepadKeys(shoulder);
+  keys = keys.filter((k) => !covered.has(k.key.toLowerCase()));
   const buttons = [];
   if (keys.length) {
     log.info(c.dim("These keys go in the ⌨ panel of the in-game toolbar, each with a hint saying what it is for."));
@@ -379,7 +381,7 @@ export async function addNewKeys(game, cfg) {
   controls.scannedKeys = [...known, ...fresh.map((k) => k.key)];
   log.info(`This game version uses new keys: ${fresh.map((k) => k.key).join(", ")}`);
   if (controls.enabled && (await confirm("Add on-screen buttons for these keys?", true))) {
-    controls.buttons.push(...(await askButtons(fresh)));
+    controls.buttons.push(...(await askButtons(fresh, controls.shoulder === true)));
   }
 }
 

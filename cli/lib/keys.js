@@ -7,8 +7,10 @@ import { resolveCI } from "./game.js";
 // Already reachable by touch in MZ/MV (tap, two-finger cancel, built-in buttons).
 const TOUCH_COVERED = new Set(["ok", "cancel", "up", "down", "left", "right", "menu", "debug", "control", "tab", "shift"]);
 
-// Pressed by the on-screen gamepad in RWK_MobileControls (A/B/X/Y, L/R).
-export const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
+// Pressed by the on-screen gamepad in RWK_MobileControls (A/B/X/Y, plus L/R when `shoulder` is on).
+export function gamepadKeys(shoulder = false) {
+  return new Set(["ok", "cancel", "escape", "menu", "shift", ...(shoulder ? ["pageup", "pagedown"] : [])]);
+}
 
 export function readPlugins(root) {
   const file = resolveCI(root, "js", "plugins.js");
