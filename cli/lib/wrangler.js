@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
+import { isJsonOutput } from "./ui.js";
 
 const WRANGLER_BIN = path.join(TOOLKIT_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 
@@ -59,7 +60,8 @@ export function wrangler(args, { interactive = false, quiet = false, cwd = TOOLK
     if (!interactive) {
       child.stdout.on("data", (d) => {
         stdout += d;
-        if (!quiet) process.stdout.write(d);
+        // --json keeps stdout for the result.
+        if (!quiet) (isJsonOutput() ? process.stderr : process.stdout).write(d);
       });
       child.stderr.on("data", (d) => {
         stderr += d;

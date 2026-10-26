@@ -48,6 +48,7 @@ export default defineConfig({
           { text: "First deploy", link: "/setup/first-deploy" },
           { text: "Protect the site and invite players", link: "/setup/access" },
           { text: "Update the game", link: "/setup/updating" },
+          { text: "Publish from CI", link: "/setup/ci" },
           { text: "Customize the game", link: "/setup/configuration" },
           { text: "On-screen buttons", link: "/setup/controls" },
           { text: "Troubleshooting", link: "/setup/troubleshooting" },

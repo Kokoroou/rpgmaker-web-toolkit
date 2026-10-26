@@ -11,6 +11,8 @@ Copy it over the game folder, then run the [same command](/setup/first-deploy) o
 
 New plugin keys? The toolkit offers buttons for them.
 
+Game kept in a Git repository? Let [CI publish it](/setup/ci) on every push.
+
 ::: warning MV games whose title changes
 MV games are recognized by their title (MZ: by their game ID). If a translation changes it, the toolkit asks the first-deploy questions again: give the **same site name** to keep the link and saves.
 :::

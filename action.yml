@@ -1,0 +1,87 @@
+# GitHub Action: publish (or update) an RPG Maker MZ / MV game from its repository.
+#
+#   - uses: Kokoroou/rpgmaker-web-toolkit@v0.4.0   # pin a release tag
+#     with:
+#       game-folder: game
+#       cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+#
+# Runs the CLI of this checkout (the ref the workflow pins) with --json, so it
+# never asks a question: the first deploy of a game, which sets up its access
+# protection, still needs a terminal. Guide: site/setup/ci.md.
+name: rpgmaker-web-toolkit
+description: Publish an RPG Maker MZ / MV game to Cloudflare Workers, with cloud saves and an on-screen gamepad.
+author: Kokoroou
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  game-folder:
+    description: The game folder (with index.html and js/), relative to the workspace. For update-from-link, the game's link.
+    required: false
+    default: "."
+  command:
+    description: "deploy (default), import-saves or update-from-link"
+    required: false
+    default: deploy
+  cloudflare-api-token:
+    description: A Cloudflare API token (see the guide for its permissions). Keep it in the repository's secrets.
+    required: true
+  cloudflare-account-id:
+    description: The Cloudflare account ID, when the token reaches several accounts.
+    required: false
+    default: ""
+  node-version:
+    description: Node.js version to run the toolkit with (22 or newer).
+    required: false
+    default: "22"
+
+outputs:
+  url:
+    description: The game's link
+    value: ${{ steps.rwk.outputs.url }}
+  site:
+    description: The site name
+    value: ${{ steps.rwk.outputs.site }}
+  warnings:
+    description: How many warnings the run had
+    value: ${{ steps.rwk.outputs.warnings }}
+  result:
+    description: The whole result as JSON (link, build report, warnings)
+    value: ${{ steps.rwk.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install the toolkit
+      shell: bash
+      run: npm ci --prefix "$GITHUB_ACTION_PATH" --no-fund --no-audit --loglevel=error
+
+    - name: Run rpgmaker-web-toolkit
+      id: rwk
+      shell: bash
+      # Inputs reach the script through the environment, never pasted into it.
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+        RWK_COMMAND: ${{ inputs.command }}
+        RWK_TARGET: ${{ inputs.game-folder }}
+      run: |
+        case "$RWK_COMMAND" in
+          deploy) args=() ;;
+          import-saves | update-from-link) args=("$RWK_COMMAND") ;;
+          *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, import-saves or update-from-link)"; exit 1 ;;
+        esac
+        result="$RUNNER_TEMP/rwk-result.json"
+        status=0
+        node "$GITHUB_ACTION_PATH/cli/index.js" --json "${args[@]}" "$RWK_TARGET" >"$result" || status=$?
+        {
+          echo "result<<RWK_RESULT_EOF"
+          cat "$result"
+          echo "RWK_RESULT_EOF"
+        } >>"$GITHUB_OUTPUT"
+        exit "$status"
