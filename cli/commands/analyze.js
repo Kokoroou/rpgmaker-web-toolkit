@@ -9,7 +9,7 @@ import { applyPolicy, readPolicy } from "../lib/policy.js";
 import { generatedFiles } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
 import { ask, c, formatBytes, log } from "../lib/ui.js";
-import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "./deploy.js";
+import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "../lib/build-checks.js";
 
 export async function analyze(inputPath, { command = "analyze" } = {}) {
   const usage = command === "deploy" ? 'rwk deploy --dry-run "<game folder>"' : 'rwk analyze "<game folder>"';
