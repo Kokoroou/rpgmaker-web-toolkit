@@ -25,7 +25,7 @@ import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js"
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
-import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, warnings } from "../lib/ui.js";
+import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, print, warnings } from "../lib/ui.js";
 import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
@@ -78,7 +78,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
 
   // Then deploys as usual, under the new name.
   if (rename) {
-    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint)))) return;
+    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint)))) return siteOf(cfg);
     await saveGameConfig();
   }
 
@@ -87,7 +87,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     cfg = editInEditor(cfg);
     await saveGameConfig();
     log.ok("Config saved to R2. Run the deploy command again to apply it.");
-    return;
+    return siteOf(cfg);
   }
 
   // The creator can turn sync off; the stored config keeps the deployer's choice.
@@ -95,11 +95,11 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   if (importOnly) {
     if (!syncOn) {
       log.warn("The game's creator turned cloud save sync off for this game.");
-      return;
+      return siteOf(cfg);
     }
     await offerSaveImport(game, cfg, bucket, email, true);
     await saveGameConfig();
-    return;
+    return siteOf(cfg);
   }
 
   await checkPublic(cfg, policy);
@@ -202,10 +202,18 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     log.ok("No warnings");
   }
 
-  console.log(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
+  print(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
   log.info("The game's config is stored in R2: on another machine, log in to the same Cloudflare account and run the command again.");
   log.info("On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.");
+  return {
+    ...siteOf(cfg),
+    locked: !isAuthReady(cfg.auth),
+    build: { files: files.length, bytes: totalBytes, r2Files: overflow.length, r2Uploaded: r2 ? r2.uploaded : 0 },
+  };
 }
+
+// The run's result (cli/lib/report.js) for a command that stops before the build.
+export const siteOf = (cfg) => ({ site: cfg.slug, url: cfg.url || null });
 
 export async function connect(settings) {
   log.step("Cloudflare");

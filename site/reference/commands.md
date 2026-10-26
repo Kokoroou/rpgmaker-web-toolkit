@@ -39,6 +39,7 @@ The table uses the PowerShell form (`& $rwk <command>`). On macOS and Linux, wri
 | `& $rwk update-from-link "https://my-game.alice.workers.dev"` | Updates the toolkit of a deployed game whose folder is gone; the game files stay as uploaded | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk help` | Lists the commands | |
 | `--yes` before any of these | Runs without questions | [Run without questions](#run-without-questions-ci) |
+| `--json` before any of these | Runs without questions and prints the result as JSON | [Publish from CI](/setup/ci#the-result) |
 
 Each run downloads the toolkit to a temporary folder and deletes it at the end.
 
@@ -60,6 +61,7 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 - A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, the site's first [access protection](/setup/access), a new site name for `rename`, `edit-config`. Do the first deploy in a terminal; later updates can run unattended.
 - Two questions answer **no** when nobody is there: deleting the old Worker after a `rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`import-saves --yes` uploads it).
 - Exit codes: `0` done, `1` failed (Cloudflare, wrangler, a file problem), `2` a question needs a person, `130` cancelled.
+- `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout; the log goes to stderr. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).
 
 Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` when the token reaches several accounts. Only a run with `--yes` (or without a terminal) reads them, so a token set for another tool never replaces the toolkit's own login. Create the token in the dashboard (My Profile → API Tokens → Create Custom Token) with these permissions, for the one account:
 

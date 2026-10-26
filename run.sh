@@ -15,8 +15,9 @@ repo='Kokoroou/rpgmaker-web-toolkit'
 ref="${RWK_REF:-main}"
 
 red() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
-cyan() { printf '\033[36m%s\033[0m\n' "$*"; }
-gray() { printf '\033[90m%s\033[0m\n' "$*"; }
+# Status lines go to stderr, so `--json` leaves only the CLI's result on stdout.
+cyan() { printf '\033[36m%s\033[0m\n' "$*" >&2; }
+gray() { printf '\033[90m%s\033[0m\n' "$*" >&2; }
 
 need_node() {
   if ! command -v node >/dev/null 2>&1; then
@@ -53,7 +54,7 @@ main() {
   [ -f "$root/cli/index.js" ] || { red "Unexpected download: no cli/index.js (is '$ref' a valid branch or tag?)."; return 1; }
 
   cyan 'Installing wrangler (faster next time thanks to the npm cache)...'
-  npm ci --prefix "$root" --no-fund --no-audit --loglevel=error </dev/null
+  npm ci --prefix "$root" --no-fund --no-audit --loglevel=error </dev/null >&2
 
   # With `curl | bash`, stdin is the script itself: give the CLI the terminal for its prompts.
   # ([ -r /dev/tty ] is true even without a terminal, so try to open it.)
