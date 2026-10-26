@@ -33,7 +33,7 @@ export const PRESETS = {
 export const DEFAULT_PRESET = "comfortable";
 
 // Keys a preset or a player's entry may set.
-export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch"];
+export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats"];
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
