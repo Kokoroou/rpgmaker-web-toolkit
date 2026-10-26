@@ -34,7 +34,7 @@ export const WORKERS_API = {
 // The same Worker as writeWorkerProject() + `wrangler deploy`, plus the newer
 // toolkit for the Worker to serve (worker/toolkit.js). Modules go up
 // unbundled: the API resolves their relative imports. -> merge patch body
-export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, toolkit }) {
+export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, toolkit }) {
   const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory });
   const bindings = Object.entries(vars).map(([name, text]) => ({ name, type: "plain_text", text }));
   if (bucket) bindings.push({ name: "BUCKET", type: "r2_bucket", bucket_name: bucket });
@@ -46,8 +46,10 @@ export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, aut
       `import { createWorker } from "./worker/index.js";\n` +
       `import overflow from "./rwk-overflow.js";\n` +
       `import toolkit from "./rwk-toolkit.js";\n` +
-      `export default createWorker({ overflow, toolkit });\n`,
+      `import playerSettings from "./rwk-player-settings.js";\n` +
+      `export default createWorker({ overflow, toolkit, playerSettings });\n`,
     "rwk-overflow.js": `export default ${JSON.stringify(overflowRels)};\n`,
+    "rwk-player-settings.js": `export default ${JSON.stringify(playerSettings)};\n`,
     "rwk-toolkit.js": `export default ${JSON.stringify(toolkit)};\n`,
   };
   const workerDir = path.join(toolkitRoot, "worker");

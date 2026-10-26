@@ -19,7 +19,10 @@
   const RWK = window.RWK;
   if (!RWK || RWK.config.messageMode === false) return;
 
-  const MODES = ["normal", "auto", "skip"];
+  // The deployer's limits (cli/lib/stage.js: messageModeConfig).
+  const cfg = typeof RWK.config.messageMode === "object" ? RWK.config.messageMode : {};
+  const MODES = ["normal"].concat(cfg.auto === false ? [] : ["auto"], cfg.skip === false ? [] : ["skip"]);
+  const LOCKED = !!cfg.lock;
   const MODE_NAMES = { normal: "Normal", auto: "Auto", skip: "Skip" };
   // Auto waits (BASE + PER_CHAR × characters on the page) × the speed's factor, in frames.
   const AUTO_SPEEDS = { slow: 1.6, normal: 1, fast: 0.6 };
@@ -29,9 +32,15 @@
   const MODE_KEY = "rwk.messageMode." + RWK.config.gameId;
   const AUTO_KEY = "rwk.autoSpeed." + RWK.config.gameId;
 
-  // Auto is remembered in this browser; Skip always starts off.
-  let mode = RWK.storage.get(MODE_KEY) === "auto" ? "auto" : "normal";
-  let autoSpeed = AUTO_SPEEDS[RWK.storage.get(AUTO_KEY)] ? RWK.storage.get(AUTO_KEY) : "normal";
+  // Auto is remembered in this browser; Skip always starts off. Locked: the
+  // deployer's mode and speed, whatever the browser remembers.
+  const hasAuto = MODES.includes("auto");
+  const startMode = hasAuto && cfg.mode === "auto" ? "auto" : "normal";
+  const startSpeed = AUTO_SPEEDS[cfg.autoSpeed] ? cfg.autoSpeed : "normal";
+  const storedMode = LOCKED ? null : RWK.storage.get(MODE_KEY);
+  const storedSpeed = LOCKED ? null : RWK.storage.get(AUTO_KEY);
+  let mode = storedMode === null ? startMode : storedMode === "auto" && hasAuto ? "auto" : "normal";
+  let autoSpeed = AUTO_SPEEDS[storedSpeed] ? storedSpeed : startSpeed;
   let ctrlHeld = false; // Ctrl skips only while held
   const skipping = () => mode === "skip" || ctrlHeld;
 
@@ -97,28 +106,33 @@
   const next = (list, item) => list[(list.indexOf(item) + 1) % list.length];
   const speeds = Object.keys(AUTO_SPEEDS);
 
-  RWK.tools.add({
-    icon: RWK.icons.message,
-    group: "play",
-    label: () => `Messages: ${MODE_NAMES[mode]}`,
-    detail: () => `Tap for ${MODE_NAMES[next(MODES, mode)]}` + (RWK.controls ? "" : " · hold Ctrl to skip"),
-    keepOpen: true,
-    onSelect: () => setMode(next(MODES, mode)),
-  });
-  RWK.tools.add({
-    icon: RWK.icons.timer,
-    group: "play",
-    label: () => `Auto speed: ${AUTO_NAMES[autoSpeed]}`,
-    detail: () => `Tap for ${AUTO_NAMES[next(speeds, autoSpeed)]}`,
-    keepOpen: true,
-    onSelect: () => {
-      autoSpeed = next(speeds, autoSpeed);
-      RWK.storage.set(AUTO_KEY, autoSpeed);
-    },
-  });
+  const canSkip = !LOCKED && MODES.includes("skip");
+  if (!LOCKED && MODES.length > 1) {
+    RWK.tools.add({
+      icon: RWK.icons.message,
+      group: "play",
+      label: () => `Messages: ${MODE_NAMES[mode]}`,
+      detail: () => `Tap for ${MODE_NAMES[next(MODES, mode)]}` + (RWK.controls || !canSkip ? "" : " · hold Ctrl to skip"),
+      keepOpen: true,
+      onSelect: () => setMode(next(MODES, mode)),
+    });
+  }
+  if (!LOCKED && hasAuto) {
+    RWK.tools.add({
+      icon: RWK.icons.timer,
+      group: "play",
+      label: () => `Auto speed: ${AUTO_NAMES[autoSpeed]}`,
+      detail: () => `Tap for ${AUTO_NAMES[next(speeds, autoSpeed)]}`,
+      keepOpen: true,
+      onSelect: () => {
+        autoSpeed = next(speeds, autoSpeed);
+        RWK.storage.set(AUTO_KEY, autoSpeed);
+      },
+    });
+  }
 
-  // Held Ctrl skips, unless the game's plugins use the key for something else.
-  const free = !Input.keyMapper[17] || Input.keyMapper[17] === "control";
+  // Held Ctrl skips, unless Skip is off or the game's plugins use the key for something else.
+  const free = canSkip && (!Input.keyMapper[17] || Input.keyMapper[17] === "control");
   const releaseCtrl = () => (ctrlHeld = false);
   window.addEventListener("keydown", (e) => {
     if (free && e.keyCode === 17 && !RWK.tools.isOpen()) ctrlHeld = true;

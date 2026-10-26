@@ -8,7 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing, resolveCI, storageIdOf } from "./game.js";
-import { isIndexable } from "./policy.js";
+import { userHash } from "./cloudflare.js";
+import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
+import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
@@ -108,27 +110,92 @@ export function saveHistoryConfig(value) {
   return { keep: keep >= 1 ? Math.min(50, keep) : 10, days: days >= 1 ? Math.min(365, days) : 30 };
 }
 
+const bool = (v, fallback) => (typeof v === "boolean" ? v : fallback);
+const clampInt = (v, min, max, fallback) => {
+  const n = Math.round(Number(v));
+  return n >= min ? Math.min(max, n) : fallback;
+};
+
+// fastForward: false | true | { maxSpeed, speed, inBattle, lock }
+// -> false | { maxSpeed: 2..4, default 4; speed: the starting speed, 2..maxSpeed; inBattle; lock: the player cannot change the speed }
+export function fastForwardConfig(value) {
+  if (value === false) return false;
+  const v = value && typeof value === "object" ? value : {};
+  const maxSpeed = clampInt(v.maxSpeed, 2, 4, 4);
+  const speed = Math.min(maxSpeed, clampInt(v.speed, 2, 4, 2));
+  return { maxSpeed, speed, inBattle: bool(v.inBattle, true), lock: bool(v.lock, false) };
+}
+
+const AUTO_SPEEDS = ["slow", "normal", "fast"];
+
+// messageMode: false | true | { auto, skip, mode, autoSpeed, lock }
+// -> false | { auto, skip; mode: "normal" | "auto" at the start; autoSpeed; lock: the player keeps mode and autoSpeed }
+export function messageModeConfig(value) {
+  if (value === false) return false;
+  const v = value && typeof value === "object" ? value : {};
+  const auto = bool(v.auto, true);
+  return {
+    auto,
+    skip: bool(v.skip, true),
+    mode: auto && v.mode === "auto" ? "auto" : "normal",
+    autoSpeed: AUTO_SPEEDS.includes(v.autoSpeed) ? v.autoSpeed : "normal",
+    lock: bool(v.lock, false),
+  };
+}
+
+// alwaysDash: false | true | { on, lock }
+// -> false | { on: true | false | null (the game's own default), lock: keeps it at `on` }
+export function alwaysDashConfig(value) {
+  if (value === false) return false;
+  const v = value && typeof value === "object" ? value : {};
+  const on = typeof v.on === "boolean" ? v.on : null;
+  return { on, lock: on !== null && v.lock === true };
+}
+
+// saveTools: false | true | { export, import, delete } -> false | { export, import, delete }
+export function saveToolsConfig(value) {
+  if (value === false) return false;
+  const v = value && typeof value === "object" ? value : {};
+  const out = { export: bool(v.export, true), import: bool(v.import, true), delete: bool(v.delete, true) };
+  return out.export || out.import || out.delete ? out : false;
+}
+
 // RWK_Core's config. engine: "MZ" | "MV"; gameConfig: after applyPolicy().
 // Without the game's files (update-from-link) MV's `media` is left out: the
-// Worker keeps the deployed build's.
+// Worker keeps the deployed build's. Never holds the players' emails.
 export function runtimeConfigOf(engine, gameConfig) {
+  gameConfig = withPreset(gameConfig);
   return {
     version: TOOLKIT_VERSION,
     gameId: storageIdOf(gameConfig),
     engine,
     sync: { enabled: !!(gameConfig.sync && gameConfig.sync.enabled) },
     controls: gameConfig.controls || null,
-    saveTools: gameConfig.saveTools !== false,
+    saveTools: saveToolsConfig(gameConfig.saveTools),
     itemBatch: gameConfig.itemBatch !== false,
-    fastForward: gameConfig.fastForward !== false,
-    messageMode: gameConfig.messageMode !== false,
-    alwaysDash: gameConfig.alwaysDash !== false,
+    fastForward: fastForwardConfig(gameConfig.fastForward),
+    messageMode: messageModeConfig(gameConfig.messageMode),
+    alwaysDash: alwaysDashConfig(gameConfig.alwaysDash),
     backlog: backlogConfig(gameConfig.backlog),
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
     cache: gameConfig.cache !== false,
   };
+}
+
+// Per-player settings for the Worker: { [userHash(email)]: { key: runtime value } },
+// only the keys that differ from everyone's. cfg: as stored; policy: readPolicy()'s.
+export function playerOverrides(engine, cfg, policy) {
+  const base = runtimeConfigOf(engine, applyPolicy(cfg, policy));
+  const out = {};
+  for (const email of playerEmails(cfg)) {
+    const mine = runtimeConfigOf(engine, applyPolicy(withPlayer(cfg, email), policy));
+    const diff = {};
+    for (const key of FEATURE_KEYS) if (JSON.stringify(mine[key]) !== JSON.stringify(base[key])) diff[key] = mine[key];
+    if (Object.keys(diff).length) out[userHash(email)] = diff;
+  }
+  return out;
 }
 
 // Folders whose files the Service Worker keeps, and the biggest file it keeps

@@ -15,7 +15,7 @@ Change the mode with ⚙ → **Messages** (each tap picks the next one). On a PC
 
 Auto and Skip never answer for you: Skip stops by itself at a choice, a number to enter or an item to pick, and Auto waits there until you choose. Auto and the Auto speed are remembered in this browser; Skip starts off each time.
 
-Ctrl does nothing when one of the game's plugins already uses it. Some sites have message modes turned off by the person who set up the game or by the game's creator.
+Ctrl does nothing when one of the game's plugins already uses it. Some sites have message modes turned off, offer only some of them, or keep one mode and speed, as chosen by the person who set up the game or by the game's creator.
 
 ## Messages log
 

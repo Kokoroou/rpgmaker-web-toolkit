@@ -42,6 +42,26 @@ export function splitToolkit(pluginsJs) {
   return { game: pluginsJs.slice(0, at), config };
 }
 
+// One player's settings (players.js) on top of the RWK_Core config of a
+// toolkit build's plugins.js. patch: { key: runtime value }
+export function patchConfig(pluginsJs, patch) {
+  const at = pluginsJs.indexOf(TOOLKIT_MARKER);
+  if (at < 0) return pluginsJs;
+  const lines = pluginsJs.slice(at).split("\n").map((line) => {
+    const m = /^\$plugins\.push\((.*)\);\s*$/.exec(line);
+    if (!m) return line;
+    try {
+      const entry = JSON.parse(m[1]);
+      if (entry.name !== "RWK_Core") return line;
+      entry.parameters.config = JSON.stringify({ ...JSON.parse(entry.parameters.config), ...patch });
+      return `$plugins.push(${JSON.stringify(entry)});`;
+    } catch {
+      return line;
+    }
+  });
+  return pluginsJs.slice(0, at) + lines.join("\n");
+}
+
 // What only the deployed build knows: whether MV's phone audio / movies are
 // missing (from the game files), and, for builds made before the toolkit kept
 // the creator's policy, the features it turned off.

@@ -21,7 +21,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
-             index.js            static files + large files from R2 (with Range) + /api
+             index.js            static files + large files from R2 (with Range) + /api, each player's settings
              auth.js             verifies Cloudflare Access logins (JWT)
              saves.js            save API, with ETag overwrite protection, and save history
              players.js          counts the emails that save, for the deploy's reminder
@@ -39,6 +39,10 @@ The game folder is never written to. Each run:
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
 5. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
 6. Deletes the build folder.
+
+## Settings per player
+
+The shared settings are written into `js/plugins.js` at build time. A config with [`players`](/setup/configuration#settings-for-one-player) also gives the Worker a table `{ <hash of the email>: <settings that differ> }` (`player-settings.json` next to `worker.js`), and routes `js/plugins.js` through the Worker. For each request of that file, the Worker verifies the Access login, looks up the hash, and merges that player's settings into the `RWK_Core` config it sends, with `Cache-Control: private, no-cache`. No login, or no entry: the file as built. `GET /api/config` returns the same entry, and the save API applies the player's `saveHistory`.
 
 ## Update from the link
 

@@ -7,10 +7,11 @@ import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess } from "../lib/cloudflare.js";
 import { findGameBySite, siteNameFromLink, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable } from "../lib/policy.js";
-import { RUNTIME_PLUGINS, TOOLKIT_VERSION, runtimeConfigOf, runtimeSources, saveHistoryConfig } from "../lib/stage.js";
+import { checkFeatureConfig } from "../lib/features.js";
+import { RUNTIME_PLUGINS, TOOLKIT_VERSION, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
 import { ask, c, confirm, log } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
-import { checkPlayers, connect, isAuthReady } from "./deploy.js";
+import { checkPlayers, connect, isAuthReady, perPlayerSettings } from "./deploy.js";
 
 export async function updateFromLink(link) {
   if (!link) link = await ask("Paste the game's link (https://<site name>.<username>.workers.dev)");
@@ -41,6 +42,7 @@ export async function updateFromLink(link) {
   log.info(c.dim("  To change the game itself (a patch, a translation), deploy from the game folder."));
   if (!(await confirm(`Update "${cfg.slug}"?`, true))) return;
 
+  for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
   const gameConfig = applyPolicy(cfg, policy);
   const toolkit = {
     names: RUNTIME_PLUGINS,
@@ -59,7 +61,8 @@ export async function updateFromLink(link) {
     auth: cfg.auth,
     toolkitRoot: TOOLKIT_ROOT,
     indexable: isIndexable(cfg),
-    saveHistory: saveHistoryConfig(cfg.saveHistory),
+    saveHistory: toolkit.config.saveHistory,
+    playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
   });
   const token = await apiToken();

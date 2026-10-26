@@ -19,6 +19,9 @@
   const RWK = window.RWK;
   if (!RWK || RWK.config.saveTools === false) return;
 
+  // What the deployer allows (cli/lib/stage.js: saveToolsConfig).
+  const cfg = typeof RWK.config.saveTools === "object" ? RWK.config.saveTools : {};
+  const allow = { export: cfg.export !== false, import: cfg.import !== false, delete: cfg.delete !== false };
   const MZ = RWK.engine === "MZ";
   const EXT = MZ ? ".rmmzsave" : ".rpgsave";
   const SYNC_WAIT_MS = 8000;
@@ -184,10 +187,13 @@
     const h = document.createElement("h2");
     h.textContent = "Saves";
     const p = document.createElement("p");
-    p.textContent =
-      `Export saves a slot as fileN${EXT}, the file the desktop game uses, ` +
-      "ready for a save editor. Import puts an edited file back into a slot and restarts the game. " +
-      "Delete empties a slot" + (RWK.saveSync ? ", here and in the cloud." : ".");
+    p.textContent = [
+      allow.export && `Export saves a slot as fileN${EXT}, the file the desktop game uses, ready for a save editor.`,
+      allow.import && "Import puts an edited file back into a slot and restarts the game.",
+      allow.delete && "Delete empties a slot" + (RWK.saveSync ? ", here and in the cloud." : "."),
+    ]
+      .filter(Boolean)
+      .join(" ");
     const list = document.createElement("div");
     list.className = "rwk-saves-list";
     const close = () => overlay.remove();
@@ -228,7 +234,7 @@
     const del = button("Delete", () => confirmDelete(id, refreshPanel));
     del.className = "danger";
     del.disabled = !has;
-    row.append(label, exp, imp, del);
+    row.append(label, ...[allow.export && exp, allow.import && imp, allow.delete && del].filter(Boolean));
     return row;
   }
 
@@ -318,7 +324,10 @@
     setTimeout(() => location.reload(), 600);
   }
 
-  RWK.tools.add({ icon: RWK.icons.save, group: "save", label: "Saves", detail: "Export, import or delete save slots", onSelect: openPanel });
+  const actions = ["Export", "import", "delete"].filter((name) => allow[name.toLowerCase()]);
+  const last = actions.pop();
+  const detail = (actions.length ? actions.join(", ") + " or " + last : last) + " save slots";
+  RWK.tools.add({ icon: RWK.icons.save, group: "save", label: "Saves", detail: detail[0].toUpperCase() + detail.slice(1), onSelect: openPanel });
 
   RWK.saveTools = { open: openPanel };
 })();

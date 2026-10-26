@@ -27,8 +27,11 @@ const SNAPSHOT_MS = 15 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_HISTORY = new Set(["config", "global"]);
 
-// RWK_SAVE_HISTORY, written by the CLI: "off" | '{"keep":10,"days":30}'
-export function historySettings(env) {
+// RWK_SAVE_HISTORY, written by the CLI: "off" | '{"keep":10,"days":30}'.
+// A player's own settings (players.js) replace it.
+export function historySettings(env, user = {}) {
+  const own = user.settings ? user.settings.saveHistory : undefined;
+  if (own !== undefined) return own ? { keep: Number(own.keep) || 10, days: Number(own.days) || 30 } : null;
   const raw = env.RWK_SAVE_HISTORY;
   if (raw === "off") return null;
   let value = {};
@@ -43,7 +46,7 @@ export function historySettings(env) {
 // Where one player's saves of this game, and their older copies, live.
 async function context(env, user, name) {
   const hash = await userHash(user.email);
-  const history = historySettings(env);
+  const history = historySettings(env, user);
   return {
     bucket: env.BUCKET,
     prefix: `saves/${hash}/${env.GAME_ID}/`,
@@ -82,7 +85,7 @@ export async function handleSaves(request, env, user, name) {
 // rest: "" (the list) or "<name>/<id>" (restore)
 export async function handleHistory(request, env, user, rest) {
   if (!env.BUCKET) return json({ error: "Cloud save is disabled for this game" }, 501);
-  if (!historySettings(env)) return json({ error: "Save history is off for this game" }, 404);
+  if (!historySettings(env, user)) return json({ error: "Save history is off for this game" }, 404);
   if (!rest) {
     if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
     const ctx = await context(env, user, null);

@@ -10,7 +10,9 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, playerOverrides } from "../cli/lib/stage.js";
+import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
+import { userHash } from "../cli/lib/cloudflare.js";
 import { splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
@@ -384,6 +386,7 @@ test("update-from-link: the Worker patch keeps the deployed files", async () => 
     auth: { mode: "access", teamDomain: "t.cloudflareaccess.com", aud: "abc" },
     toolkitRoot: path.join(import.meta.dirname, ".."),
     saveHistory: { keep: 5, days: 30 },
+    playerSettings: { abc: { fastForward: false } },
     toolkit,
   });
   assert.equal(patch.main_module, "worker.js");
@@ -404,7 +407,7 @@ test("update-from-link: the Worker patch keeps the deployed files", async () => 
   for (const r of ["/api/*", "/js/plugins.js", "/js/plugins/RWK_Core.js", "/movies/big.webm"]) assert.ok(routes.includes(r), r);
 
   const modules = new Map(patch.modules.map((m) => [m.name, m]));
-  for (const name of ["worker.js", "rwk-overflow.js", "rwk-toolkit.js", "worker/index.js", "worker/auth.js", "worker/saves.js", "worker/players.js", "worker/toolkit.js"]) {
+  for (const name of ["worker.js", "rwk-overflow.js", "rwk-toolkit.js", "rwk-player-settings.js", "worker/index.js", "worker/auth.js", "worker/saves.js", "worker/players.js", "worker/toolkit.js"]) {
     assert.equal(modules.get(name)?.content_type, "application/javascript+module", name);
   }
   const source = (name) => Buffer.from(modules.get(name).content_base64, "base64").toString("utf8");
@@ -418,6 +421,8 @@ test("update-from-link: the Worker patch keeps the deployed files", async () => 
   assert.equal(source("worker/toolkit.js"), fs.readFileSync(new URL("../worker/toolkit.js", import.meta.url), "utf8"));
   const { default: uploaded } = await import(`data:text/javascript,${encodeURIComponent(source("rwk-toolkit.js"))}`);
   assert.deepEqual(uploaded, toolkit);
+  const { default: settings } = await import(`data:text/javascript,${encodeURIComponent(source("rwk-player-settings.js"))}`);
+  assert.deepEqual(settings, { abc: { fastForward: false } });
 });
 
 test("update-from-link: Workers API calls and their errors", async (t) => {
@@ -547,4 +552,105 @@ test("web build: Service Worker caches game files, not the ones the toolkit writ
   assert.notEqual(id(serviceWorkerSource([f("img/a.png", 10, 6)])), id(serviceWorkerSource([f("img/a.png", 10, 5)])));
   assert.ok(!generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {}, cache: false }, files).has("rwk-sw.js"));
   assert.equal(runtimeConfigOf("MZ", { slug: "g", cache: false }).cache, false);
+});
+
+test("feature settings: false, true or an object with limits and a lock", () => {
+  assert.equal(fastForwardConfig(false), false);
+  assert.deepEqual(fastForwardConfig(undefined), { maxSpeed: 4, speed: 2, inBattle: true, lock: false });
+  assert.deepEqual(fastForwardConfig(true), fastForwardConfig(undefined));
+  assert.deepEqual(fastForwardConfig({ maxSpeed: 3, speed: 4, inBattle: false, lock: true }), { maxSpeed: 3, speed: 3, inBattle: false, lock: true });
+  assert.deepEqual(fastForwardConfig({ maxSpeed: 9, speed: "x", inBattle: "no" }), { maxSpeed: 4, speed: 2, inBattle: true, lock: false });
+
+  assert.equal(messageModeConfig(false), false);
+  assert.deepEqual(messageModeConfig(true), { auto: true, skip: true, mode: "normal", autoSpeed: "normal", lock: false });
+  assert.deepEqual(messageModeConfig({ skip: false, mode: "auto", autoSpeed: "slow", lock: true }), { auto: true, skip: false, mode: "auto", autoSpeed: "slow", lock: true });
+  assert.equal(messageModeConfig({ auto: false, mode: "auto" }).mode, "normal", "no Auto to start in");
+  assert.equal(messageModeConfig({ mode: "skip", autoSpeed: "warp" }).mode, "normal");
+
+  assert.equal(alwaysDashConfig(false), false);
+  assert.deepEqual(alwaysDashConfig(true), { on: null, lock: false });
+  assert.deepEqual(alwaysDashConfig({ on: true }), { on: true, lock: false });
+  assert.deepEqual(alwaysDashConfig({ on: false, lock: true }), { on: false, lock: true });
+  assert.deepEqual(alwaysDashConfig({ lock: true }), { on: null, lock: false }, "nothing to lock it to");
+
+  assert.equal(saveToolsConfig(false), false);
+  assert.deepEqual(saveToolsConfig(true), { export: true, import: true, delete: true });
+  assert.deepEqual(saveToolsConfig({ import: false }), { export: true, import: false, delete: true });
+  assert.equal(saveToolsConfig({ export: false, import: false, delete: false }), false);
+
+  const runtime = runtimeConfigOf("MZ", { slug: "g" });
+  assert.deepEqual(runtime.fastForward, fastForwardConfig(true), "no setting: the toolkit's defaults, as before");
+  assert.deepEqual(runtime.saveTools, saveToolsConfig(true));
+});
+
+test("presets sit under the keys the config sets, and the creator's policy wins", () => {
+  const original = runtimeConfigOf("MZ", { slug: "g", preset: "original" });
+  assert.equal(original.fastForward.inBattle, false);
+  assert.equal(original.messageMode.skip, false);
+  assert.deepEqual(original.quickSave, { ignoreSaveLock: false });
+  assert.equal(original.saveTools.import, false);
+  assert.deepEqual(original.autoSave, { minutes: 5 }, "what the preset leaves alone keeps the defaults");
+
+  const shared = runtimeConfigOf("MZ", { slug: "g", preset: "shared" });
+  assert.deepEqual(shared.saveTools, { export: false, import: false, delete: true });
+  assert.deepEqual(shared.saveHistory, { keep: 5, days: 14 });
+
+  const tuned = runtimeConfigOf("MZ", { slug: "g", preset: "original", fastForward: { maxSpeed: 3 }, messageMode: true });
+  assert.deepEqual(tuned.fastForward, { maxSpeed: 3, speed: 2, inBattle: false, lock: false }, "an object adds to the preset's");
+  assert.equal(tuned.messageMode.skip, true, "true: back to the toolkit's defaults");
+  assert.equal(runtimeConfigOf("MZ", applyPolicy({ slug: "g", preset: "original" }, parsePolicy({ hosting: "personal", features: { fastForward: false } }))).fastForward, false);
+  assert.deepEqual(withPreset({ slug: "g", preset: "nope" }), { slug: "g", preset: "nope" }, "an unknown preset is the default one");
+});
+
+test("per-player settings: the differences only, keyed by the email's hash, never in the web build", () => {
+  const cfg = {
+    slug: "g",
+    preset: "shared",
+    fastForward: { maxSpeed: 3 },
+    players: {
+      "Me@Example.com": { saveTools: true, fastForward: { maxSpeed: 4 }, saveHistory: false, backlog: false },
+      "friend@example.com": { fastForward: { maxSpeed: 3 } },
+      "kid@example.com": { alwaysDash: false },
+    },
+  };
+  const policy = parsePolicy({ hosting: "shared", features: { backlog: false } });
+  const out = playerOverrides("MZ", cfg, policy);
+  assert.deepEqual(Object.keys(out).sort(), [userHash("me@example.com"), userHash("kid@example.com")].sort(), "friend's entry changes nothing");
+  assert.deepEqual(out[userHash("me@example.com")], {
+    fastForward: { maxSpeed: 4, speed: 2, inBattle: true, lock: false },
+    saveHistory: false,
+    saveTools: { export: true, import: true, delete: true },
+  }, "the creator's backlog: false stays, for every player");
+  assert.deepEqual(out[userHash("kid@example.com")], { alwaysDash: false });
+  assert.equal(withPlayer(cfg, "ME@example.com ").saveHistory, false, "emails match whatever their case");
+  assert.equal(withPlayer(cfg, "stranger@example.com"), cfg);
+
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const built = [...generatedFiles({ root, engine: "MZ", title: "G" }, { ...cfg, sync: {} }).values()].map(String).join("\n");
+  assert.ok(!/example\.com/i.test(built), "no email reaches the static files");
+
+  assert.deepEqual(checkFeatureConfig({ preset: "comfortable" }), []);
+  assert.match(checkFeatureConfig({ preset: "easy" })[0], /Unknown "preset"/);
+  assert.match(checkFeatureConfig({ players: [] })[0], /must be an object/);
+  const problems = checkFeatureConfig({ players: { nobody: {}, "a@b.c": 1, "x@y.z": { sync: false, cheats: true, backlog: 50 } } });
+  assert.equal(problems.length, 3);
+  assert.match(problems[2], /sync, cheats cannot be set per player/);
+});
+
+test("per-player settings reach the Worker, which then serves js/plugins.js", () => {
+  const project = (playerSettings) => {
+    const buildDir = tmp();
+    const file = writeWorkerProject({ buildDir, slug: "g", bucket: "b", overflowRels: [], auth: {}, locked: false, toolkitRoot: path.join(import.meta.dirname, ".."), playerSettings });
+    return { buildDir, config: JSON.parse(fs.readFileSync(file, "utf8")) };
+  };
+  const none = project(undefined);
+  assert.deepEqual(none.config.assets.run_worker_first, ["/api/*"]);
+  assert.equal(fs.readFileSync(path.join(none.buildDir, "player-settings.json"), "utf8"), "{}");
+  const some = project({ abc: { backlog: false } });
+  assert.deepEqual(some.config.assets.run_worker_first, ["/api/*", "/js/plugins.js"]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(some.buildDir, "player-settings.json"), "utf8")), { abc: { backlog: false } });
+  assert.match(fs.readFileSync(path.join(some.buildDir, "worker.js"), "utf8"), /createWorker\(\{ overflow, playerSettings \}\)/);
 });

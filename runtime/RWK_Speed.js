@@ -19,14 +19,21 @@
   const RWK = window.RWK;
   if (!RWK || RWK.config.fastForward === false) return;
 
-  const SPEEDS = [2, 3, 4];
+  // The deployer's limits (cli/lib/stage.js: fastForwardConfig).
+  const cfg = typeof RWK.config.fastForward === "object" ? RWK.config.fastForward : {};
+  const SPEEDS = [2, 3, 4].filter((s) => s <= (cfg.maxSpeed || 4));
+  const START = SPEEDS.includes(cfg.speed) ? cfg.speed : SPEEDS[0];
+  const LOCKED = !!cfg.lock || SPEEDS.length < 2;
+  const IN_BATTLE = cfg.inBattle !== false;
   const SPEED_KEY = "rwk.speed." + RWK.config.gameId;
   const HOLD_MS = 300; // pressing ⏩ longer than this fast-forwards only while held
 
-  let speed = SPEEDS.includes(RWK.storage.get(SPEED_KEY)) ? RWK.storage.get(SPEED_KEY) : SPEEDS[0];
+  const stored = RWK.storage.get(SPEED_KEY);
+  let speed = !LOCKED && SPEEDS.includes(stored) ? stored : START;
   let toggled = false; // ⏩ tapped, or ` pressed
   let holds = 0; // ⏩ or Tab held down
-  const factor = () => (toggled || holds > 0 ? speed : 1);
+  const inBattle = () => !!(window.$gameParty && $gameParty.inBattle());
+  const factor = () => ((toggled || holds > 0) && (IN_BATTLE || !inBattle()) ? speed : 1);
 
   //---------------------------------------------------------------------------
   // Each extra update reads input again first, as the engine does every
@@ -57,7 +64,7 @@
 
   function refresh() {
     if (!button) return;
-    button.classList.toggle("rwk-active", factor() > 1);
+    button.classList.toggle("rwk-active", toggled || holds > 0);
     button.querySelector("small").textContent = "×" + speed;
   }
 
@@ -82,18 +89,23 @@
     icon: RWK.icons.fastForward,
     group: "play",
     label: "Fast forward",
-    detail: () => (toggled ? `On at ×${speed}` : "Off") + (button ? "" : " · ` turns it on or off, hold Tab for a moment"),
+    detail: () =>
+      (toggled ? `On at ×${speed}` : "Off") +
+      (IN_BATTLE ? "" : " · not in battles") +
+      (button ? "" : " · ` turns it on or off, hold Tab for a moment"),
     keepOpen: true,
     onSelect: () => setToggled(!toggled),
   });
-  RWK.tools.add({
-    icon: RWK.icons.gauge,
-    group: "play",
-    label: () => `Fast-forward speed: ×${speed}`,
-    detail: () => `Tap for ×${SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]}`,
-    keepOpen: true,
-    onSelect: () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]),
-  });
+  if (!LOCKED) {
+    RWK.tools.add({
+      icon: RWK.icons.gauge,
+      group: "play",
+      label: () => `Fast-forward speed: ×${speed}`,
+      detail: () => `Tap for ×${SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]}`,
+      keepOpen: true,
+      onSelect: () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]),
+    });
+  }
 
   if (RWK.controls) {
     const style = document.createElement("style");
