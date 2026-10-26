@@ -176,10 +176,87 @@
   // phone does not download them again at every launch.
   //---------------------------------------------------------------------------
 
-  if (config.cache !== false && "serviceWorker" in navigator && window.isSecureContext) {
+  const caching = config.cache !== false && "serviceWorker" in navigator && window.isSecureContext;
+  if (caching) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("rwk-sw.js").catch((e) => console.warn("[RWK] Service Worker not registered", e));
     });
+  }
+
+  // What the cache holds on this device, and a way to empty it (a phone that
+  // is short of space, or a file that looks wrong).
+  const FILES_CACHE = "rwk-files"; // CACHE in rwk-sw.js
+  const megabytes = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(0, Math.round(bytes / 1e6))} MB`);
+  let cacheText = "";
+  const knownSizes = new Map(); // url -> bytes: a cached file never changes under its URL
+
+  // -> { files, bytes, free } (free: null when the browser does not say)
+  async function cacheUsage() {
+    let files = 0;
+    let bytes = 0;
+    if (await caches.has(FILES_CACHE)) {
+      const cache = await caches.open(FILES_CACHE);
+      for (const request of await cache.keys()) {
+        if (new URL(request.url).pathname === "/__rwk-index") continue;
+        if (!knownSizes.has(request.url)) {
+          const res = await cache.match(request);
+          if (!res) continue;
+          // Compressed answers have no Content-Length: read the body once.
+          const length = Number(res.headers.get("content-length"));
+          knownSizes.set(request.url, length > 0 ? length : (await res.blob()).size);
+        }
+        files++;
+        bytes += knownSizes.get(request.url);
+      }
+    }
+    let free = null;
+    try {
+      const { quota, usage } = await navigator.storage.estimate();
+      if (quota) free = Math.max(0, quota - (usage || 0));
+    } catch (e) {
+      // no StorageManager
+    }
+    return { files, bytes, free };
+  }
+
+  const describeCache = ({ files, bytes, free }) =>
+    (files ? `${files} file${files === 1 ? "" : "s"}, ${megabytes(bytes)}` : "Nothing kept yet") + (free === null ? "" : ` · ${megabytes(free)} free`);
+
+  function refreshCache() {
+    return cacheUsage()
+      .then((usage) => {
+        cacheText = describeCache(usage);
+        return usage;
+      })
+      .catch((e) => {
+        console.warn("[RWK] Cache Storage unreadable", e);
+        return null;
+      });
+  }
+
+  async function manageCache() {
+    const usage = await refreshCache();
+    if (!usage) {
+      toast("This browser does not let the game read its saved files.", "warn", 4000);
+      return;
+    }
+    const clear = await choose(
+      "Game files on this device",
+      `${describeCache(usage)}.\n\nThe pictures, sounds and data kept here load the game without downloading them again. ` +
+        "Clearing them frees the space; they download again as you play. Your saves are not touched.",
+      usage.files
+        ? [{ label: "Keep", value: false }, { label: "Clear", value: true, primary: true }]
+        : [{ label: "OK", value: false, primary: true }]
+    );
+    if (!clear) return;
+    try {
+      await caches.delete(FILES_CACHE);
+      knownSizes.clear();
+      toast("Game files cleared", "info", 2000);
+    } catch (e) {
+      toast("Could not clear the game files: " + e.message, "error", 4000);
+    }
+    refreshCache();
   }
 
   let toastEl = null;
@@ -330,6 +407,7 @@
         '<path d="M9 15l3-3 3 3M12 12v9"/>'
     ),
     timer: svg('<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>'),
+    database: svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>'),
     footprints: svg(
       '<path d="M4 16v-2.38C4 11.5 3 10.5 3 8c0-2.72 1.5-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0z"/>' +
         '<path d="M20 20v-2.38c0-2.12 1-3.12 1-5.62 0-2.72-1.5-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0z"/>' +
@@ -492,6 +570,8 @@
       }
     };
     fill();
+    // The cache's size is read as the menu opens; show it once it is known.
+    if (caching && window.caches) refreshCache().then(() => menu === overlay && fill());
 
     box.append(head, body);
     overlay.appendChild(box);
@@ -556,6 +636,16 @@
       label: () => (isFullscreen() ? "Exit full screen" : "Full screen"),
       onSelect: toggleFullscreen,
     }));
+  }
+
+  if (caching && window.caches) {
+    addTool({
+      icon: icons.database,
+      group: "help",
+      label: "Game files on this device",
+      detail: () => cacheText || "Kept so the game loads without downloading them again",
+      onSelect: manageCache,
+    });
   }
 
   //---------------------------------------------------------------------------
