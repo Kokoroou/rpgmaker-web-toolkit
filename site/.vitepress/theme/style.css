@@ -239,3 +239,24 @@
   width: 100%;
   max-width: 440px;
 }
+
+/* Diagrams: one SVG per theme (site/diagrams/build.mjs) */
+
+.vp-doc img.diagram {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  margin: 16px auto;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+}
+
+.vp-doc img.dark-only,
+.dark .vp-doc img.light-only {
+  display: none;
+}
+
+.dark .vp-doc img.dark-only {
+  display: block;
+}

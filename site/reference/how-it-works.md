@@ -5,6 +5,38 @@ lang: en
 
 # How it works
 
+## The pieces
+
+![Four layers. The player's device holds the game with the RWK plugins, a Service Worker and Cache Storage, and the local saves. Requests pass Cloudflare Access, then reach one Worker (index.js, auth.js, saves.js, players.js, settings.js, toolkit.js), which reads Static Assets and one R2 bucket.](/img/architecture-light.svg){.diagram .light-only}
+![Four layers. The player's device holds the game with the RWK plugins, a Service Worker and Cache Storage, and the local saves. Requests pass Cloudflare Access, then reach one Worker (index.js, auth.js, saves.js, players.js, settings.js, toolkit.js), which reads Static Assets and one R2 bucket.](/img/architecture-dark.svg){.diagram .dark-only}
+
+In words, top to bottom:
+
+- **The player's device.** The game runs with the `RWK_*` plugins added to its `js/plugins.js`. A Service Worker (`rwk-sw.js`) answers requests for pictures, sounds, data and scripts from Cache Storage. Saves live in the browser first (localforage on MZ, `localStorage` on MV), and `RWK_SaveSync` mirrors them to the cloud.
+- **Cloudflare Access.** It sits in front of the site and lets in only the emails you invited. It adds a signed login (a JWT) to each request.
+- **One Worker.** `index.js` routes the request. `auth.js` checks the login's signature and reads the email. `saves.js` is the save API and the save history. `players.js` counts the emails that saved. `settings.js` reads the settings from R2, and `toolkit.js` serves the toolkit's part of `js/plugins.js`.
+- **Storage.** Static Assets hold the game files under 25 MiB. One R2 bucket holds the larger files, the saves and their history, the settings and the list of players (details in [Storage](#storage)).
+
+The same Worker serves every game you deploy; each game has its own site name and its own folders in R2.
+
+## What a deploy does
+
+![The creator's PC: the CLI reads the game folder without writing to it, makes a temporary build of hard links plus the RWK plugins and the Service Worker file, and hands it to wrangler. Cloudflare receives the Worker with static assets, files over 25 MiB in R2, and the settings file in R2.](/img/deploy-light.svg){.diagram .light-only}
+![The creator's PC: the CLI reads the game folder without writing to it, makes a temporary build of hard links plus the RWK plugins and the Service Worker file, and hands it to wrangler. Cloudflare receives the Worker with static assets, files over 25 MiB in R2, and the settings file in R2.](/img/deploy-dark.svg){.diagram .dark-only}
+
+In words: the CLI analyzes the game folder and never writes to it. It builds a temporary copy (hard links, plus the plugins and `rwk-sw.js`), then sends three things to Cloudflare: the Worker with the other files as static assets, the files over 25 MiB to R2, and the settings as a JSON file in R2. The temporary copy is deleted at the end. [The build](#the-build) lists each step.
+
+## First load and save sync
+
+![Sequence between the browser, Access, the Worker and R2. First load: the site opens, Access asks for a login and sets a signed cookie, the Worker serves the page and the game files (large ones from R2), and adds this player's settings to js/plugins.js. Save sync: the plugin lists the saves, keeps the newer copy of each, and uploads a save with If-Match; the Worker keeps the old save in history and answers with a new ETag, or 412 when another device changed it.](/img/sequence-light.svg){.diagram .light-only}
+![Sequence between the browser, Access, the Worker and R2. First load: the site opens, Access asks for a login and sets a signed cookie, the Worker serves the page and the game files (large ones from R2), and adds this player's settings to js/plugins.js. Save sync: the plugin lists the saves, keeps the newer copy of each, and uploads a save with If-Match; the Worker keeps the old save in history and answers with a new ETag, or 412 when another device changed it.](/img/sequence-dark.svg){.diagram .dark-only}
+
+In words: the first request is stopped by Access, which asks the player to sign in and sets a cookie. After that the Worker serves the page and game files, and reads `js/plugins.js` with the settings from R2 merged in ([Settings per player](#settings-per-player)); the Service Worker starts keeping files for the next launch. At boot, before the engine reads a save, the plugin lists the cloud saves and keeps the newer of each local / cloud pair, asking when both changed. A save then uploads about a second after it is written, with `If-Match`; the Worker keeps the old copy in the history and answers with a new ETag, or `412` when another device changed it first ([Save sync](#save-sync)).
+
+These pictures are drawn by `site/diagrams/build.mjs` (run `node site/diagrams/build.mjs`, no dependencies); edit that file when the architecture changes, and commit the SVGs it writes to `site/public/img/`.
+
+## Files
+
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
