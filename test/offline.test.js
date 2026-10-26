@@ -4,6 +4,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import { generatedFiles, pngSize, runtimeConfigOf, serviceWorkerSource } from "../cli/lib/stage.js";
@@ -293,17 +295,17 @@ test("build: the web manifest gives the icon's real size so a browser offers to 
   assert.deepEqual(pngSize(png), { width: 512, height: 384 });
   assert.equal(pngSize(Buffer.from("not a png at all, just text")), null);
 
-  const root = fs.mkdtempSync(new URL("../", import.meta.url).pathname.replace(/\/$/, "") + "/.tmp-offline-");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-offline-"));
   try {
-    fs.mkdirSync(`${root}/js`);
-    fs.mkdirSync(`${root}/icon`);
-    fs.writeFileSync(`${root}/js/plugins.js`, "var $plugins = [];\n");
-    fs.writeFileSync(`${root}/index.html`, "<html><head></head><body></body></html>");
-    fs.writeFileSync(`${root}/icon/icon.png`, png);
+    fs.mkdirSync(path.join(root, "js"));
+    fs.mkdirSync(path.join(root, "icon"));
+    fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+    fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+    fs.writeFileSync(path.join(root, "icon", "icon.png"), png);
     const manifest = JSON.parse(generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }, []).get("rwk.webmanifest"));
     assert.deepEqual(manifest.icons, [{ src: "icon/icon.png", sizes: "512x384", type: "image/png", purpose: "any" }]);
     assert.equal(manifest.scope, "./");
-    fs.rmSync(`${root}/icon`, { recursive: true });
+    fs.rmSync(path.join(root, "icon"), { recursive: true });
     assert.deepEqual(JSON.parse(generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }, []).get("rwk.webmanifest")).icons, []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
