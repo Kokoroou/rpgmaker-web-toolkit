@@ -1,15 +1,20 @@
 import readline from "node:readline/promises";
 
-// --json: stdout carries only the run's result (report.js), so the log goes
-// to stderr.
-let jsonOutput = false;
-export const setJsonOutput = (on) => (jsonOutput = !!on);
-export const isJsonOutput = () => jsonOutput;
-const stream = () => (jsonOutput ? process.stderr : process.stdout);
-// A line of the log.
-export const print = (msg = "") => (jsonOutput ? console.error(msg) : console.log(msg));
+// The log (steps, questions, warnings, the closing summary) goes to stderr and
+// stdout carries only the run's result: a script reads `--json`, or the link
+// when stdout is piped (report.js).
+export const print = (msg = "") => console.error(msg);
 
-const color = (code) => (s) => (stream().isTTY ? `\x1b[${code}m${s}\x1b[0m` : String(s));
+// Colour: NO_COLOR or --no-color switch it off, FORCE_COLOR on; otherwise
+// only on a terminal that is not "dumb".
+let colorOff = false;
+export const setColor = (on) => (colorOff = !on);
+export function useColor(env = process.env, isTTY = !!process.stderr.isTTY) {
+  if (colorOff || env.NO_COLOR) return false;
+  if (env.FORCE_COLOR && env.FORCE_COLOR !== "0") return true;
+  return isTTY && env.TERM !== "dumb";
+}
+const color = (code) => (s) => (useColor() ? `\x1b[${code}m${s}\x1b[0m` : String(s));
 export const c = {
   bold: color(1),
   dim: color(2),
@@ -19,19 +24,58 @@ export const c = {
   cyan: color(36),
 };
 
+// Symbols fall back to ASCII where the terminal may not draw them (RWK_ASCII=1,
+// TERM=dumb, or a locale that is set but not UTF-8).
+export function supportsUnicode(env = process.env) {
+  if (env.RWK_ASCII || env.TERM === "dumb") return false;
+  const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || "";
+  return !locale || /utf-?8/i.test(locale);
+}
+const UNICODE = { step: "▶", ok: "✓", warn: "!", error: "✗", ask: "?", arrow: "→" };
+const ASCII = { step: ">", ok: "+", warn: "!", error: "x", ask: "?", arrow: "->" };
+export const sym = supportsUnicode() ? UNICODE : ASCII;
+
+// --quiet: only warnings, questions and errors; the result still reaches stdout.
+let quiet = false;
+export const setQuiet = (on) => (quiet = !!on);
+export const isQuiet = () => quiet;
+const say = (msg) => {
+  if (!quiet) print(msg);
+};
+
 // Every warning of the run, repeated in the deploy's build report.
 export const warnings = [];
 
 export const log = {
-  step: (msg) => print(`\n${c.cyan("▶")} ${c.bold(msg)}`),
-  info: (msg) => print(`  ${msg}`),
-  ok: (msg) => print(`  ${c.green("✓")} ${msg}`),
+  step: (msg) => say(`\n${c.cyan(sym.step)} ${c.bold(msg)}`),
+  info: (msg) => say(`  ${msg}`),
+  ok: (msg) => say(`  ${c.green(sym.ok)} ${msg}`),
   warn: (msg) => {
     warnings.push(msg);
-    print(`  ${c.yellow("!")} ${msg}`);
+    print(`  ${c.yellow(sym.warn)} ${msg}`);
   },
-  error: (msg) => console.error(`${c.red("✗")} ${msg}`),
+  // What went wrong, then what to do about it.
+  error: (msg, hint) => {
+    print(`${c.red(sym.error)} ${msg}`);
+    if (hint) print(`  ${c.cyan(sym.arrow)} ${hint}`);
+  },
 };
+
+// A failure the user can act on. exitCode: 1 failed, 2 a question needs a
+// person, 64 wrong usage. hint: the next thing to try.
+export class CliError extends Error {
+  constructor(message, { hint, exitCode = 1 } = {}) {
+    super(message);
+    this.hint = hint;
+    this.exitCode = exitCode;
+  }
+}
+
+export class UsageError extends CliError {
+  constructor(message, { hint } = {}) {
+    super(message, { hint, exitCode: 64 });
+  }
+}
 
 export class UserAbort extends Error {}
 
@@ -43,33 +87,22 @@ let unattended = false;
 export const setUnattended = (on) => (unattended = !!on);
 export const isUnattended = () => unattended;
 
-export class NeedsAnswer extends Error {
-  constructor(message) {
-    super(message);
-    this.exitCode = 2;
+export class NeedsAnswer extends CliError {
+  constructor(message, hint) {
+    super(message, { hint, exitCode: 2 });
   }
 }
 
-// args (process.argv after the script) -> { unattended, json, rest }: --yes,
-// -y, --non-interactive and --json are flags, the rest is the command and its
-// folder / link. --json implies --yes: a script reads the result.
-export function splitFlags(args, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
-  const flags = new Set(["--yes", "-y", "--non-interactive"]);
-  const json = args.includes("--json");
-  const rest = args.filter((a) => !flags.has(a) && a !== "--json");
-  return { unattended: json || args.some((a) => flags.has(a)) || !stdinIsTTY, json, rest };
-}
-
 function noAnswer(text, hint) {
-  throw new NeedsAnswer(`Nobody can answer "${text}" in a non-interactive run.${hint ? ` ${hint}` : ""}`);
+  throw new NeedsAnswer(`Nobody can answer "${text}" in a non-interactive run.`, hint);
 }
 
-const answered = (text, answer) => print(`  ${c.yellow("?")} ${text}: ${answer} ${c.dim("(non-interactive)")}`);
+const answered = (text, answer) => print(`  ${c.yellow(sym.ask)} ${text}: ${answer} ${c.dim("(non-interactive)")}`);
 
 // A fresh interface per question so child processes (wrangler login) can
 // own stdin in between prompts.
 async function question(text) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
   try {
     return await rl.question(text);
   } finally {
@@ -86,7 +119,7 @@ export async function ask(text, defaultValue = "", validate, { hint } = {}) {
   }
   for (;;) {
     const hint = defaultValue !== "" ? c.dim(` [${defaultValue}]`) : "";
-    const answer = (await question(`  ${c.yellow("?")} ${text}${hint}: `)).trim();
+    const answer = (await question(`  ${c.yellow(sym.ask)} ${text}${hint}: `)).trim();
     const value = answer === "" ? defaultValue : answer;
     const problem = validate ? validate(value) : null;
     if (!problem) return value;
@@ -100,7 +133,7 @@ export async function confirm(text, defaultYes = true, { whenUnattended = defaul
     answered(text, whenUnattended ? "yes" : "no");
     return whenUnattended;
   }
-  const answer = (await question(`  ${c.yellow("?")} ${text} ${c.dim(defaultYes ? "[Y/n]" : "[y/N]")}: `))
+  const answer = (await question(`  ${c.yellow(sym.ask)} ${text} ${c.dim(defaultYes ? "[Y/n]" : "[y/N]")}: `))
     .trim()
     .toLowerCase();
   if (answer === "") return defaultYes;
@@ -115,7 +148,7 @@ export async function choose(text, options, defaultIndex = 0, { whenUnattended =
     answered(text, options[whenUnattended].label);
     return options[whenUnattended].value;
   }
-  print(`  ${c.yellow("?")} ${text}`);
+  print(`  ${c.yellow(sym.ask)} ${text}`);
   options.forEach((o, i) => print(`     ${i + 1}) ${o.label}${i === defaultIndex ? c.dim("  (default)") : ""}`));
   const answer = await ask("Enter a number", String(defaultIndex + 1), (v) => {
     const n = Number(v);

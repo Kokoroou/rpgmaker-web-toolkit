@@ -194,7 +194,7 @@ Gợi ý thêm:
 
 ## 5. Tùy chỉnh dành cho người thiết lập game
 
-"Người thiết lập" là người chạy lệnh deploy và sửa config bằng `edit-config`. "Người chơi" là những email được Cloudflare Access cho vào.
+"Người thiết lập" là người chạy lệnh deploy và sửa config bằng `config edit`. "Người chơi" là những email được Cloudflare Access cho vào.
 
 ### Hai tầng quyền
 
@@ -208,7 +208,7 @@ Cách này giữ đúng kiểu của config hiện có: `saveTools: false` và `
 
 ### Gói cài sẵn khi deploy lần đầu
 
-Để không phải trả lời từng câu, CLI hỏi một câu chọn gói, sau đó vẫn sửa từng mục được bằng `edit-config`:
+Để không phải trả lời từng câu, CLI hỏi một câu chọn gói, sau đó vẫn sửa từng mục được bằng `config edit`:
 
 | Gói | Dành cho | Khác với mặc định |
 |---|---|---|

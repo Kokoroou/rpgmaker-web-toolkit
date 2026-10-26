@@ -27,8 +27,8 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              auth.js             verifies Cloudflare Access logins (JWT)
              saves.js            save API, with ETag overwrite protection, and save history
              players.js          counts the emails that save, for the deploy's reminder
-             toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after update-from-link
-             settings.js         the deployer's settings from R2, so edit-config applies without a redeploy
+             toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after upgrade
+             settings.js         the deployer's settings from R2, so config edit applies without a redeploy
 ```
 
 ## The build
@@ -49,11 +49,11 @@ The shared settings are written into `js/plugins.js` at build time. A config wit
 
 ## Settings without a redeploy
 
-Each deploy, and each `edit-config` after it, also writes the settings to R2 as `rwk/settings/<game>.json`: `{ "config": <everyone's RWK_Core settings>, "players": <the table above> }`. The `config` part leaves out what the build itself is made of (toolkit version, game id, engine, `cache`, MV's media flags). The Worker always runs first for `js/plugins.js`: it reads that file (at most once every 30 seconds per Worker instance), puts `config` and then the player's own entry over the `RWK_Core` config it sends, and the save API takes `saveHistory` from it. The file wins over what the deploy built in; without one (R2 unreachable on the first read, or a game last deployed before this), the Worker uses the build's own settings. The creator's [policy](/creators/policy) is applied before the file is written, so it still wins.
+Each deploy, and each `config edit` after it, also writes the settings to R2 as `rwk/settings/<game>.json`: `{ "config": <everyone's RWK_Core settings>, "players": <the table above> }`. The `config` part leaves out what the build itself is made of (toolkit version, game id, engine, `cache`, MV's media flags). The Worker always runs first for `js/plugins.js`: it reads that file (at most once every 30 seconds per Worker instance), puts `config` and then the player's own entry over the `RWK_Core` config it sends, and the save API takes `saveHistory` from it. The file wins over what the deploy built in; without one (R2 unreachable on the first read, or a game last deployed before this), the Worker uses the build's own settings. The creator's [policy](/creators/policy) is applied before the file is written, so it still wins.
 
 ## Update from the link
 
-[`update-from-link`](/setup/updating#new-toolkit-version-game-folder-gone) works without the game folder. Cloudflare cannot hand back a Worker's static files, and `wrangler deploy` always replaces all of them. So the CLI calls the Workers API itself: `PATCH /accounts/{id}/workers/workers/{name}/versions/latest?deploy=true` creates a new version from the latest one, and every field the patch leaves out (the static files among them) carries over.
+[`upgrade`](/setup/updating#new-toolkit-version-game-folder-gone) works without the game folder. Cloudflare cannot hand back a Worker's static files, and `wrangler deploy` always replaces all of them. So the CLI calls the Workers API itself: `PATCH /accounts/{id}/workers/workers/{name}/versions/latest?deploy=true` creates a new version from the latest one, and every field the patch leaves out (the static files among them) carries over.
 
 The patch holds the new Worker, with the new `RWK_*.js` plugins inside it, and sets the asset routing so the Worker runs first for `js/plugins.js` and those plugins. The Worker serves the plugins itself and rewrites `js/plugins.js`: the game's own part stays, and the toolkit's part (after the `rpgmaker-web-toolkit` marker) is replaced. MV's phone audio / movie flags come from the deployed copy.
 

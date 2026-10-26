@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks the Workers API requests of update-from-link (cli/lib/workers-api.js)
+// Checks the Workers API requests of upgrade (cli/lib/workers-api.js)
 // against Cloudflare's published OpenAPI schema. Run weekly by
 // .github/workflows/workers-api.yml, or by hand:
 //   node scripts/check-workers-api.js [openapi.json]
@@ -19,9 +19,9 @@ if (file) {
 
 const problems = checkWorkersApi(JSON.parse(text));
 if (problems.length) {
-  console.error(`The Cloudflare Workers API changed since ${WORKERS_API.checked}; update-from-link may no longer work:`);
+  console.error(`The Cloudflare Workers API changed since ${WORKERS_API.checked}; upgrade may no longer work:`);
   for (const p of problems) console.error(`  - ${p}`);
   console.error("Fix cli/lib/workers-api.js, then update WORKERS_API.checked.");
   process.exit(1);
 }
-console.log(`The Workers API still matches what update-from-link sends (checked on ${WORKERS_API.checked}).`);
+console.log(`The Workers API still matches what upgrade sends (checked on ${WORKERS_API.checked}).`);

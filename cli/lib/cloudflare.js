@@ -1,6 +1,6 @@
 // Cloudflare operations: account, R2 bucket, overflow assets, Worker deploy,
 // Access detection and save import. All through the pinned wrangler, except
-// update-from-link (workers-api.js).
+// upgrade (workers-api.js).
 
 import crypto from "node:crypto";
 import fs from "node:fs";

@@ -3,8 +3,8 @@
 #
 #   irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
 #
-# With arguments (another command, or the game path):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))) import-saves "D:\Games\My Game"
+# With arguments (a command and the game):
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))) saves import "D:\Games\My Game"
 #
 # $env:RWK_REF selects a branch or tag (default: main).
 

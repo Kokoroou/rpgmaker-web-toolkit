@@ -1,5 +1,5 @@
 ---
-description: "Change a published game's settings with edit-config: on-screen buttons, folders, cloud saves and other features, stored as JSON in your Cloudflare account."
+description: "Change a published game's settings with config edit: on-screen buttons, folders, cloud saves and other features, stored as JSON in your Cloudflare account."
 lang: en
 ---
 
@@ -10,15 +10,15 @@ Each game's settings are a small JSON file in your Cloudflare account.
 ::: code-group
 ```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk edit-config "D:\Games\My Game"   # Notepad opens: edit, Ctrl+S, close
+& $rwk config edit "D:\Games\My Game"   # Notepad opens: edit, Ctrl+S, close
 ```
 ```sh [macOS / Linux]
 rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
-rwk edit-config ~/Games/"My Game"   # TextEdit (macOS) or $EDITOR / nano (Linux) opens: edit, save, close
+rwk config edit ~/Games/"My Game"   # TextEdit (macOS) or $EDITOR / nano (Linux) opens: edit, save, close
 ```
 :::
 
-Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `edit-config` names them and you publish again (`& $rwk "D:\Games\My Game"`) to apply them. A game last published with a toolkit older than this needs one more publish first; `edit-config` says so.
+Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `config edit` names them and you publish again (`& $rwk deploy "D:\Games\My Game"`) to apply them. A game last published with a toolkit older than this needs one more publish first; `config edit` says so.
 
 On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use another editor. A JSON mistake reopens the editor. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 

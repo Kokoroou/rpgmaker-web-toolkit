@@ -4,8 +4,8 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash
 #
-# With arguments (another command, or the game path):
-#   curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- import-saves "$HOME/Games/My Game"
+# With arguments (a command and the game):
+#   curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- saves import "$HOME/Games/My Game"
 #
 # RWK_REF selects a branch or tag (default: main).
 

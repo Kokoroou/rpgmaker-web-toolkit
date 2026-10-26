@@ -20,23 +20,22 @@ import {
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
-import { cleanPathInput, editorCommand, openUrlCommand } from "../lib/platform.js";
+import { editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
-import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, print, warnings } from "../lib/ui.js";
-import { updateFromLink } from "./update-from-link.js";
+import { expectTarget } from "../lib/target.js";
+import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
-export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
+// deploy, saves import (importOnly) and site rename (rename, to): the commands that start from the game folder.
+export async function deploy(inputPath, { importOnly = false, rename = false, to } = {}) {
+  const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk site rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
   if (!inputPath) {
-    inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)", "", null, {
-      hint: 'Pass it after the command: rwk --yes "<game folder>".',
-    });
+    inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command: ${usage}` });
   }
-  inputPath = cleanPathInput(inputPath);
-  if (!importOnly && !editOnly && !rename && isLink(inputPath)) return updateFromLink(inputPath);
+  inputPath = expectTarget(inputPath, ["folder"], usage).value;
 
   //-------------------------------------------------------------------------
   log.step("Analyzing the game");
@@ -67,38 +66,20 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
   } else if (rename) {
-    throw new Error("This game is not published yet: run the deploy command, which asks for the site name.");
+    throw new CliError("This game is not published yet, so it has no site to rename.", { hint: `Publish it first: rwk deploy "${inputPath}"` });
   } else {
     log.info("First deploy of this game: answer a few questions (Enter = use the default).");
     cfg = await createConfig(game, takenNames(configs, game.fingerprint));
   }
   await addNewKeys(game, cfg);
-  // Kept for update-from-link, which has no game folder to read it from.
+  // Kept for upgrade, which has no game folder to read it from.
   cfg.policy = policy ? { hosting: policy.hosting, features: policy.features } : null;
   await saveGameConfig();
 
   // Then deploys as usual, under the new name.
   if (rename) {
-    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint)))) return siteOf(cfg);
+    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint), to))) return siteOf(cfg);
     await saveGameConfig();
-  }
-
-  if (editOnly) {
-    if (isUnattended()) throw new NeedsAnswer("edit-config opens a text editor: run it in a terminal.");
-    const before = cfg;
-    cfg = editInEditor(cfg);
-    await saveGameConfig();
-    if (!cfg.liveSettings) {
-      log.ok("Config saved to R2. Run the deploy command again to apply it.");
-      log.info(c.dim("After that deploy, changes to the in-game features apply without one."));
-      return siteOf(cfg);
-    }
-    for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
-    await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
-    log.ok("Config saved to R2. Players get the new settings the next time they open the game (within a minute).");
-    const rebuild = keysNeedingDeploy(before, cfg);
-    if (rebuild.length) log.warn(`Run the deploy command again to apply ${rebuild.map((k) => `"${k}"`).join(", ")}: only a deploy changes these.`);
-    return siteOf(cfg);
   }
 
   // The creator can turn sync off; the stored config keeps the deployer's choice.
@@ -172,7 +153,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   await publishSettings();
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
-  cfg.liveSettings = true; // edit-config applies without a redeploy from now on
+  cfg.liveSettings = true; // config edit applies without a redeploy from now on
   await saveGameConfig();
 
   if (!authReady) {
@@ -208,23 +189,14 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   await saveGameConfig();
   if (cfg.auth.mode === "access") await checkPlayers(bucket, cfg, policy);
 
-  log.step("Build report");
-  log.info(`${files.length} files, ${formatBytes(totalBytes)}`);
-  if (r2) log.info(`${overflow.length} file(s) over ${formatMiB(maxFileBytes)} on R2 (uploaded ${r2.uploaded}, unchanged ${r2.unchanged})`);
-  if (warnings.length) {
-    log.info(`${warnings.length} warning(s) during this run:`);
-    for (const w of warnings) log.info(`  ${c.yellow("!")} ${w}`);
-  } else {
-    log.ok("No warnings");
-  }
-
-  print(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
-  log.info("The game's config is stored in R2: on another machine, log in to the same Cloudflare account and run the command again.");
-  log.info("On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.");
   return {
     ...siteOf(cfg),
     locked: !isAuthReady(cfg.auth),
     build: { files: files.length, bytes: totalBytes, r2Files: overflow.length, r2Uploaded: r2 ? r2.uploaded : 0 },
+    next: [
+      "The config is stored in R2: on another PC, log in to the same Cloudflare account and run the command again.",
+      "On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.",
+    ],
   };
 }
 
@@ -258,7 +230,7 @@ export function isAuthReady(auth = {}) {
 }
 
 // Opens the config in the OS text editor ($VISUAL / $EDITOR first) and blocks until it is closed; reopens on bad JSON.
-function editInEditor(cfg) {
+export function editInEditor(cfg) {
   const file = path.join(os.tmpdir(), `rwk-${cfg.slug}-${crypto.randomUUID().slice(0, 8)}.json`);
   fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
   try {
@@ -271,7 +243,7 @@ function editInEditor(cfg) {
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
-        // The rename command changes the site name. The policy is the game creator's.
+        // rwk site rename changes the site name. The policy is the game creator's.
         // liveSettings says what the deployed Worker can do.
         return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy, liveSettings: cfg.liveSettings };
       } catch (err) {
@@ -281,10 +253,6 @@ function editInEditor(cfg) {
   } finally {
     fs.rmSync(file, { force: true });
   }
-}
-
-function isLink(input) {
-  return /^https?:\/\//i.test(input) || /\.workers\.dev(\/|$)/i.test(input);
 }
 
 function formatMiB(bytes) {
@@ -308,7 +276,7 @@ function tooManyFiles(assets, count, max) {
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
     `The web build has ${count} files, over the Workers limit of ${max} (free plan).\n` +
-      `${lines.join("\n")}\nAdd exclude patterns (edit-config command, e.g. "data-tw/**") and run again.`
+      `${lines.join("\n")}\nAdd exclude patterns (rwk config edit, e.g. "data-tw/**") and run again.`
   );
 }
 
@@ -334,7 +302,7 @@ async function createConfig(game, takenSlugs) {
   const syncEnabled = await confirm("Enable cloud save sync (continue playing on other devices)?", true);
   const presetNames = Object.keys(PRESETS);
   const preset = await choose(
-    "Which features may players use? (each one can be changed later with edit-config)",
+    "Which features may players use? (each one can be changed later with rwk config edit)",
     presetNames.map((name) => ({ label: PRESETS[name].label, value: name })),
     presetNames.indexOf(DEFAULT_PRESET)
   );
@@ -373,7 +341,7 @@ async function createConfig(game, takenSlugs) {
     cfg.controls.enabled = true;
     cfg.controls.dpad = await confirm("Include the D-pad? (No = move by tapping the map only)", true);
     cfg.controls.buttons = await askButtons(keys);
-    log.info(c.dim("Labels, groups, size and opacity can be changed with edit-config; in game, ⚙ → Edit button layout moves buttons around."));
+    log.info(c.dim("Labels, groups, size and opacity can be changed with rwk config edit; in game, ⚙ → Edit button layout moves buttons around."));
   }
   return cfg;
 }
@@ -394,7 +362,7 @@ async function askButtons(keys) {
 }
 
 // After a game patch, plugins may use new keys: offer buttons for those only.
-async function addNewKeys(game, cfg) {
+export async function addNewKeys(game, cfg) {
   const controls = cfg.controls;
   if (!controls) return;
   const known = new Set(controls.scannedKeys || []);
@@ -422,20 +390,22 @@ async function addNewKeys(game, cfg) {
 // (storageId), so nothing is copied.
 //---------------------------------------------------------------------------
 
-async function renameSite(cfg, taken) {
+async function renameSite(cfg, taken, to) {
   log.step("New site name");
   log.info(`Now: ${cfg.url || cfg.slug}`);
-  const slug = await ask(
-    "New site name (becomes <name>.<username>.workers.dev)",
-    "",
-    (v) => {
-      if (v === cfg.slug) return "That is the current name.";
-      const problem = validateSlug(v);
-      if (problem) return problem;
-      return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
-    },
-    { hint: "Rename in a terminal." }
-  );
+  const check = (v) => {
+    if (v === cfg.slug) return "That is the current name.";
+    const problem = validateSlug(v);
+    if (problem) return problem;
+    return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
+  };
+  if (to !== undefined && check(to)) throw new CliError(`Cannot rename to "${to}": ${check(to)}`, { hint: "Give another name with --to." });
+  const slug =
+    to !== undefined
+      ? to
+      : await ask("New site name (becomes <name>.<username>.workers.dev)", "", check, {
+          hint: "Pass the new name: rwk site rename \"<game folder>\" --to <new name>",
+        });
   const access = cfg.auth.mode === "access";
   log.info("What happens next:");
   log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
@@ -657,10 +627,10 @@ async function offerSaveImport(game, cfg, bucket, accountEmail, force) {
 
   log.step("Local saves");
   log.info(`Found ${saves.length} save(s) in ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
-  // Unattended, only the import-saves command uploads them; a deploy leaves
+  // Unattended, only the saves import command uploads them; a deploy leaves
   // the question for the next run in a terminal.
   if (!force && isUnattended()) {
-    log.info(c.dim("Not uploaded in a non-interactive run: use the import-saves command to upload them."));
+    log.info(c.dim("Not uploaded in a non-interactive run: use rwk saves import to upload them."));
     return;
   }
   if (!(await confirm("Upload these saves to the cloud? (overwrites cloud saves with the same name)", !cfg.savesImportedAt, { whenUnattended: true }))) {

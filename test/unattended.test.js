@@ -3,16 +3,18 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NeedsAnswer, ask, choose, confirm, isUnattended, pause, setUnattended, splitFlags } from "../cli/lib/ui.js";
+import { parseCommandLine } from "../cli/lib/args.js";
+import { NeedsAnswer, ask, choose, confirm, isUnattended, pause, setUnattended } from "../cli/lib/ui.js";
 import { PROFILE, envApiToken, useEnvToken, wranglerRun } from "../cli/lib/wrangler.js";
 
-test("non-interactive: --yes, --non-interactive or no terminal on stdin", () => {
-  assert.deepEqual(splitFlags(["--yes", "D:\\Games\\My", "Game"], { stdinIsTTY: true }), { unattended: true, json: false, rest: ["D:\\Games\\My", "Game"] });
-  assert.deepEqual(splitFlags(["import-saves", "-y", "g"], { stdinIsTTY: true }), { unattended: true, json: false, rest: ["import-saves", "g"] });
-  assert.equal(splitFlags(["--non-interactive", "g"], { stdinIsTTY: true }).unattended, true);
-  assert.deepEqual(splitFlags(["g"], { stdinIsTTY: true }), { unattended: false, json: false, rest: ["g"] });
-  assert.deepEqual(splitFlags(["--json", "g"], { stdinIsTTY: true }), { unattended: true, json: true, rest: ["g"] }, "--json implies --yes");
-  assert.equal(splitFlags(["g"], { stdinIsTTY: false }).unattended, true, "CI: stdin is not a terminal");
+test("non-interactive: --yes, --json or no terminal on stdin", () => {
+  const parse = (args, stdinIsTTY = true) => parseCommandLine(args, { stdinIsTTY });
+  assert.equal(parse(["deploy", "--yes", "g"]).unattended, true);
+  assert.equal(parse(["deploy", "-y", "g"]).unattended, true);
+  assert.equal(parse(["deploy", "g"]).unattended, false);
+  assert.equal(parse(["deploy", "g", "--json"]).unattended, true, "--json implies --yes");
+  assert.equal(parse(["deploy", "g"], false).unattended, true, "CI: stdin is not a terminal");
+  assert.throws(() => parse(["deploy", "--non-interactive", "g"]), { exitCode: 64 }, "one spelling: --yes");
 });
 
 test("non-interactive: questions take their default, or stop the run", async (t) => {
@@ -24,7 +26,11 @@ test("non-interactive: questions take their default, or stop the run", async (t)
   assert.equal(await ask("Site name", "my-game", (v) => (/^[a-z-]+$/.test(v) ? null : "bad")), "my-game");
   await assert.rejects(ask("Game folder"), NeedsAnswer, "no default");
   await assert.rejects(ask("Site name", "My Game", (v) => (/^[a-z-]+$/.test(v) ? null : "bad")), NeedsAnswer, "a default that fails its check");
-  await assert.rejects(ask("Link", "", null, { hint: "Pass it after the command." }), /Nobody can answer "Link".*Pass it after the command\./);
+  await assert.rejects(ask("Link", "", null, { hint: "Pass it after the command." }), (err) => {
+    assert.match(err.message, /Nobody can answer "Link"/);
+    assert.equal(err.hint, "Pass it after the command.");
+    return true;
+  });
 
   assert.equal(await confirm("Enable sync?", true), true);
   assert.equal(await confirm("Include extra?", false), false);

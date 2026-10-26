@@ -1,57 +1,66 @@
 #!/usr/bin/env node
+import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args.js";
 import { deploy } from "./commands/deploy.js";
-import { updateFromLink } from "./commands/update-from-link.js";
-import { failedResult, publishResult, runResult } from "./lib/report.js";
-import { c, log, setJsonOutput, setUnattended, splitFlags, warnings } from "./lib/ui.js";
+import { editConfig } from "./commands/config.js";
+import { upgrade } from "./commands/upgrade.js";
+import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
+import { TOOLKIT_VERSION } from "./lib/stage.js";
+import { classifyTarget } from "./lib/target.js";
+import { UsageError, ask, c, isUnattended, log, print, setColor, setQuiet, setUnattended, warnings } from "./lib/ui.js";
 import { useEnvToken } from "./lib/wrangler.js";
 
-const HELP = `
-${c.bold("rpgmaker-web-toolkit")}: publish RPG Maker MZ/MV games to Cloudflare Workers
-
-  rwk "<game folder>"                First deploy or update (uploads changed files only)
-  rwk import-saves "<game folder>"   Upload local saves (the save/ folder) to the cloud
-  rwk edit-config "<game folder>"    Edit the game's config stored in R2 (buttons, exclude…)
-  rwk rename "<game folder>"         Change the site name (its address); saves carry over
-  rwk update-from-link "<game link>" Update the toolkit of a deployed game whose folder is gone
-  rwk help                           Show this help
-
-  --yes, --non-interactive           Never ask: take each question's default, or stop with exit code 2
-                                     when one has none (also when stdin is not a terminal, as in CI).
-                                     Logs in with CLOUDFLARE_API_TOKEN (and CLOUDFLARE_ACCOUNT_ID) if set.
-  --json                             Same as --yes, and prints the result (link, build report, warnings)
-                                     as JSON on stdout; the log goes to stderr.
-`;
-
-const COMMANDS = new Set(["deploy", "import-saves", "edit-config", "rename", "update-from-link"]);
-const { unattended, json, rest: args } = splitFlags(process.argv.slice(2));
-const command = COMMANDS.has(args[0]) ? args[0] : "deploy";
+const argv = process.argv.slice(2);
+const json = argv.includes("--json");
+const verbose = argv.includes("--verbose") || !!process.env.RWK_DEBUG;
+let command = null;
+let quiet = false;
 
 async function main() {
+  const cli = parseCommandLine(argv);
+  const { spec, flags } = cli;
+  command = spec ? spec.name : null;
+  quiet = flags.quiet;
+  if (flags.noColor) setColor(false);
+
+  if (flags.version) {
+    console.log(TOOLKIT_VERSION);
+    return null;
+  }
+  if (flags.help) {
+    console.log(spec ? commandHelp(spec, c.bold) : generalHelp(c.bold));
+    return null;
+  }
+
   const major = Number(process.versions.node.split(".")[0]);
   if (major < 22) throw new Error(`Node.js 22 or newer is required (found ${process.versions.node}).`);
 
-  setUnattended(unattended);
-  setJsonOutput(json);
-  if (unattended && useEnvToken()) log.info(c.dim("Using the Cloudflare API token in CLOUDFLARE_API_TOKEN."));
-  const [first, ...rest] = args;
-  switch (first) {
-    case "help":
-    case "--help":
-    case "-h":
-      console.log(HELP);
-      return null;
+  setUnattended(cli.unattended);
+  setQuiet(flags.quiet);
+  if (isUnattended() && useEnvToken()) log.info(c.dim("Using the Cloudflare API token in CLOUDFLARE_API_TOKEN."));
+
+  let { target } = cli;
+  let name = spec && spec.name;
+  if (!spec) {
+    // `rwk` alone (the one-liner): ask for the game, then do what its kind says.
+    if (isUnattended()) throw new UsageError("No command given.", { hint: "Commands: rwk --help" });
+    target = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)", "", null);
+    name = classifyTarget(target).kind === "folder" ? "deploy" : "upgrade";
+    command = name;
+  }
+
+  switch (name) {
     case "deploy":
-      return deploy(rest.join(" ") || undefined);
-    case "import-saves":
-      return deploy(rest.join(" ") || undefined, { importOnly: true });
-    case "edit-config":
-      return deploy(rest.join(" ") || undefined, { editOnly: true });
-    case "rename":
-      return deploy(rest.join(" ") || undefined, { rename: true });
-    case "update-from-link":
-      return updateFromLink(rest.join(" ") || undefined);
+      return deploy(target);
+    case "upgrade":
+      return upgrade(target);
+    case "saves import":
+      return deploy(target, { importOnly: true });
+    case "config edit":
+      return editConfig(target);
+    case "site rename":
+      return deploy(target, { rename: true, to: flags.to });
     default:
-      return deploy(args.join(" ") || undefined);
+      throw new UsageError(`Unknown command "${name}".`, { hint: `Commands: ${COMMANDS.map((s) => s.name).join(", ")}` });
   }
 }
 
@@ -60,15 +69,21 @@ process.on("SIGINT", () => {
   process.exit(130);
 });
 
-// Exit codes: 0 done, 1 failed, 2 a question needs a person (non-interactive run), 130 cancelled.
+if (argv.includes("--no-color")) setColor(false);
+
+// Exit codes: 0 done, 1 failed, 2 a question needs a person (non-interactive run),
+// 64 wrong usage, 130 cancelled.
 main().then(
   (value) => {
-    if (value !== null) publishResult(runResult(command, value, warnings), { json });
+    if (value === null) return;
+    const result = runResult(command, value, warnings);
+    if (!quiet) print(renderSummary(result));
+    publishResult(result, { json, quiet });
   },
   (err) => {
-    log.error(err.message);
-    if (process.env.RWK_DEBUG) console.error(err);
-    publishResult(failedResult(command, err, warnings), { json });
+    log.error(err.message, err.hint);
+    if (verbose) console.error(err);
+    publishResult(failedResult(command, err, warnings), { json, quiet });
     process.exit(err.exitCode || 1);
   }
 );

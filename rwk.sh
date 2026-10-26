@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # rpgmaker-web-toolkit launcher (macOS, Linux).
-#   ./rwk.sh "$HOME/Games/My Game"
+#   ./rwk.sh deploy "$HOME/Games/My Game"
 set -euo pipefail
 
 # Follow symlinks (a ~/bin/rwk link) back to the clone.
@@ -23,7 +23,7 @@ fi
 
 # Also after an update that added a dependency.
 if [ ! -f "$RWK_HOME/node_modules/wrangler/bin/wrangler.js" ] || [ ! -f "$RWK_HOME/node_modules/lz-string/package.json" ]; then
-  echo '[rwk] Installing dependencies...'
+  echo '[rwk] Installing dependencies...' >&2
   (cd "$RWK_HOME" && npm ci --no-fund --no-audit) || { echo '[rwk] npm ci failed.' >&2; exit 1; }
 fi
 

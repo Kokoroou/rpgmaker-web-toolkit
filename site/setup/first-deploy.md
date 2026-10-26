@@ -39,7 +39,7 @@ Then, once per game (**Enter** takes the suggestion):
 | On-screen gamepad? D-pad? | **Yes** if anyone plays on a phone |
 | Button label for key "…" | A short label for each key the game's plugins use, or `-` to skip it |
 
-The answers are saved in your Cloudflare account, so they are never asked again, even from another PC. Change them with [edit-config](/setup/configuration).
+The answers are saved in your Cloudflare account, so they are never asked again, even from another PC. Change them with [`config edit`](/setup/configuration).
 
 ## Lock, protect, play
 

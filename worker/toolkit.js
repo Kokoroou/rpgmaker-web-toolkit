@@ -1,5 +1,5 @@
 // The toolkit's part of js/plugins.js, and serving a newer toolkit over a web
-// build that is already deployed (`rwk update-from-link`, when the game
+// build that is already deployed (`rwk upgrade`, when the game
 // folder is gone). That deploy keeps the uploaded files (keep_assets), so the
 // Worker serves the new RWK_*.js plugins itself and rewrites js/plugins.js:
 // the game's own part stays, the toolkit's part is replaced.

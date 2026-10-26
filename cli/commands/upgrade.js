@@ -1,25 +1,27 @@
-// Brings a deployed game to this toolkit version from its link alone, for
+// rwk upgrade: brings a deployed game to this toolkit version from its link or site name alone, for
 // when its folder is gone: the game files already uploaded stay as they are,
 // and the new Worker serves the new runtime plugins over them
 // (worker/toolkit.js). Settings come from R2, as for a normal deploy.
 
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
-import { findGameBySite, siteNameFromLink, storageIdOf } from "../lib/game.js";
+import { findGameBySite, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
-import { ask, c, confirm, log, print } from "../lib/ui.js";
+import { expectTarget, siteNameOf } from "../lib/target.js";
+import { CliError, ask, c, confirm, log } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
 import { checkPlayers, connect, isAuthReady, perPlayerSettings, siteOf } from "./deploy.js";
 
-export async function updateFromLink(link) {
-  if (!link) {
-    link = await ask("Paste the game's link (https://<site name>.<username>.workers.dev)", "", null, {
-      hint: 'Pass it after the command: rwk --yes update-from-link "<game link>".',
+export async function upgrade(input) {
+  const usage = "rwk upgrade <game link | site name>";
+  if (!input) {
+    input = await ask("Paste the game's link (https://<site name>.<username>.workers.dev) or its site name", "", null, {
+      hint: `Pass it after the command: ${usage}`,
     });
   }
-  const name = siteNameFromLink(link);
+  const name = siteNameOf(expectTarget(input, ["link", "name"], usage));
 
   const { account } = await connect(loadSettings());
   const bucket = DEFAULT_BUCKET;
@@ -34,17 +36,17 @@ export async function updateFromLink(link) {
   // and the Worker then keeps every feature the deployed build turned off.
   const policy = cfg.policy || null;
   if (policy && policy.hosting === "none") {
-    throw new Error("The game's creator does not allow publishing this game as a website, so the toolkit stops here.");
+    throw new CliError("The game's creator does not allow publishing this game as a website, so the toolkit stops here.");
   }
   if (!isAuthReady(cfg.auth)) {
-    throw new Error("This site's access protection is not set up yet. Finish the first deploy from the game folder, then run this again.");
+    throw new CliError("This site's access protection is not set up yet.", { hint: 'Finish the first deploy from the game folder (rwk deploy "<game folder>"), then run this again.' });
   }
 
   log.info(`What happens next (toolkit ${TOOLKIT_VERSION}):`);
-  log.info("  1. The Worker and the toolkit's in-game plugins are updated, with the settings stored in R2 (edit-config).");
+  log.info("  1. The Worker and the toolkit's in-game plugins are updated, with the settings stored in R2 (rwk config edit).");
   log.info("  2. The game files already uploaded stay as they are: nothing is downloaded or uploaded from this PC.");
   log.info("  3. Saves and older saves are not touched.");
-  log.info(c.dim("  To change the game itself (a patch, a translation), deploy from the game folder."));
+  log.info(c.dim("  To change the game itself (a patch, a translation), run rwk deploy from the game folder."));
   if (!(await confirm(`Update "${cfg.slug}"?`, true))) return siteOf(cfg);
 
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
@@ -71,7 +73,7 @@ export async function updateFromLink(link) {
     toolkit,
   });
   const token = await apiToken();
-  if (!token) throw new Error("Not logged in to Cloudflare.");
+  if (!token) throw new CliError("Not logged in to Cloudflare.", { hint: "Run the command in a terminal once to log in, or set CLOUDFLARE_API_TOKEN." });
   // Without a recorded policy the Worker keeps what the deployed build turned
   // off (keepOff), which a settings file would override: a deploy from the
   // game folder writes the first one.
@@ -91,7 +93,5 @@ export async function updateFromLink(link) {
     await checkPlayers(bucket, cfg, policy);
   }
 
-  print(`\n${c.green("Done!")} ${cfg.url ? c.bold(cfg.url) : ""}`);
-  log.info("Players get the new version on their next reload. In game: ⚙ → Report a problem shows the toolkit version.");
-  return siteOf(cfg);
+  return { ...siteOf(cfg), next: ["Players get the new version on their next reload. In game: ⚙ → Report a problem shows the toolkit version."] };
 }
