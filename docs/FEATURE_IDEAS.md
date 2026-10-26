@@ -8,7 +8,7 @@ Tài liệu này gồm năm phần:
 4. Thiết kế lại cách sắp xếp, nhóm và icon các nút.
 5. Những gì người thiết lập game được tùy chỉnh (vd. không cho tải game về).
 
-Chưa có gì ở đây được thi công. Thứ tự thi công: [ROADMAP.md](ROADMAP.md).
+Đã thi công (bản 0.2.0): #1 tua nhanh, #2 chế độ đọc thoại, #3 save an toàn, #4 lịch sử save, #9 luôn chạy, #11 báo lỗi, và menu ⏸ ở mục 4. Các mục còn lại chưa làm. Thứ tự thi công: [ROADMAP.md](ROADMAP.md).
 
 ## 1. Công cụ đã tham khảo
 

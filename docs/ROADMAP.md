@@ -1,69 +1,54 @@
 # Roadmap
 
-Build order for the toolkit. [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs bugs that block play today, what each item depends on, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
+Build order for the toolkit, updated after release 0.3.0 (2026-10-25). [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs what each item depends on, what players and game creators feel most today, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
+
+## Shipped
+
+Waves 0 and 1 of the previous plan are done (details in [CHANGELOG.md](../CHANGELOG.md)):
+
+| Item | Release |
+|---|---|
+| Ogg / WebM fallback for MV on phones, plus the analyze warning for files without `.m4a` / `.mp4` | 0.2.0 |
+| In-game problem report with audio diagnostics (Ideas #11) | 0.2.0 |
+| Analyze-step checks: non-ASCII file names, build report at the end of a deploy | 0.2.0 |
+| ⏸ menu that pauses the game, replacing the ⚙ list | 0.2.0 |
+| Fast forward ×2 / ×3 / ×4 (Ideas #1), message modes (Ideas #2), always dash (Ideas #9) | 0.2.0 |
+| Quick save / load, autosave, ☁ status icon (Ideas #3); save history on R2 (Ideas #4) | 0.2.0 |
+| Several items at once (battle and events), simpler touch toolbar with full screen button | 0.2.0, 0.3.0 |
+| CLI: rename a site and keep its saves; update the toolkit of a deployed game from its link; Access page follows Cloudflare's new flow | 0.3.0 |
+| Tooling: runtime performance measurement (`npm run perf`), Node.js 22 minimum, Workers API schema check | 0.3.0 |
+
+Not finished from those waves and moved down: `storage.persist()` in the save flow (check, then fold into #3), the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
+Order of work from here. The first three rows come first because each one changes what the others can rely on: the cache fixes the biggest day-to-day cost for phone players, the config tiers let creators control the features already shipped (and unblock cheats), and discoverability is cheap and independent, so it can be done in a gap between the larger items.
+
 | # | Item | Effort | Why here |
 |---|---|---|---|
-| **Wave 0: fixes and small wins** ||||
-| 1 | [Audio and video on phones (MV)](#audio-and-video-on-phones-mv): runtime patch + analyze warning | S | A bug, not a feature: an MV game that ships only `.ogg` has no sound on phones |
-| 2 | [Error report and audio diagnostics](#error-report-and-audio-diagnostics) (Ideas #11) | S | Players can then send useful reports for everything that follows |
-| 3 | [Analyze-step checks](#analyze-step-checks): non-ASCII file names, build report | S | Cheap, catches problems before deploying |
-| **Wave 1: playing (Ideas group A)** ||||
-| 4 | New toolbar + ⏸ quick menu (game paused while open), FEATURE_IDEAS §4 | M | Every later feature adds a menu entry; the flat ⚙ list would pass 15 items |
-| 5 | Fast forward ×2 / ×3 / ×4 (Ideas #1) | S | The most requested feature |
-| 6 | Message modes: tap to finish, Auto, Skip (Ideas #2) | S | Second most common complaint |
-| 7 | Always dash (Ideas #9) | S | Very cheap, sits next to fast forward |
-| 8 | Safe saves: quick save / load, autosave, ☁ status icon, `storage.persist()` (Ideas #3) | M | Builds on `RWK_SaveSync` |
-| 9 | Save history on R2 (Ideas #4) | M | Last safety net for #8 |
-| **Wave 2: offline and config** ||||
-| 10 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) | M–L | Helps over 4G right away, and is the base of #11 |
-| 11 | Download to play offline + PWA (Ideas #6) | L | Needs #10 |
-| 12 | Two-tier config, presets, per-email `/api/config` (FEATURE_IDEAS §5) | M–L | Cheats are off by default and need per-player limits |
-| 13 | Basic cheats (Ideas #5) | M | Needs #4 and #12 |
-| 14 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #13 |
-| **Wave 3: narrower audiences** ||||
-| 15 | Message backlog (Ideas #10) | M | Goes with #6 |
-| 16 | [macOS and Linux launchers](#cross-platform-launchers-macos-linux) (`run.sh`, `rwk.sh`) | S–M | The CLI is already cross-platform; only the launchers are Windows-only |
-| 16b | [Game CD integration](#game-cd-integration-ci): non-interactive mode, GitHub Actions and GitLab CI templates | M | The non-interactive CLI comes first, then the templates; Linux runners need #16 |
-| 17 | Gamepad / keyboard remapping (Ideas #12) | M | |
-| 18 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
-| 19 | Enable Cloudflare Access through the API | M | Removes a manual setup step (also needed for unattended CD) |
-| **Wave 4: visibility and support** ||||
-| 21 | [Search engine and AI discoverability (SEO / AIEO)](#search-engine-and-ai-discoverability-seo--aieo) for the guide in `site/` | S–M | Cheap, and nobody finds the toolkit without it |
-| 22 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time |
-| 23 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/` |
+| **Wave A: next up** ||||
+| 1 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) | M–L | Highest value left: 10–27 MB images are downloaded again on every launch over 4G. Also the base of #5 |
+| 2 | Two-tier config, presets, per-email `/api/config` (FEATURE_IDEAS §5) | M–L | Fast forward, Skip, quick save and always dash already ship with no creator switch except the ones that exist today; cheats must not ship before this |
+| 3 | [SEO / AIEO](#search-engine-and-ai-discoverability-seo--aieo) for the guide in `site/` | S–M | Cheap, independent, and nobody finds the toolkit without it. Do it in any gap between #1 and #2 |
+| **Wave B: offline and cheats** ||||
+| 4 | Message backlog (Ideas #10) | M | Message modes shipped; Skip makes "I skipped something, let me reread" a real need. Small and self-contained |
+| 5 | Download to play offline + PWA (Ideas #6) | L | Needs #1 |
+| 6 | Basic cheats (Ideas #5) | M | Needs #2 (off by default, per-player limits). Save history (#4 shipped) is the safety net |
+| 7 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #6 |
+| **Wave C: running the toolkit anywhere** ||||
+| 8 | [macOS and Linux launchers](#cross-platform-launchers-macos-linux) (`run.sh`, `rwk.sh`) | S–M | The CLI is already cross-platform; only the launchers are Windows-only |
+| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; needed for unattended CD |
+| 10 | [Game CD integration](#game-cd-integration-ci): non-interactive mode, GitHub Actions and GitLab CI templates | M | Non-interactive CLI first, templates after; Linux runners need #8, unattended setup needs #9 |
+| **Wave D: narrower audiences** ||||
+| 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
+| 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
+| **Wave E: polish and support** ||||
+| 13 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time. Best after #1, #5 and #9 change the architecture |
+| 14 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/`. Needs the maintainer's decisions, so it can move earlier whenever those are made |
 | **Later** ||||
-| 20+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
+| 15+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
 
-## Wave 0
-
-### Audio and video on phones (MV)
-
-On a mobile device MV asks for `.m4a` audio (`AudioManager.audioFileExt`) and `.mp4` movies instead of `.ogg` / `.webm`, even when the browser can play Ogg. A game that ships only `.ogg` may then have no sound on phones. MZ is not affected: it decodes Ogg itself (WebAssembly).
-
-Plan:
-
-- Analyze step: count `.ogg` files without an `.m4a` twin (and `.webm` without `.mp4`) and warn before deploying.
-- First fix, runtime only: an MV patch that keeps `.ogg` / `.webm` when the browser reports it can play them. No file conversion, nothing changes on desktop.
-- Fallback for browsers that cannot play Ogg (older iOS): optional conversion with ffmpeg into the build folder only (the game folder stays untouched). Encrypted audio (`.ogg_` / `.rpgmvo`) would need to be decrypted and re-encrypted with the game's own key, so check this against the "no decryption" stance in [IMPACT.md](IMPACT.md) before doing it.
-- Reference: [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port) converts `ogg → m4a` for iOS, `webm → mp4`, and validates the audio output before deploying.
-
-### Error report and audio diagnostics
-
-Merges Ideas #11 with the audio diagnostics idea.
-
-- A game that crashes on a phone often shows only a black screen or the engine's error text. ⏸ → **Report a problem** (also on the engine's error screen) shows the latest errors with the plugin they most likely came from, and copies a report (toolkit version, engine, browser, screen).
-- The same report has an audio section: the format the engine picked, whether the browser plays Ogg / M4A, the WebAudio state (locked / running) and the files that failed to load, so players can report phone audio bugs. Reference: the `?audioDebug=1` panel of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
-- Later: "Try to continue" and "Back to a safe map" buttons.
-
-### Analyze-step checks
-
-- Warn about non-ASCII file names (Chinese, Japanese…) in `audio/`, `img/`, `movies/`, which some browsers or URL encodings handle badly. Later, optionally rename them in the build folder and rewrite the references (as [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port) does).
-- Print a short build report at the end of a run: file count, size, files sent to R2, warnings.
-
-## Wave 2
+## Details
 
 ### Service Worker cache for game files (important when playing over 4G)
 
@@ -76,8 +61,6 @@ Plan:
 - Never cache `/api/*`. Skip files over 25 MiB, or cache them with a cap, since iOS limits storage.
 - A "Preload" option in the menu: download maps and music ahead of time while on Wi-Fi.
 - Risk: iOS Safari limits quota and may evict data after 7 days without a visit. Show how much is cached and offer a button to clear it.
-
-## Wave 3
 
 ### Cross-platform launchers (macOS, Linux)
 
@@ -99,11 +82,7 @@ Goal: a game repository redeploys itself on every push (or tag), with no one at 
 - **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works.
 - **Pull request previews** (later): deploy each PR to a preview URL such as `<game>-pr-<n>`, and clean it up when the PR closes. Needs decisions on the Worker's shared-assets model and Access policy.
 - **Safety**: never print tokens, skip deploy on forks, and keep the "game folder stays untouched" rule. The game's own assets are big, so document how to cache `node_modules` and the staged build between runs, and that the Workers free plan limits in `cli/limits.json` still apply.
-- Depends on: #3 (the build report), #16 (Linux runners), and the "build only" deploy target under [Later](#later).
-
-## Wave 4
-
-Planned only; nothing here is started.
+- Depends on: the build report (shipped), #8 (Linux runners), and the "build only" deploy target under [Later](#later).
 
 ### Search engine and AI discoverability (SEO / AIEO)
 
@@ -152,6 +131,8 @@ Plan:
 
 ## Later
 
+- Leftovers from the finished waves: "Try to continue" and "Back to a safe map" buttons on the problem report; an optional ffmpeg conversion of `ogg → m4a` / `webm → mp4` into the build folder for browsers that cannot play Ogg (older iOS). Encrypted audio (`.ogg_` / `.rpgmvo`) would need to be decrypted and re-encrypted with the game's own key, so check this against the "no decryption" stance in [IMPACT.md](IMPACT.md) first. Reference: [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
+- Optionally rename non-ASCII files in the build folder and rewrite the references (the analyze step only warns today).
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
