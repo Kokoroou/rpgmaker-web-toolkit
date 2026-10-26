@@ -1,5 +1,5 @@
 ---
-description: "Every rpgmaker-web-toolkit command: deploy a game, upgrade it from its link, edit its config, import and export saves, check the site, read logs, rename or delete it; flags and exit codes."
+description: "Every rpgmaker-web-toolkit command: deploy, upgrade, config, saves import and export, status, logs, rename and delete, with flags and exit codes."
 lang: en
 ---
 
