@@ -13,7 +13,7 @@ import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.j
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -111,6 +111,15 @@ export function saveHistoryConfig(value) {
 }
 
 const bool = (v, fallback) => (typeof v === "boolean" ? v : fallback);
+
+// cheats: false (default) | true | { party, items, battle }
+// -> false | { party, items, battle } (each default true once cheats are on)
+export function cheatsConfig(value) {
+  if (!value) return false;
+  const v = typeof value === "object" ? value : {};
+  const out = { party: bool(v.party, true), items: bool(v.items, true), battle: bool(v.battle, true) };
+  return out.party || out.items || out.battle ? out : false;
+}
 const clampInt = (v, min, max, fallback) => {
   const n = Math.round(Number(v));
   return n >= min ? Math.min(max, n) : fallback;
@@ -180,6 +189,7 @@ export function runtimeConfigOf(engine, gameConfig) {
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
+    cheats: cheatsConfig(gameConfig.cheats),
     cache: gameConfig.cache !== false,
   };
 }

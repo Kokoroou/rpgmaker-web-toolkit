@@ -10,7 +10,7 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, playerOverrides } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
 import { splitToolkit } from "../worker/toolkit.js";
@@ -97,7 +97,7 @@ test("syncPublicDir never writes through hard links into the game folder", () =>
 });
 
 test("creator policy: parsing, strict fallback, feature locks", () => {
-  const p = parsePolicy({ hosting: "shared", features: { saveTools: false, itemBatch: true, cheats: false }, message: " Hi " });
+  const p = parsePolicy({ hosting: "shared", features: { saveTools: false, itemBatch: true, translate: false }, message: " Hi " });
   assert.equal(p.hosting, "shared");
   assert.deepEqual(p.features, { saveTools: false });
   assert.equal(p.message, "Hi");
@@ -106,7 +106,7 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(parsePolicy({}).problems.length, 1);
 
   const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
-  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, backlog: false, quickSave: false, autoSave: false, sync: false } }));
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, backlog: false, quickSave: false, autoSave: false, cheats: false, sync: false } }));
   assert.equal(locked.saveTools, false);
   assert.equal(locked.fastForward, false);
   assert.equal(locked.messageMode, false);
@@ -114,6 +114,7 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(locked.backlog, false);
   assert.equal(locked.quickSave, false);
   assert.equal(locked.autoSave, false);
+  assert.equal(locked.cheats, false);
   assert.equal(locked.sync.enabled, false);
   assert.equal(cfg.sync.enabled, true, "the stored config is left alone");
   assert.equal(applyPolicy(cfg, null), cfg);
@@ -583,6 +584,22 @@ test("feature settings: false, true or an object with limits and a lock", () => 
   assert.deepEqual(runtime.saveTools, saveToolsConfig(true));
 });
 
+test("cheats: off unless the deployer turns them on, for everyone or one player", () => {
+  assert.equal(cheatsConfig(undefined), false);
+  assert.equal(cheatsConfig(false), false);
+  assert.deepEqual(cheatsConfig(true), { party: true, items: true, battle: true });
+  assert.deepEqual(cheatsConfig({ battle: false }), { party: true, items: true, battle: false });
+  assert.equal(cheatsConfig({ party: false, items: false, battle: false }), false, "no group left");
+  for (const preset of ["comfortable", "original", "shared"]) assert.equal(runtimeConfigOf("MZ", { slug: "g", preset }).cheats, false, preset);
+  assert.ok(RUNTIME_PLUGINS.includes("RWK_Cheats"));
+
+  const cfg = { slug: "g", players: { "me@example.com": { cheats: { items: false } } } };
+  assert.deepEqual(playerOverrides("MZ", cfg, null), { [userHash("me@example.com")]: { cheats: { party: true, items: false, battle: true } } });
+  const policy = parsePolicy({ hosting: "personal", features: { cheats: false } });
+  assert.deepEqual(playerOverrides("MZ", cfg, policy), {}, "the creator's policy wins over a player's entry");
+  assert.equal(runtimeConfigOf("MZ", applyPolicy({ slug: "g", cheats: true }, policy)).cheats, false);
+});
+
 test("presets sit under the keys the config sets, and the creator's policy wins", () => {
   const original = runtimeConfigOf("MZ", { slug: "g", preset: "original" });
   assert.equal(original.fastForward.inBattle, false);
@@ -635,9 +652,9 @@ test("per-player settings: the differences only, keyed by the email's hash, neve
   assert.deepEqual(checkFeatureConfig({ preset: "comfortable" }), []);
   assert.match(checkFeatureConfig({ preset: "easy" })[0], /Unknown "preset"/);
   assert.match(checkFeatureConfig({ players: [] })[0], /must be an object/);
-  const problems = checkFeatureConfig({ players: { nobody: {}, "a@b.c": 1, "x@y.z": { sync: false, cheats: true, backlog: 50 } } });
+  const problems = checkFeatureConfig({ players: { nobody: {}, "a@b.c": 1, "x@y.z": { sync: false, cheats: true, backlog: 50, slug: "x" } } });
   assert.equal(problems.length, 3);
-  assert.match(problems[2], /sync, cheats cannot be set per player/);
+  assert.match(problems[2], /sync, slug cannot be set per player/);
 });
 
 test("per-player settings reach the Worker, which then serves js/plugins.js", () => {
