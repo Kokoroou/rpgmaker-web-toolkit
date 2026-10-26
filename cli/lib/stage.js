@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
-import { mobileOnlyMissing, storageIdOf } from "./game.js";
+import { mobileOnlyMissing, resolveCI, storageIdOf } from "./game.js";
 import { isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
@@ -161,7 +161,7 @@ export function generatedFiles(game, gameConfig, files = []) {
 
   for (const [name, source] of Object.entries(runtimeSources())) out.set(`js/plugins/${name}.js`, source);
 
-  const pluginsJs = fs.readFileSync(path.join(game.root, "js", "plugins.js"), "utf8");
+  const pluginsJs = fs.readFileSync(resolveCI(game.root, "js", "plugins.js"), "utf8");
   out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
 
   if (runtimeConfig.cache) out.set("rwk-sw.js", serviceWorkerSource(files, new Set(out.keys())));
@@ -169,7 +169,7 @@ export function generatedFiles(game, gameConfig, files = []) {
   // Lets the game's creator, and anyone reading a bug report, tell this
   // build apart from an official release.
   const indexable = isIndexable(gameConfig);
-  const indexHtml = fs.readFileSync(path.join(game.root, "index.html"), "utf8");
+  const indexHtml = fs.readFileSync(resolveCI(game.root, "index.html"), "utf8");
   if (!indexHtml.includes("rwk.webmanifest")) {
     const head =
       '<link rel="manifest" href="rwk.webmanifest">\n' +
@@ -183,7 +183,7 @@ export function generatedFiles(game, gameConfig, files = []) {
   // the assets' _headers file.
   out.set("robots.txt", indexable ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n");
   if (!indexable) out.set("_headers", "/*\n  X-Robots-Tag: noindex, nofollow\n");
-  const iconExists = fs.existsSync(path.join(game.root, "icon", "icon.png"));
+  const iconExists = fs.existsSync(resolveCI(game.root, "icon", "icon.png"));
   out.set(
     "rwk.webmanifest",
     JSON.stringify(

@@ -1,12 +1,12 @@
 # Troubleshooting
 
-Full error details: set `$env:RWK_DEBUG = "1"` in PowerShell, then run the command again.
+Full error details: set `$env:RWK_DEBUG = "1"` in PowerShell (`export RWK_DEBUG=1` on macOS / Linux), then run the command again.
 
 ## Running the command
 
 | Message | Fix |
 |---|---|
-| `Node.js 22 or newer is required` | [Install Node.js](/setup/requirements), then **close and reopen** PowerShell |
+| `Node.js 22 or newer is required` | [Install Node.js](/setup/requirements), then **close and reopen** PowerShell or Terminal |
 | `npm ci failed` | A network problem. Run again, or try another network than a company one |
 | `Folder not found` | Drag the folder into the window instead of typing the path |
 | `No index.html + js/ in …` | Use the folder with `Game.exe` (or its `www/`). XP / VX / VX Ace are not supported |

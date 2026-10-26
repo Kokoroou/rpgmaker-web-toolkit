@@ -11,6 +11,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { resolveCI } from "./game.js";
 
 export const POLICY_FILE = "rwk-policy.json";
 export const HOSTING_LEVELS = ["none", "personal", "shared", "public"];
@@ -19,7 +20,7 @@ const FEATURE_KEYS = ["saveTools", "itemBatch", "fastForward", "messageMode", "a
 
 // -> null (no policy file) | { hosting, features, message, contact, file, problems }
 export function readPolicy(game) {
-  const file = [game.root, game.folder].map((dir) => path.join(dir, POLICY_FILE)).find((f) => fs.existsSync(f));
+  const file = [game.root, game.folder].map((dir) => resolveCI(dir, POLICY_FILE)).find((f) => fs.existsSync(f));
   if (!file) return null;
   let raw;
   try {

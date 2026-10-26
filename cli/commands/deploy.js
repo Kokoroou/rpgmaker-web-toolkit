@@ -19,6 +19,7 @@ import {
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
+import { cleanPathInput, editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
@@ -28,7 +29,7 @@ import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
   if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)");
-  inputPath = inputPath.replace(/^["']|["']$/g, "");
+  inputPath = cleanPathInput(inputPath);
   if (!importOnly && !editOnly && !rename && isLink(inputPath)) return updateFromLink(inputPath);
 
   //-------------------------------------------------------------------------
@@ -77,7 +78,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   }
 
   if (editOnly) {
-    cfg = editInNotepad(cfg);
+    cfg = editInEditor(cfg);
     await saveGameConfig();
     log.ok("Config saved to R2. Run the deploy command again to apply it.");
     return;
@@ -208,14 +209,17 @@ export function isAuthReady(auth = {}) {
   return auth.mode === "none" || (auth.mode === "access" && !!auth.teamDomain && !!auth.aud);
 }
 
-// Opens the config in Notepad and blocks until it is closed; reopens on bad JSON.
-function editInNotepad(cfg) {
+// Opens the config in the OS text editor ($VISUAL / $EDITOR first) and blocks until it is closed; reopens on bad JSON.
+function editInEditor(cfg) {
   const file = path.join(os.tmpdir(), `rwk-${cfg.slug}-${crypto.randomUUID().slice(0, 8)}.json`);
   fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
   try {
     for (;;) {
-      log.info("Opening Notepad: edit, save (Ctrl+S), then close the window to continue…");
-      spawnSync("notepad.exe", [file], { stdio: "ignore" });
+      const editor = editorCommand(file);
+      log.info(`Opening ${editor.label}: edit, save, then close it to continue…`);
+      // A terminal editor (nano, vim) needs the terminal; a GUI one ignores it.
+      const run = spawnSync(editor.cmd, editor.args, { stdio: "inherit" });
+      if (run.error) throw new Error(`Could not start ${editor.cmd} (${run.error.message}). Set the EDITOR environment variable to your text editor, for example EDITOR=nano.`);
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
@@ -553,7 +557,9 @@ export async function checkPlayers(bucket, cfg, policy) {
 
 function openBrowser(url) {
   try {
-    spawn("explorer.exe", [url], { detached: true, stdio: "ignore" }).unref();
+    const { cmd, args } = openUrlCommand(url);
+    // A missing opener (xdg-open on a bare server) reports through 'error', not by throwing.
+    spawn(cmd, args, { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
   } catch {
     // The URL is printed anyway.
   }

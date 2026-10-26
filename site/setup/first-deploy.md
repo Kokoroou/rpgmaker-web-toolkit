@@ -1,10 +1,15 @@
 # First deploy
 
-Open **PowerShell**, paste, and drag the game folder into the window when asked:
+Paste, and drag the game folder into the window when asked:
 
-```powershell
+::: code-group
+```powershell [Windows (PowerShell)]
 irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
 ```
+```sh [macOS / Linux (Terminal)]
+curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash
+```
+:::
 
 ![A first deploy in PowerShell, from the game folder to the link](/img/first-deploy.png){.shot}
 

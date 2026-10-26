@@ -2,13 +2,20 @@
 
 Each game's settings are a small JSON file in your Cloudflare account.
 
-```powershell
+::: code-group
+```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
 & $rwk edit-config "D:\Games\My Game"   # 1. Notepad opens: edit, Ctrl+S, close
 & $rwk "D:\Games\My Game"               # 2. publish again to apply
 ```
+```sh [macOS / Linux]
+rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
+rwk edit-config ~/Games/"My Game"   # 1. TextEdit (macOS) or $EDITOR / nano (Linux) opens: edit, save, close
+rwk ~/Games/"My Game"               # 2. publish again to apply
+```
+:::
 
-A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
+On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use another editor. A JSON mistake reopens the editor. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 
 ## Common changes
 

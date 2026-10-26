@@ -21,7 +21,7 @@ features:
     title: One command
     link: /setup/first-deploy
     linkText: First deploy
-    details: Paste one line into PowerShell and drop the game folder in. The toolkit analyzes the game, uploads it and gives you a link. Nothing to clone or install besides Node.js.
+    details: Paste one line into PowerShell (Windows) or Terminal (macOS, Linux) and drop the game folder in. The toolkit analyzes the game, uploads it and gives you a link. Nothing to clone or install besides Node.js.
   - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="m10 14 2-2 2 2"/></svg>'
     title: Saves follow you
     link: /play/saves
