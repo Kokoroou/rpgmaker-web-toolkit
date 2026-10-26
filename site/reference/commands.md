@@ -1,5 +1,5 @@
 ---
-description: "Every rpgmaker-web-toolkit command: deploy, upgrade, config, saves import and export, status, logs, rename and delete, with flags and exit codes."
+description: "Every rpgmaker-web-toolkit command: deploy, analyze, doctor, upgrade, config, saves import and export, status, logs, rename and delete, with flags and exit codes."
 lang: en
 ---
 
@@ -41,6 +41,7 @@ Flags may come before or after the command. A command comes first, then the game
 | Command | Does | Target | Guide |
 |---|---|---|---|
 | `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game whose folder is gone; the game files stay as uploaded | link, name | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | folder | [Update](/setup/updating#upload-desktop-saves-again) |
 | `& $rwk config "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
@@ -51,6 +52,7 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk open my-game` | Opens the site in the browser | link, name | |
 | `& $rwk list` | Lists the games published in this Cloudflare account | none | |
 | `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2; the Access application stays in the dashboard. Never runs with `--yes` | link, name | |
+| `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token). Reads only; exits with `1` when something needed is missing | none | [Troubleshooting](/setup/troubleshooting) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 
@@ -64,7 +66,9 @@ One argument names the game. Each command accepts the forms in its row above, an
 | link | `https://my-game.alice.workers.dev` | A game already deployed to your Cloudflare account |
 | name | `my-game` | The same game, by the first part of its link |
 
-A name that is also a folder in the current directory is read as the folder: give the link to mean the site. An unquoted path with spaces works too (`deploy D:\Games\My Game`), though quotes are safer.
+A name that is also a folder in the current directory is read as the folder: give the link to mean the site.
+
+Without a target, a command that takes a folder (`deploy`, `analyze`, `saves import`, `config`, `rename`) works on the **current directory** when it holds a game (`index.html` and `js/`, or the same in `www/`). So inside the game folder, `rwk deploy` is enough. Elsewhere it asks for the folder, or stops with exit code 2 when run unattended. An unquoted path with spaces works too (`deploy D:\Games\My Game`), though quotes are safer.
 
 ## Flags
 
@@ -77,8 +81,27 @@ A name that is also a folder in the current directory is read as the folder: giv
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
+| `--dry-run` | Only `deploy`: checks the game and stops before Cloudflare, like `analyze`. See [Check without publishing](#check-without-publishing) |
 | `--to <name>` | Only `rename`: the new site name |
 | `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
+
+## Check without publishing
+
+`analyze` (or `deploy --dry-run`) runs the same checks a deploy starts with, and stops there:
+
+- It reads the game folder and the creator's [hosting policy](/creators/policy), lists the warnings (MV phone audio and video, non-ASCII file names, feature settings) and counts the files against the [free plan limits](/reference/limits).
+- It never logs in to Cloudflare, never uses R2 and builds no staging folder: the game folder and the account stay as they are.
+- It uses the first-deploy defaults. A game already published with `exclude` patterns or other settings kept in R2 may therefore count more files than its real deploy.
+- It fails (exit code `1`) when the build is over the file limit or the creator does not allow publishing, so a CI job can use it as a check.
+
+```
+✓ rpgmaker-web-toolkit: checked, nothing published
+  Files    1834 (412.3 MB)
+  Game     MZ · My Game
+  Warnings none
+```
+
+With `--json` the result has `"dryRun": true`, the `build` report and `game: { title, engine }`, and no `site` or `url`.
 
 ## What it prints
 

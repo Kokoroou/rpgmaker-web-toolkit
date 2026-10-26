@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args.js";
+import { analyze } from "./commands/analyze.js";
 import { deploy } from "./commands/deploy.js";
+import { doctor } from "./commands/doctor.js";
 import { editConfig } from "./commands/config.js";
 import { exportSaves } from "./commands/saves-export.js";
 import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
 import { TOOLKIT_VERSION } from "./lib/stage.js";
-import { classifyTarget } from "./lib/target.js";
+import { classifyTarget, currentGameFolder } from "./lib/target.js";
 import { UsageError, ask, c, isUnattended, log, print, setColor, setQuiet, setUnattended, warnings } from "./lib/ui.js";
 import { useEnvToken } from "./lib/wrangler.js";
 
@@ -50,9 +52,22 @@ async function main() {
     command = name;
   }
 
+  // No target: the current directory, when it holds a game.
+  if (spec && !target && spec.targets.includes("folder")) {
+    const here = currentGameFolder();
+    if (here) {
+      target = here;
+      log.info(c.dim(`Using the game in the current folder: ${here}`));
+    }
+  }
+
   switch (name) {
     case "deploy":
-      return deploy(target);
+      return flags.dryRun ? analyze(target, { command: "deploy" }) : deploy(target);
+    case "analyze":
+      return analyze(target);
+    case "doctor":
+      return doctor({ envTokenIgnored: !isUnattended() && !!process.env.CLOUDFLARE_API_TOKEN });
     case "upgrade":
       return upgrade(target);
     case "saves import":

@@ -4,6 +4,7 @@
 // piped or --quiet. In GitHub Actions it also becomes the step's outputs
 // ($GITHUB_OUTPUT) and a job summary ($GITHUB_STEP_SUMMARY), --json or not.
 //
+//   (deploy --dry-run and analyze: dryRun: true, game: { title, engine }, no site / url)
 //   { schema: 1, ok: true, command, site, url, locked, build: { files, bytes, r2Files, r2Uploaded }, next, warnings }
 //   { schema: 1, ok: false, command, error, hint, exitCode, warnings }
 //
@@ -36,9 +37,13 @@ const DONE = {
   open: "opened",
   list: "sites",
   delete: "deleted",
+  analyze: "checked, nothing published",
+  doctor: "checks done",
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.
+const doneOf = (result) => (result.dryRun ? "checked, nothing published" : DONE[result.command] || "done");
+
 export function renderSummary(result) {
   const name = result.site || "rpgmaker-web-toolkit";
   const rows = [];
@@ -48,7 +53,7 @@ export function renderSummary(result) {
   if (b) rows.push(["Files", `${b.files} (${formatBytes(b.bytes)})${b.r2Files ? `, ${b.r2Files} on R2 (${b.r2Uploaded} uploaded)` : ""}`]);
   for (const [label, text] of result.facts || []) rows.push([label, text]);
   rows.push(["Warnings", result.warnings.length ? c.yellow(String(result.warnings.length)) : "none"]);
-  const lines = ["", `${c.green(sym.ok)} ${c.bold(name)}: ${DONE[result.command] || "done"}`, ...rows.map(([k, v]) => `  ${c.dim(k.padEnd(9))}${v}`)];
+  const lines = ["", `${c.green(sym.ok)} ${c.bold(name)}: ${doneOf(result)}`, ...rows.map(([k, v]) => `  ${c.dim(k.padEnd(9))}${v}`)];
   for (const w of result.warnings) lines.push(`    ${c.yellow(sym.warn)} ${w}`);
   for (const [i, text] of (result.next || []).entries()) lines.push(`  ${c.dim((i ? "" : "Next").padEnd(9))}${text}`);
   return lines.join("\n");
@@ -66,7 +71,7 @@ export function githubOutputs(result) {
 export function stepSummary(result) {
   const cell = (v) => String(v).replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
   const name = result.site ? `\`${result.site}\`` : "rpgmaker-web-toolkit";
-  const lines = [result.ok ? `### ✅ ${name}: ${DONE[result.command] || "done"}` : `### ❌ ${name}: ${result.command || "rwk"} failed`, ""];
+  const lines = [result.ok ? `### ✅ ${name}: ${doneOf(result)}` : `### ❌ ${name}: ${result.command || "rwk"} failed`, ""];
   const rows = [];
   if (result.url) rows.push(["Site", result.url]);
   if (result.locked) rows.push(["Access", "The site is still locked: finish its access protection in a terminal"]);

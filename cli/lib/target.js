@@ -5,7 +5,8 @@
 // A command lists the kinds it accepts; the same argument works for all.
 
 import fs from "node:fs";
-import { siteNameFromLink, validateSlug } from "./game.js";
+import path from "node:path";
+import { resolveCI, siteNameFromLink, validateSlug } from "./game.js";
 import { cleanPathInput } from "./platform.js";
 import { UsageError } from "./ui.js";
 
@@ -37,4 +38,11 @@ export function expectTarget(input, kinds, usage) {
   if (kinds.includes(target.kind)) return target;
   const wanted = kinds.map((k) => KIND_WORDS[k]).join(" or ");
   throw new UsageError(`"${target.value}" is ${KIND_WORDS[target.kind]}, but this command needs ${wanted}.`, { hint: `Usage: ${usage}` });
+}
+
+// The folder to work on when the command line names none: the current directory, if it holds a game
+// (index.html + js/ there or in www/). -> its path, or undefined.
+export function currentGameFolder({ cwd = process.cwd(), exists = fs.existsSync } = {}) {
+  const holdsGame = (dir) => exists(resolveCI(dir, "index.html")) && exists(resolveCI(dir, "js"));
+  return [cwd, path.join(cwd, "www")].some(holdsGame) ? cwd : undefined;
 }

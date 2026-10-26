@@ -32,6 +32,33 @@ export const PRESETS = {
 };
 export const DEFAULT_PRESET = "comfortable";
 
+// A game's config with the first-deploy defaults. Deploy asks for slug, include, sync and preset;
+// the dry run takes the defaults as they are.
+export function baseConfig(game, { slug, include = [], syncEnabled = true, preset = DEFAULT_PRESET } = {}) {
+  return {
+    slug,
+    title: game.title,
+    engine: game.engine,
+    fingerprint: game.fingerprint,
+    include,
+    exclude: [],
+    sync: { enabled: syncEnabled },
+    preset,
+    auth: {},
+    controls: {
+      enabled: false,
+      showOn: "touch",
+      gamepad: true,
+      shoulder: false,
+      dpad: true,
+      opacity: 0.2,
+      scale: 1,
+      buttons: [],
+      scannedKeys: [],
+    },
+  };
+}
+
 // Keys a preset or a player's entry may set.
 export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats"];
 

@@ -20,7 +20,14 @@ export const COMMANDS = [
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
     targets: ["folder"],
-    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes"],
+    switches: { "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)" },
+    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes", "rwk deploy --dry-run   (in the game folder)"],
+  },
+  {
+    name: "analyze",
+    summary: "Check the game without Cloudflare: warnings and file count; logs in to nothing, changes nothing",
+    targets: ["folder"],
+    examples: ['rwk analyze "D:\\Games\\My Game"', "rwk analyze --json   (in the game folder)"],
   },
   {
     name: "upgrade",
@@ -84,6 +91,12 @@ export const COMMANDS = [
     targets: ["link", "name"],
     examples: ["rwk delete my-game"],
   },
+  {
+    name: "doctor",
+    summary: "Check this PC: Node.js, wrangler, the Cloudflare login and the token's permissions",
+    targets: [],
+    examples: ["rwk doctor", "rwk doctor --json"],
+  },
 ];
 
 const GROUPS = [...new Set(COMMANDS.filter((cmd) => cmd.name.includes(" ")).map((cmd) => cmd.name.split(" ")[0]))];
@@ -104,7 +117,8 @@ const OPTION_VALUES = { to: "name", email: "address", out: "folder" };
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
   const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${OPTION_VALUES[o] || "value"}>]`).join("") : "";
-  return `rwk ${spec.name}${target}${options} [flags]`;
+  const switches = spec.switches ? Object.keys(spec.switches).map((o) => ` [--${o}]`).join("") : "";
+  return `rwk ${spec.name}${target}${options}${switches} [flags]`;
 };
 export const usage = (spec) => usageOf(spec);
 
@@ -124,6 +138,7 @@ export function generalHelp(bold = (s) => s) {
     `    ${"folder".padEnd(8)}${"the game folder on this PC".padEnd(28)}~/Games/"My Game"`,
     `    ${"link".padEnd(8)}${"the deployed game's link".padEnd(28)}https://my-game.alice.workers.dev`,
     `    ${"name".padEnd(8)}${"the site name".padEnd(28)}my-game`,
+    "  Without a target, a command that takes a folder uses the current directory when it holds a game.",
     "",
     bold("Flags (anywhere on the line):"),
     ...FLAGS.map(([flag, text]) => `  ${flag.padEnd(16)}${text}`),
@@ -138,7 +153,8 @@ export function commandHelp(spec, bold = (s) => s) {
   if (spec.targets.length) {
     lines.push("", bold("Target:"), ...spec.targets.map((k) => `  ${k.padEnd(8)}${TARGET_HELP[k]}`));
   }
-  if (spec.options) lines.push("", bold("Options:"), ...Object.entries(spec.options).map(([o, text]) => `  --${o.padEnd(12)}${text}`));
+  const options = { ...spec.options, ...spec.switches };
+  if (Object.keys(options).length) lines.push("", bold("Options:"), ...Object.entries(options).map(([o, text]) => `  --${o.padEnd(12)}${text}`));
   lines.push("", bold("Examples:"), ...spec.examples.map((e) => `  ${e}`));
   lines.push("", "Flags: --yes, --json, --quiet, --verbose, --no-color. See `rwk --help`.");
   return lines.join("\n");
@@ -173,7 +189,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, help, version, to, email, out }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, help, version, to, email, out }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -187,6 +203,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         json: { type: "boolean" },
         quiet: { type: "boolean", short: "q" },
         verbose: { type: "boolean" },
+        "dry-run": { type: "boolean" },
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
@@ -208,6 +225,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     quiet: !!values.quiet,
     verbose: !!values.verbose,
     noColor: !!values["no-color"],
+    dryRun: !!values["dry-run"],
     help: !!values.help,
     version: !!values.version,
     to: values.to,
@@ -242,6 +260,9 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
+  }
+  if (flags.dryRun && !spec.switches?.["dry-run"]) {
+    throw new UsageError(`Unknown option --dry-run for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;
   // An unquoted path with spaces arrives as several words: join them back.
