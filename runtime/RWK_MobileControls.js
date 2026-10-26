@@ -234,13 +234,19 @@
     item.badge.style.top = clamp(y, r, vh() - r) + "px";
   }
 
-  function place(node, pos) {
+  // Where `place` would put the node (reads its size, writes nothing).
+  function spot(node, pos) {
     const halfW = node.offsetWidth / 2;
     const halfH = node.offsetHeight / 2;
     const x = pos.h === "r" ? vw() - pos.x : pos.x;
     const y = pos.v === "b" ? vh() - pos.y : pos.y;
-    node.style.left = clamp(x, halfW, vw() - halfW) + "px";
-    node.style.top = clamp(y, halfH, vh() - halfH) + "px";
+    return { left: clamp(x, halfW, vw() - halfW), top: clamp(y, halfH, vh() - halfH) };
+  }
+
+  function place(node, pos) {
+    const at = spot(node, pos);
+    node.style.left = at.left + "px";
+    node.style.top = at.top + "px";
   }
 
   function toAnchor(x, y) {
@@ -599,12 +605,15 @@
     let inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
     const nextToLR = docked() && toolbarLeft.offsetWidth + toolbarRight.offsetWidth + 16 <= vw() - 2 * inset;
     if (!nextToLR) inset = margin();
-    toolbarLeft.style.left = inset + toolbarLeft.offsetWidth / 2 + "px";
-    toolbarRight.style.left = vw() - inset - toolbarRight.offsetWidth / 2 + "px";
-    for (const group of [toolbarLeft, toolbarRight]) {
-      const top = nextToLR ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + group.offsetHeight / 2;
-      group.style.top = top + "px";
-    }
+    const left = inset + toolbarLeft.offsetWidth / 2;
+    const right = vw() - inset - toolbarRight.offsetWidth / 2;
+    const tops = [toolbarLeft, toolbarRight].map((group) =>
+      nextToLR ? vh() - (gamepadOn ? shoulderY() : margin() + clusterHeight() + h) : margin() + group.offsetHeight / 2
+    );
+    toolbarLeft.style.left = left + "px";
+    toolbarRight.style.left = right + "px";
+    toolbarLeft.style.top = tops[0] + "px";
+    toolbarRight.style.top = tops[1] + "px";
   }
 
   // Above the controls when docked, under the toolbar otherwise.
@@ -647,10 +656,17 @@
   }
 
   // The engine resizes the canvas after our resize handler runs.
+  // The toolbar may now fit beside the game, but only when the window or the
+  // canvas changed since the last layout.
+  let laidOut = "";
+  const frameKey = () => {
+    const canvas = gameCanvas();
+    return [vw(), vh(), canvas ? canvas.offsetWidth + "x" + canvas.offsetHeight : ""].join();
+  };
   const _updateAllElements = Graphics._updateAllElements;
   Graphics._updateAllElements = function () {
     _updateAllElements.apply(this, arguments);
-    if (ready) layout(); // the toolbar may now fit beside the game
+    if (ready && frameKey() !== laidOut) layout();
   };
 
   // In landscape on a touch screen, a toolbar group that would cover the
@@ -675,27 +691,44 @@
       item.badge.textContent = off.has(item.id) ? "+" : "−";
     }
     layoutExtras();
+    // Read every size first, then write: a read after a write makes the
+    // browser lay the page out again, once per button.
     const own = saved[orientation()] || {};
-    for (const item of items) {
-      place(item.el, own[item.id] || item.def());
-      placeBadge(item);
-    }
+    const spots = items.map((item) => spot(item.el, own[item.id] || item.def()));
+    const sizes = items.map((item) => [item.el.offsetWidth, item.el.offsetHeight]);
+    const r = unit() * 0.25;
+    items.forEach((item, i) => {
+      item.el.style.left = spots[i].left + "px";
+      item.el.style.top = spots[i].top + "px";
+      item.badge.style.left = clamp(spots[i].left + sizes[i][0] / 2, r, vw() - r) + "px";
+      item.badge.style.top = clamp(spots[i].top - sizes[i][1] / 2, r, vh() - r) + "px";
+    });
     layoutTools();
     layoutPanel();
     fitGame();
+    laidOut = frameKey();
   }
 
   // Mobile browsers report the final size a little after rotating or
-  // entering fullscreen, sometimes with no resize event: lay out again then,
-  // and let the engine resize the game too.
+  // entering fullscreen, sometimes with no resize event: look again then, and
+  // lay out (and let the engine resize the game) only if the window changed
+  // meanwhile. The events of one rotation share a single layout, next frame.
   let settle = [];
+  let queued = false;
   function relayout() {
-    layout();
+    if (!queued) {
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        layout();
+      });
+    }
     for (const t of settle) clearTimeout(t);
     settle = [150, 500].map((ms) =>
       setTimeout(() => {
+        if (frameKey() === laidOut) return;
         if (Graphics._canvas) Graphics._updateAllElements();
-        layout();
+        if (frameKey() !== laidOut) layout();
       }, ms)
     );
   }
