@@ -23,6 +23,7 @@ A JSON mistake reopens Notepad. `slug` and `fingerprint` cannot be changed here:
 | Turn off using several items at once | `"itemBatch": false` |
 | Turn off fast forward | `"fastForward": false` |
 | Turn off message Auto and Skip | `"messageMode": false` |
+| Remove ⚙ → Messages log, or keep more messages | `"backlog": false`, `"backlog": 200` |
 | Remove ⚙ → Always dash | `"alwaysDash": false` |
 | Turn off quick save / load | `"quickSave": false` |
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
