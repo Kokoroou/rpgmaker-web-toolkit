@@ -125,7 +125,7 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 ```
 
 - Each question takes its default answer, and the log shows it with `(non-interactive)`.
-- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, the site's first [access protection](/setup/access), `config` (it asks questions). `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
+- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, a first [access protection](/setup/access) the API cannot set up (no Zero Trust team yet, or a token without the Access permissions), `config` (it asks questions). `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
 - Two questions answer **no** when nobody is there: deleting the old Worker after a `rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`saves import --yes` uploads it).
 - [Exit codes](#exit-codes) tell a script what happened.
 - `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).
@@ -137,7 +137,9 @@ Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN
 | Account → Account Settings → Read | Find the account |
 | Account → Workers Scripts → Edit | Deploy the Worker and its files |
 | Account → Workers R2 Storage → Edit | The game's settings, saves and large files in R2 |
-| User → User Details → Read (optional) | The email suggested for `saves import`; without it, `saves import --yes` on a site with Access stops at that question |
+| Account → Access: Apps and Policies → Edit | Protect the site with [Cloudflare Access](/setup/access) on its first deploy |
+| Account → Access: Organizations, Identity Providers, and Groups → Read | Find the Zero Trust team's login domain |
+| User → User Details → Read (optional) | The email suggested for `saves import`; without it, `saves import --yes` stops at that question, and the first Access policy has no email to allow unless `players` lists some |
 
 Keep the token in the CI's secrets: the toolkit never prints it.
 

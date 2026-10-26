@@ -9,7 +9,9 @@ lang: en
 
 ## Turn on Access
 
-At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit opens the game's **Access** page in the Cloudflare dashboard (**Workers & Pages** → the game → **Access**):
+At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit first tries to do it itself through the Cloudflare API: it creates the Access application for the game's address and a policy named after the game that allows your Cloudflare account's email (plus any email in the config's `players`). This needs a Zero Trust team to exist already and an API token with the [Access permissions](/reference/commands#run-without-questions-ci); the browser login of a terminal run does not carry them, so there it usually falls back to the steps below. With `--yes` (CI) the API is the only way, and a run that cannot do it stops with exit code 2.
+
+The steps in the dashboard: the toolkit opens the game's **Access** page in the Cloudflare dashboard (**Workers & Pages** → the game → **Access**):
 
 1. Select **Protect this Worker behind Access**.
 2. **Scope**: choose **All traffic**. The default, **Previews only**, protects only preview links and leaves the game itself open.
@@ -20,6 +22,8 @@ At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit opens
 ![The Access page before Access is on: Protect this Worker behind Access](/img/cf-access-tab.png){.shot}
 
 ![Manage Worker access: the Scope (pick All traffic) and the policy list](/img/cf-access-manage.png){.shot}
+
+Run the deploy again to repair it: an existing application and policy are reused, and the policy is set back to the emails above.
 
 Done right, the page shows **Worker Access** with the **All traffic** badge:
 
