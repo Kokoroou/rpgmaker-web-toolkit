@@ -25,6 +25,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `quickSave` | `false` turns off [quick save / load](/play/quick-save); `{ "ignoreSaveLock": false }` keeps it off where the game disallows saving | Same |
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |
 | `saveHistory` | `false` keeps no [older saves](/play/saves#bring-back-an-older-save); `{ "keep": 5, "days": 14 }` changes how many copies each save keeps (1–50, default 10) and for how long (1–365 days, default 30). Enforced by the Worker | Yes |
+| `cache` | `false` stops the browser keeping the game's pictures, sounds and data between launches (files over 25 MiB are never kept) | Yes |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
 ::: warning Changing `auth`
