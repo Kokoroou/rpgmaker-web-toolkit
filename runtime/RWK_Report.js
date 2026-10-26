@@ -76,26 +76,38 @@
   // and which files failed to load (WebAudio#isError in both engines).
   //---------------------------------------------------------------------------
 
+  // Weak references: on MV a stopped WebAudio keeps its decoded PCM (~15 MB per
+  // song), so holding the buffers would keep tens of MB alive on phones.
+  // Failed files are remembered by name, noted while the buffer still exists.
+  const call = (fn) => {
+    try {
+      return fn();
+    } catch (e) {
+      return "?";
+    }
+  };
   const buffers = [];
+  const failedFiles = new Set();
+  function noteFailures() {
+    for (const { ref, file } of buffers) {
+      const buffer = ref.deref();
+      if (buffer && call(() => buffer.isError()) === true) failedFiles.add(file);
+    }
+  }
   const _createBuffer = AudioManager.createBuffer;
   AudioManager.createBuffer = function (folder, name) {
     const buffer = _createBuffer.apply(this, arguments);
     if (buffer) {
-      buffers.push({ buffer, file: `audio/${folder}/${name}` });
+      noteFailures();
+      buffers.push({ ref: new WeakRef(buffer), file: `audio/${folder}/${name}` });
       if (buffers.length > MAX_BUFFERS) buffers.shift();
+      while (failedFiles.size > MAX_BUFFERS) failedFiles.delete(failedFiles.values().next().value);
     }
     return buffer;
   };
 
   function audioLines() {
     const lines = [];
-    const call = (fn) => {
-      try {
-        return fn();
-      } catch (e) {
-        return "?";
-      }
-    };
     lines.push(`  Format: ${call(() => AudioManager.audioFileExt())}`);
     // MV checks the browser; MZ decodes Ogg itself.
     if (typeof WebAudio.canPlayOgg === "function") {
@@ -104,7 +116,8 @@
     }
     const context = WebAudio._context;
     lines.push(`  WebAudio: ${context ? context.state : "not available"}`);
-    const failed = [...new Set(buffers.filter((b) => call(() => b.buffer.isError()) === true).map((b) => b.file))];
+    noteFailures();
+    const failed = [...failedFiles];
     lines.push(`  Failed to load: ${failed.length ? "" : "none"}`);
     for (const file of failed.slice(-10)) lines.push(`    ${file}`);
     return lines;
