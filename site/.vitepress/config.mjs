@@ -25,6 +25,8 @@ export default defineConfig({
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/rpgmaker-web-toolkit/logo.svg" }],
     ["meta", { name: "theme-color", content: "#2a347a" }],
+    // Google Search Console ownership check.
+    ["meta", { name: "google-site-verification", content: "D46-YM3xEG9mxpWY-GFgkCDtK37Q7nqxAwHNLEpttl8" }],
   ],
 
   themeConfig: {
