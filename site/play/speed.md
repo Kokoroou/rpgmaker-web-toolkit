@@ -17,4 +17,4 @@ Speeds up the whole game ×2, ×3 or ×4: walking, battles, animations, text and
 
 Pick the speed with ⚙ → **Fast-forward speed**. It is remembered in this browser; fast forward itself starts off each time.
 
-The keys do nothing when one of the game's plugins already uses them. Fast forward stops while the ⚙ menu is open, and some sites have it turned off by the person who set up the game or by the game's creator.
+The keys do nothing when one of the game's plugins already uses them. Fast forward stops while the ⚙ menu is open. The person who set up the game can turn it off, keep it out of battles, cap the speed or fix it (then there is no speed to pick), and the game's creator can turn it off.

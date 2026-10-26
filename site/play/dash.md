@@ -9,4 +9,4 @@ Turn on ⚙ → **Always dash** to run everywhere without holding a button. Hold
 
 It is the game's own **Always Dash** setting, so it also shows in the game's Options menu (when the game has one) and it follows your saves to your other devices.
 
-Some maps do not allow running at all, as in the desktop game; the menu says so. Some sites have this switch turned off by the person who set up the game or by the game's creator.
+Some maps do not allow running at all, as in the desktop game; the menu says so. Some sites have this switch turned off by the person who set up the game or by the game's creator, or keep running always on.

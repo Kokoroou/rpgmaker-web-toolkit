@@ -29,9 +29,15 @@ On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use ano
 | Remove ⚙ → Saves | `"saveTools": false` |
 | Turn off using several items at once | `"itemBatch": false` |
 | Turn off fast forward | `"fastForward": false` |
+| No fast forward in battles, or ×3 at most | `"fastForward": { "inBattle": false }`, `"fastForward": { "maxSpeed": 3 }` |
+| Always fast-forward at ×2, with no speed to pick | `"fastForward": { "speed": 2, "lock": true }` |
 | Turn off message Auto and Skip | `"messageMode": false` |
+| Keep Auto, turn off Skip | `"messageMode": { "skip": false }` |
+| Start in Auto at a slow pace | `"messageMode": { "mode": "auto", "autoSpeed": "slow" }` (add `"lock": true` so it stays that way) |
 | Remove ⚙ → Messages log, or keep more messages | `"backlog": false`, `"backlog": 200` |
 | Remove ⚙ → Always dash | `"alwaysDash": false` |
+| Players run unless they turn it off, or always run | `"alwaysDash": { "on": true }`, `"alwaysDash": { "on": true, "lock": true }` |
+| Let players export saves but not import edited ones | `"saveTools": { "import": false }` |
 | Turn off quick save / load | `"quickSave": false` |
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
 | Turn off the autosave, or change how often | `"autoSave": false`, `"autoSave": { "minutes": 10 }` |
@@ -41,6 +47,61 @@ On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use ano
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |
 | Keep files that are excluded by default | `"include": ["img/**/*.psd"]` |
 | Change the on-screen buttons | `"controls"`: see [On-screen buttons](/setup/controls) |
+
+## Presets
+
+The first deploy asks which features players may use, and keeps the answer as `"preset"`. A preset is only a starting point: every key written in the config goes on top of it, and an object adds to the preset's (`"fastForward": { "maxSpeed": 3 }` on **Original experience** still has no fast forward in battles). `true` goes back to the toolkit's defaults.
+
+| `preset` | For | Differs from the defaults |
+|---|---|---|
+| `"comfortable"` (default) | Playing alone or with family | Nothing: every convenience on |
+| `"original"` | Playing the game as its creator designed it | No fast forward in battles, no Skip, no quick save where the game disallows saving, no save import. Fast forward outside battles, Auto and cloud saves stay |
+| `"shared"` | Letting other people play your copy | No save export / import; older saves: 5 copies for 14 days (saves R2 space) |
+
+Games published before presets existed have none, which is `"comfortable"`: nothing changes for them.
+
+## Each setting: off, on, or on with limits
+
+Each feature key takes one of three kinds of value:
+
+- `false`: off. Not in the ⚙ menu, no keyboard shortcut.
+- `true` (or no key): on, with the toolkit's defaults. Players choose the rest in their browser.
+- an object: on, with your limits and starting values. `"lock": true`, where the key has it, leaves players no choice.
+
+| Key | Object fields |
+|---|---|
+| `fastForward` | `maxSpeed` (2–4, default 4), `speed` (starting speed), `inBattle` (default `true`), `lock` (players cannot change the speed) |
+| `messageMode` | `auto`, `skip` (default `true`), `mode` (`"normal"` or `"auto"` to start in), `autoSpeed` (`"slow"`, `"normal"`, `"fast"`), `lock` (players keep `mode` and `autoSpeed`) |
+| `alwaysDash` | `on` (`true` / `false` for players who never chose), `lock` (stays at `on`; Options → Always Dash cannot change it) |
+| `saveTools` | `export`, `import`, `delete` (default `true` each) |
+| `quickSave`, `autoSave`, `backlog`, `saveHistory` | See [Config keys](/reference/config) |
+
+The game creator's [policy](/creators/policy) still wins: a feature it turns off stays off, whatever the config says.
+
+## Settings for one player
+
+With Cloudflare Access, `"players"` gives some emails settings of their own, on top of everything else. For example, you keep save import and older saves while friends get the **Shared with others** preset:
+
+```json
+{
+  "preset": "shared",
+  "players": {
+    "me@example.com": { "saveTools": true, "saveHistory": { "keep": 20 } },
+    "kid@example.com": { "fastForward": false }
+  }
+}
+```
+
+Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`. Emails match whatever their case. Publish again to apply a change.
+
+The emails never reach the web build: the deploy gives the Worker only a hash of each email, with the settings that differ. When a player opens the game, the Worker checks their Access login and puts their settings in the copy of `js/plugins.js` it sends them. A public site (no Access) cannot tell players apart, so everyone gets the shared settings.
+
+## What a setting really blocks
+
+| Setting | Enforced by | How firm |
+|---|---|---|
+| `saveHistory` (also per player) | The Worker refuses the older saves API | **Blocked** |
+| Fast forward, message modes, always dash, quick save, autosave, save export / import / delete, several items at once | The plugins in the browser | **Hidden**: someone who knows the browser's developer tools can still get around it. A choice about how the game plays, not security |
 
 ## Patterns
 

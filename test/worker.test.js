@@ -295,3 +295,63 @@ test("update-from-link: toolkit part of plugins.js", async () => {
 
   assert.deepEqual(toolkitRoutes({ plugins: { RWK_Core: "", RWK_Dash: "" } }), ["/js/plugins.js", "/js/plugins/RWK_Core.js", "/js/plugins/RWK_Dash.js"]);
 });
+
+test("per-player settings: each player's js/plugins.js, /api/config and save history", async () => {
+  const { appendToolkit, patchConfig } = await import("../worker/toolkit.js");
+  const { userHash } = await import("../worker/auth.js");
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const team = "players.cloudflareaccess.com";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ keys: [{ ...publicKey.export({ format: "jwk" }), kid: "p1", alg: "RS256" }] }));
+  const token = (email) => {
+    const enc = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const head = enc({ alg: "RS256", kid: "p1" });
+    const body = enc({ aud: ["aud1"], email, exp: Math.floor(Date.now() / 1000) + 60, iss: `https://${team}` });
+    return `${head}.${body}.${crypto.sign("RSA-SHA256", Buffer.from(`${head}.${body}`), privateKey).toString("base64url")}`;
+  };
+  const as = (email, init = {}) => ({ ...init, headers: { ...init.headers, ...(email && { "cf-access-jwt-assertion": token(email) }) } });
+
+  const game = 'var $plugins = [\n{"name":"Game","status":true,"description":"","parameters":{}}\n];\n';
+  const deployed = appendToolkit(game, ["RWK_Core", "RWK_Speed"], { gameId: "g", fastForward: { maxSpeed: 4 }, backlog: { max: 100 } });
+  const env = makeEnv({
+    AUTH_MODE: "access",
+    ACCESS_TEAM_DOMAIN: team,
+    ACCESS_AUD: "aud1",
+    RWK_SAVE_HISTORY: '{"keep":10,"days":30}',
+    ASSETS: { fetch: async (req) => new Response(new URL(req.url).pathname === "/js/plugins.js" ? deployed : "static") },
+  });
+  const settings = { [await userHash("kid@example.com")]: { fastForward: false, saveHistory: false } };
+  const perPlayer = createWorker({ playerSettings: settings });
+  const get = (path, init) => perPlayer.fetch(new Request(BASE + path, init), env);
+  const coreOf = (js) => JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+
+  try {
+    let res = await get("/js/plugins.js", as("Kid@Example.com", { headers: { "if-none-match": '"x"' } }));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("cache-control"), "private, no-cache");
+    assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
+    const js = await res.text();
+    assert.ok(js.startsWith(game.trimEnd()));
+    assert.deepEqual(coreOf(js), { gameId: "g", fastForward: false, saveHistory: false, backlog: { max: 100 } });
+
+    assert.equal(await (await get("/js/plugins.js", as("me@example.com"))).text(), deployed, "no entry: everyone's settings");
+    assert.equal(await (await get("/js/plugins.js")).text(), deployed, "not signed in: everyone's settings");
+    assert.equal(await (await get("/img/a.png", as("kid@example.com"))).text(), "static");
+
+    assert.deepEqual(await (await get("/api/config", as("kid@example.com"))).json(), { email: "kid@example.com", gameId: "test-game", settings: { fastForward: false, saveHistory: false } });
+    assert.deepEqual((await (await get("/api/config", as("me@example.com"))).json()).settings, {});
+    assert.equal((await get("/api/config")).status, 401);
+
+    assert.equal((await get("/api/history", as("kid@example.com"))).status, 404, "the Worker enforces the player's save history setting");
+    assert.equal((await get("/api/history", as("me@example.com"))).status, 200);
+    await get("/api/saves/file1", as("kid@example.com", { method: "PUT", body: "a", headers: { "if-none-match": "*" } }));
+    await get("/api/saves/file1", as("kid@example.com", { method: "PUT", body: "b", headers: { "x-rwk-device": "other" } }));
+    assert.equal([...env.BUCKET.objects.keys()].filter((k) => k.startsWith("history/")).length, 0, "no copies kept for that player");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  // Without per-player settings, js/plugins.js is a plain static file.
+  assert.equal(await (await worker.fetch(new Request(BASE + "/js/plugins.js"), env)).text(), deployed);
+  assert.equal(patchConfig("var $plugins = [];\n", { a: 1 }), "var $plugins = [];\n", "not a toolkit build: untouched");
+});

@@ -23,7 +23,8 @@ import { cleanPathInput, editorCommand, openUrlCommand } from "../lib/platform.j
 import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
-import { generatedFiles, saveHistoryConfig, syncPublicDir } from "../lib/stage.js";
+import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
+import { generatedFiles, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
 import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
 import { updateFromLink } from "./update-from-link.js";
 
@@ -98,6 +99,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
 
   await checkPublic(cfg, policy);
   await saveGameConfig();
+  for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
 
   //-------------------------------------------------------------------------
   log.step("Preparing the web build");
@@ -136,6 +138,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
 
   //-------------------------------------------------------------------------
   log.step("Deploying the Worker (wrangler uploads changed files only)");
+  const playerSettings = perPlayerSettings(game.engine, cfg, policy);
   const project = {
     buildDir,
     slug: cfg.slug,
@@ -144,7 +147,8 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     overflowRels: overflow.map((f) => f.rel),
     toolkitRoot: TOOLKIT_ROOT,
     indexable: isIndexable(cfg),
-    saveHistory: saveHistoryConfig(cfg.saveHistory),
+    saveHistory: runtimeConfigOf(game.engine, cfg).saveHistory,
+    playerSettings,
   };
   const authReady = isAuthReady(cfg.auth);
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
@@ -160,6 +164,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
         project.indexable = true;
         syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy), files));
       }
+      project.playerSettings = perPlayerSettings(game.engine, cfg, policy);
       log.step("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
     } else {
@@ -203,6 +208,20 @@ export async function connect(settings) {
   saveSettings({ accountId: settings.accountId });
   log.ok(`Account: ${session.account.name}`);
   return session;
+}
+
+// The deployer's per-player settings for the Worker, with a word on what they do.
+export function perPlayerSettings(engine, cfg, policy) {
+  const emails = playerEmails(cfg);
+  if (!emails.length) return {};
+  if (cfg.auth.mode !== "access") {
+    // Locked until Access is on: asked again for the redeploy after it.
+    if (cfg.auth.mode === "none") log.warn(`"players" has settings for ${emails.length} email(s), but a public site cannot tell players apart: everyone gets the shared settings.`);
+    return {};
+  }
+  const settings = playerOverrides(engine, cfg, policy);
+  log.info(c.dim(`Own settings for ${Object.keys(settings).length} of the ${emails.length} email(s) in "players".`));
+  return settings;
 }
 
 export function isAuthReady(auth = {}) {
@@ -283,6 +302,12 @@ async function createConfig(game, takenSlugs) {
   }
 
   const syncEnabled = await confirm("Enable cloud save sync (continue playing on other devices)?", true);
+  const presetNames = Object.keys(PRESETS);
+  const preset = await choose(
+    "Which features may players use? (each one can be changed later with edit-config)",
+    presetNames.map((name) => ({ label: PRESETS[name].label, value: name })),
+    presetNames.indexOf(DEFAULT_PRESET)
+  );
 
   const cfg = {
     slug,
@@ -292,6 +317,7 @@ async function createConfig(game, takenSlugs) {
     include,
     exclude: [],
     sync: { enabled: syncEnabled },
+    preset,
     auth: {},
     controls: {
       enabled: false,

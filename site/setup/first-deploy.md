@@ -35,6 +35,7 @@ Then, once per game (**Enter** takes the suggestion):
 | Site name | Becomes `https://<name>.<subdomain>.workers.dev` |
 | Include "…" in the web build? | **Yes** if a plugin loads files from that folder, **no** for a manual or a soundtrack |
 | Enable cloud save sync? | **Yes** to [continue on other devices](/play/saves) |
+| Which features may players use? | **Comfortable** (every convenience on), **Original experience** or **Shared with others**: see [Presets](/setup/configuration#presets) |
 | On-screen gamepad? D-pad? | **Yes** if anyone plays on a phone |
 | Button label for key "…" | A short label for each key the game's plugins use, or `-` to skip it |
 

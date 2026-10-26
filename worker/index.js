@@ -1,14 +1,27 @@
 // Worker entry shared by every deployed game. The CLI generates a tiny
 // `worker.js` per game that calls createWorker() with that game's
 // overflow list (files > 25 MiB that live in R2 instead of static assets),
-// and, after `rwk update-from-link`, the newer toolkit to serve (toolkit.js).
+// the deployer's per-player settings, and, after `rwk update-from-link`, the
+// newer toolkit to serve (toolkit.js).
+//
+// playerSettings: { [userHash(email)]: { key: runtime value } }, made by the
+// CLI (playerOverrides in cli/lib/stage.js). Hashed, so the emails are not
+// in the Worker. Each player's js/plugins.js carries their own settings, and
+// the save API applies the ones it enforces (saveHistory).
 
-import { AuthError, identify } from "./auth.js";
+import { AuthError, identify, userHash } from "./auth.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
-import { serveToolkit } from "./toolkit.js";
+import { patchConfig, serveToolkit } from "./toolkit.js";
 
-export function createWorker({ overflow = [], toolkit = null } = {}) {
+export function createWorker({ overflow = [], toolkit = null, playerSettings = {} } = {}) {
   const overflowSet = new Set(overflow);
+  const perPlayer = Object.keys(playerSettings).length > 0;
+
+  // -> the request's user, with `settings` (their own entry, or null)
+  const whoIs = async (request, env) => {
+    const user = await identify(request, env);
+    return { ...user, settings: perPlayer ? playerSettings[await userHash(user.email)] || null : null };
+  };
 
   return {
     async fetch(request, env) {
@@ -17,12 +30,13 @@ export function createWorker({ overflow = [], toolkit = null } = {}) {
 
       if (env.RWK_LOCKED === "1") return lockedPage();
 
-      if (path.startsWith("/api/")) return handleApi(request, env, path);
+      if (path.startsWith("/api/")) return handleApi(request, env, path, whoIs);
 
       const rel = path.slice(1);
       let res = null;
       if (toolkit) res = await serveToolkit(request, env, rel, toolkit);
       if (!res && overflowSet.has(rel) && env.BUCKET) res = await serveOverflow(request, env, rel);
+      if (perPlayer && rel === "js/plugins.js" && request.method === "GET") res = await servePlayerPlugins(request, env, res, whoIs);
       if (res) {
         if (env.RWK_INDEXABLE !== "1") res.headers.set("x-robots-tag", "noindex, nofollow");
         return res;
@@ -32,10 +46,12 @@ export function createWorker({ overflow = [], toolkit = null } = {}) {
   };
 }
 
-async function handleApi(request, env, path) {
+async function handleApi(request, env, path, whoIs) {
   try {
-    const user = await identify(request, env);
+    const user = await whoIs(request, env);
     if (path === "/api/me") return json({ email: user.email, gameId: env.GAME_ID });
+    // What this player gets on top of everyone's settings (js/plugins.js).
+    if (path === "/api/config") return json({ email: user.email, gameId: env.GAME_ID, settings: user.settings || {} });
     if (path === "/api/saves") return handleSaves(request, env, user, null);
     if (path.startsWith("/api/saves/")) return handleSaves(request, env, user, path.slice("/api/saves/".length));
     if (path === "/api/history") return handleHistory(request, env, user, "");
@@ -46,6 +62,25 @@ async function handleApi(request, env, path) {
     console.error(err);
     return json({ error: "Internal error" }, 500);
   }
+}
+
+// js/plugins.js with the player's own settings in RWK_Core's config.
+// res: the toolkit's plugins.js (update-from-link), or null for the static one.
+async function servePlayerPlugins(request, env, res, whoIs) {
+  // Without the browser's conditional headers, so the original always has a body.
+  const base = res || (await env.ASSETS.fetch(new Request(request.url)));
+  if (!base.ok) return res; // null: left to static assets
+  let settings = null;
+  try {
+    settings = (await whoIs(request, env)).settings;
+  } catch {
+    // Not signed in (yet): everyone's settings. The API refuses them anyway.
+  }
+  const body = await base.text();
+  return new Response(settings ? patchConfig(body, settings) : body, {
+    // Never shared between players, nor kept without asking again.
+    headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "private, no-cache" },
+  });
 }
 
 export async function serveOverflow(request, env, rel) {
