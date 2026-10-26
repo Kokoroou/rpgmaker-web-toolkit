@@ -1,3 +1,8 @@
+---
+description: "Publish an RPG Maker MZ or MV game to Cloudflare Workers with one PowerShell command: log in, answer a few questions, get a link to the game."
+lang: en
+---
+
 # First deploy
 
 Open **PowerShell**, paste, and drag the game folder into the window when asked:

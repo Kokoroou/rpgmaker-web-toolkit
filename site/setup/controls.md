@@ -1,3 +1,8 @@
+---
+description: "The controls part of an RPG Maker web game's settings: choose the on-screen buttons, label the extra keys a plugin uses, and set the gamepad layout."
+lang: en
+---
+
 # On-screen buttons
 
 What players see is on [Touch controls](/play/controls). This page is the `controls` part of the game's [settings](/setup/configuration):

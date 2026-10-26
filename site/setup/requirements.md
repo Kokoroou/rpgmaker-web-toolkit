@@ -1,3 +1,8 @@
+---
+description: "What you need to publish an RPG Maker game with the toolkit: a Windows PC, Node.js 22+, a free Cloudflare account and a payment method. About 15 minutes."
+lang: en
+---
+
 # Before you start
 
 About 15 minutes the first time, mostly in the Cloudflare dashboard. After that, every update is one command.

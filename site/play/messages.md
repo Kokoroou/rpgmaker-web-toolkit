@@ -1,3 +1,8 @@
+---
+description: "Message modes for an RPG Maker web game: tap to finish, Auto to advance by itself, and Skip to move quickly through text you have read."
+lang: en
+---
+
 # Messages: tap to finish, Auto, Skip
 
 | Mode | What it does |

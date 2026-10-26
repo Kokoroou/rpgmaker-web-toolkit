@@ -1,3 +1,8 @@
+---
+description: "Turn on Cloudflare Access so only the emails you allow can open your RPG Maker web game, and invite players with an email login."
+lang: en
+---
+
 # Protect the site and invite players
 
 **Cloudflare Access** (free for 50 users) asks every visitor for an allowed email before the game loads. Each email gets its own saves. Access is part of Cloudflare **Zero Trust**, which asks for a payment method even on its Free plan ([what it costs](/setup/cloudflare#what-it-costs)).

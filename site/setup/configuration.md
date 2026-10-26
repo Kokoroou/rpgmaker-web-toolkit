@@ -1,3 +1,8 @@
+---
+description: "Change a published game's settings with edit-config: on-screen buttons, folders, cloud saves and other features, stored as JSON in your Cloudflare account."
+lang: en
+---
+
 # Customize the game
 
 Each game's settings are a small JSON file in your Cloudflare account.

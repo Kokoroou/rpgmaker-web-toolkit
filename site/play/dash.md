@@ -1,3 +1,8 @@
+---
+description: "Always dash for an RPG Maker web game: run everywhere without holding a button, and hold Dash or Shift to walk instead."
+lang: en
+---
+
 # Always dash
 
 Turn on ⚙ → **Always dash** to run everywhere without holding a button. Hold **Dash** on the on-screen gamepad (**Shift** on a keyboard) to walk instead. Tap it again to turn it off.

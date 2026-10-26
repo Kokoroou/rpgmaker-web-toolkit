@@ -1,3 +1,8 @@
+---
+description: "Every config key of an RPG Maker web game published with rpgmaker-web-toolkit, with defaults and recipes for common changes."
+lang: en
+---
+
 # Config keys
 
 Every key of a game's settings, as [`edit-config`](/setup/configuration) shows them. Common changes have recipes on [Customize the game](/setup/configuration#common-changes).

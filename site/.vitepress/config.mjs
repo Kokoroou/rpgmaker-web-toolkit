@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig } from "vitepress";
+import { SITE_URL, buildLlmsTxt, pageHead } from "./seo.mjs";
 
 const repo = "https://github.com/Kokoroou/rpgmaker-web-toolkit";
 
@@ -9,6 +12,16 @@ export default defineConfig({
   lang: "en",
   cleanUrls: true,
   lastUpdated: true,
+  sitemap: { hostname: SITE_URL },
+  transformPageData(pageData) {
+    pageData.frontmatter.head ??= [];
+    pageData.frontmatter.head.push(...pageHead(pageData));
+  },
+  buildEnd(siteConfig) {
+    const { sidebar } = siteConfig.userConfig.themeConfig;
+    const text = buildLlmsTxt({ srcDir: siteConfig.srcDir, sidebar, description: siteConfig.userConfig.description });
+    fs.writeFileSync(path.join(siteConfig.outDir, "llms.txt"), text);
+  },
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/rpgmaker-web-toolkit/logo.svg" }],
     ["meta", { name: "theme-color", content: "#2a347a" }],

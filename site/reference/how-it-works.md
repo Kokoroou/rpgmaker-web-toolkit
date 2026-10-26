@@ -1,3 +1,8 @@
+---
+description: "How rpgmaker-web-toolkit works: the CLI analyzes the game, builds a web copy, deploys a shared Worker, serves files, checks Access and syncs saves."
+lang: en
+---
+
 # How it works
 
 ```

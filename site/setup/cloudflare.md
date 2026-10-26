@@ -1,3 +1,8 @@
+---
+description: "Create and prepare a free Cloudflare account for an RPG Maker web game: workers.dev subdomain, R2 and Access, what each step costs and why a card is asked."
+lang: en
+---
+
 # Set up Cloudflare
 
 The game goes on **your own Cloudflare account**: Cloudflare hosts it, keeps the saves and checks who signs in. Never used Cloudflare? This page goes through the account once, in about 10 minutes. You only do it once, for all your games.

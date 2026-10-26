@@ -1,3 +1,8 @@
+---
+description: "Quick save and autosave for an RPG Maker web game: two extra save slots that never use a slot of the game's own save screen and sync across devices."
+lang: en
+---
+
 # Quick save and autosave
 
 Two save slots of the toolkit's own, next to the game's: they never take a slot of the game's save screen, and with [cloud sync](/play/saves) they follow you to your other devices like the game's saves.
