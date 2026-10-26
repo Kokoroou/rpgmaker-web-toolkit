@@ -10,7 +10,7 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, runtimeSources, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
 import { splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
@@ -513,4 +513,23 @@ test("update-from-link: noticing Workers API changes in Cloudflare's schema", ()
   assert.deepEqual(broken((s) => delete s.components.schemas.assets.properties.config.properties.run_worker_first), ['assets.config has no "run_worker_first"']);
   assert.deepEqual(broken((s) => delete s.components.schemas.workers_binding_kind_r2_bucket), ['the r2_bucket binding has no "bucket_name"']);
   assert.deepEqual(broken((s) => (s.components.schemas.assets = { $ref: "#/components/schemas/assets" })), ['assets.config has no "not_found_handling"', 'assets.config has no "run_worker_first"'], "a $ref loop ends");
+});
+
+test("web build: Service Worker caches game files, not the ones the toolkit writes or huge ones", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const f = (rel, size, mtimeMs = 5) => ({ rel, size, mtimeMs });
+  const files = [f("img/a.png", 10), f("img/big.png", 26 * 1024 * 1024), f("js/plugins.js", 3), f("js/main.js", 4), f("index.html", 1), f("save/x", 1)];
+  const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }, files);
+  const sw = out.get("rwk-sw.js");
+  const manifest = JSON.parse(/const MANIFEST = (\{.*\});/.exec(sw)[1]);
+  assert.deepEqual(manifest, { "img/a.png": "10-5", "js/main.js": "4-5" });
+  assert.match(sw, /const BUILD_ID = "[0-9a-f]{12}";/);
+  const id = (src) => /BUILD_ID = "(\w+)"/.exec(src)[1];
+  assert.match(serviceWorkerSource([f("img/a.png", 10, 6)]), /"img\/a\.png":"10-6"/);
+  assert.notEqual(id(serviceWorkerSource([f("img/a.png", 10, 6)])), id(serviceWorkerSource([f("img/a.png", 10, 5)])));
+  assert.ok(!generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {}, cache: false }, files).has("rwk-sw.js"));
+  assert.equal(runtimeConfigOf("MZ", { slug: "g", cache: false }).cache, false);
 });

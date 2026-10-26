@@ -3,6 +3,7 @@
 // written after unlinking the destination so a hard link can never write
 // through to the original game folder.
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
@@ -118,7 +119,29 @@ export function runtimeConfigOf(engine, gameConfig) {
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
+    cache: gameConfig.cache !== false,
   };
+}
+
+// Folders whose files the Service Worker keeps, and the biggest file it keeps
+// (iOS limits what a site may store).
+const CACHED_DIRS = /^(img|audio|effects|data|fonts|movies|js)\//;
+export const CACHE_MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+// rwk-sw.js with the list of cacheable files; a file's version changes
+// whenever its size or modified time does. generated: rels the toolkit writes
+// itself (js/plugins.js…), whose version is not the game file's.
+export function serviceWorkerSource(files, generated = new Set()) {
+  const manifest = {};
+  for (const f of [...files].sort((a, b) => (a.rel < b.rel ? -1 : 1))) {
+    if (CACHED_DIRS.test(f.rel) && !generated.has(f.rel) && f.size <= CACHE_MAX_FILE_BYTES) manifest[f.rel] = `${f.size}-${f.mtimeMs}`;
+  }
+  const json = JSON.stringify(manifest);
+  const buildId = crypto.createHash("sha256").update(json).digest("hex").slice(0, 12);
+  return fs
+    .readFileSync(path.join(TOOLKIT_ROOT, "runtime", "rwk-sw.js"), "utf8")
+    .replace("/*RWK_MANIFEST*/ {}", () => json)
+    .replace("/*RWK_BUILD_ID*/", buildId);
 }
 
 // The runtime plugins' sources: { name: source }
@@ -140,6 +163,8 @@ export function generatedFiles(game, gameConfig, files = []) {
 
   const pluginsJs = fs.readFileSync(path.join(game.root, "js", "plugins.js"), "utf8");
   out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
+
+  if (runtimeConfig.cache) out.set("rwk-sw.js", serviceWorkerSource(files, new Set(out.keys())));
 
   // Lets the game's creator, and anyone reading a bug report, tell this
   // build apart from an official release.

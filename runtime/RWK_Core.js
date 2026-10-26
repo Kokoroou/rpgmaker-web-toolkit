@@ -171,6 +171,17 @@
     }
   }
 
+  //---------------------------------------------------------------------------
+  // Keep the game's files in Cache Storage (rwk-sw.js, made by the CLI), so a
+  // phone does not download them again at every launch.
+  //---------------------------------------------------------------------------
+
+  if (config.cache !== false && "serviceWorker" in navigator && window.isSecureContext) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("rwk-sw.js").catch((e) => console.warn("[RWK] Service Worker not registered", e));
+    });
+  }
+
   let toastEl = null;
   let toastTimer = 0;
   function toast(message, kind = "info", ms = 2500) {

@@ -30,7 +30,7 @@ Order of work from here. P1 and P2 are small fixes for problems the performance 
 | P1 | `RWK_Report` keeps decoded audio alive: use `WeakRef` ([details](PERFORMANCE.md#1-rwk_report-giữ-âm-thanh-cao)) | S | A real bug in a released version (`fix(runtime)`): on MV it holds ~90 MB of decoded sound, enough to reload or crash a phone tab. Do this before anything else |
 | P2 | `RWK_MobileControls`: batch the layouts on rotation ([details](PERFORMANCE.md#2-xoay-màn-hình-trung-bình)) | S | About 100 ms stutter per rotation on a slow phone (`fix(controls)`) |
 | **Wave A: next up** ||||
-| 1 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) | M–L | Highest value left: 10–27 MB images are downloaded again on every launch over 4G. Also the base of #5 |
+| 1 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) (core shipped in this PR; preload and clear-cache button remain) | M–L | Highest value left: 10–27 MB images are downloaded again on every launch over 4G. Also the base of #5 |
 | 2 | Two-tier config, presets, per-email `/api/config` (FEATURE_IDEAS §5) | M–L | Fast forward, Skip, quick save and always dash already ship with no creator switch except the ones that exist today; cheats must not ship before this |
 | 3 | [SEO / AIEO](#search-engine-and-ai-discoverability-seo--aieo) for the guide in `site/` | S–M | Cheap, independent, and nobody finds the toolkit without it. Do it in any gap between #1 and #2 |
 | **Wave B: offline and cheats** ||||
