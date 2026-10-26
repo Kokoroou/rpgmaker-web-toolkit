@@ -3,7 +3,7 @@
 // Required Notice: Copyright 2026 Trương Tuấn Anh (https://github.com/Kokoroou)
 // License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
-// On-screen gamepad (D-pad, A/B/X/Y, L/R) plus a panel of extra keys the
+// On-screen gamepad (D-pad, A/B/X/Y, optional L/R) plus a panel of extra keys the
 // game's plugins use. Works on MZ and MV by driving Input._currentState, the
 // same state the keyboard handler sets.
 //=============================================================================
@@ -93,6 +93,8 @@
 
   const gamepadOn = cfg.gamepad !== false;
   const dpadOn = cfg.dpad !== false;
+  // L/R (page up / down) are off unless the config turns them on: most games never use them.
+  const shoulderOn = gamepadOn && cfg.shoulder === true;
   const FACE = [
     { key: "ok", label: "A", hint: "OK", color: "#7ddc7d", dx: 0, dy: 1 },
     { key: "cancel", label: "B", hint: "Back", color: "#ff7b7b", dx: 1, dy: 0 },
@@ -104,7 +106,7 @@
     { id: "shoulder:r", key: "pagedown", label: "R", hint: "Next", side: "r" },
   ];
   // Keys the gamepad already presses; extra buttons for them would be duplicates.
-  const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
+  const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", ...(shoulderOn ? ["pageup", "pagedown"] : [])]);
   const extras = (cfg.buttons || []).filter((b) => b.keys || !gamepadOn || !GAMEPAD_KEYS.has(keyName(b.key)));
   // Plugin keys go in the ⌨ panel so they don't crowd the screen; groups,
   // pinned buttons, and every button when there is no gamepad stay on screen.
@@ -116,7 +118,7 @@
   //---------------------------------------------------------------------------
 
   const scale = Number(cfg.scale) || 1;
-  const opacity = cfg.opacity ?? 0.35;
+  const opacity = cfg.opacity ?? 0.2;
   const style = document.createElement("style");
   style.textContent = `
 .rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
@@ -383,7 +385,7 @@
       bindPress(btn, item, () => press(f.key), () => release(f.key));
       face.appendChild(btn);
     }
-    for (const s of SHOULDER) {
+    for (const s of shoulderOn ? SHOULDER : []) {
       const btn = el("div", "rwk-btn rwk-shoulder", `<b>${s.label}</b><small>${s.hint}</small>`);
       const sItem = addItem(s.id, btn, () => ({ h: s.side, x: margin() + unit() * 0.9, v: "b", y: shoulderY() }));
       bindPress(btn, sItem, () => press(s.key), () => release(s.key));
@@ -625,7 +627,7 @@
     const h = toolbarLeft.offsetHeight || toolbarRight.offsetHeight;
     // Docked: next to L and R (their outer edge is margin + 1.8u from the side),
     // or in the top corners when the two groups don't fit between them.
-    let inset = docked() ? margin() + (gamepadOn ? unit() * 1.8 + 8 : 0) : margin();
+    let inset = docked() ? margin() + (shoulderOn ? unit() * 1.8 + 8 : 0) : margin();
     const nextToLR = docked() && toolbarLeft.offsetWidth + toolbarRight.offsetWidth + 16 <= vw() - 2 * inset;
     if (!nextToLR) inset = margin();
     const left = inset + toolbarLeft.offsetWidth / 2;

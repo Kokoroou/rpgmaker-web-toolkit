@@ -86,6 +86,13 @@ test("on-screen buttons: turn on, add a key button", async () => {
   assert.deepEqual(out.controls.buttons, [{ key: "Tab", label: "Map", hint: "Open the map" }]);
 });
 
+test("L / R buttons are off by default and can be turned on", async () => {
+  const off = await guidedEdit(base(), { io: scripted(["controls", "back", "save"]) });
+  assert.notEqual(off.controls?.shoulder, true);
+  const on = await guidedEdit(base(), { io: scripted(["controls", "shoulder", true, "back", "save"]) });
+  assert.equal(on.controls.shoulder, true);
+});
+
 test("exclude patterns are added and removed", async () => {
   const added = await guidedEdit(base(), { io: scripted(["files", "exclude", "add", "data-tw/**", "back", "back", "save"]) });
   assert.deepEqual(added.exclude, ["data-tw/**"]);

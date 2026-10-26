@@ -36,7 +36,7 @@ const SETTINGS = {
     showOn: "touch",
     gamepad: true,
     dpad: true,
-    opacity: 0.35,
+    opacity: 0.2,
     scale: 1,
     extras: ["fullscreen", "editLayout"],
     buttons: [

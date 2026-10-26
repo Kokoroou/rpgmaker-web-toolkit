@@ -180,14 +180,15 @@ async function editButtons(controls, io) {
 }
 
 async function controlsMenu(cfg, io) {
-  cfg.controls ||= { enabled: false, showOn: "touch", gamepad: true, dpad: true, opacity: 0.35, scale: 1, buttons: [], scannedKeys: [] };
+  cfg.controls ||= { enabled: false, showOn: "touch", gamepad: true, shoulder: false, dpad: true, opacity: 0.2, scale: 1, buttons: [], scannedKeys: [] };
   const controls = cfg.controls;
   for (;;) {
     const options = [
       { label: `On-screen buttons: ${describeButtons(controls)}`, value: "enabled" },
       { label: `Show them on: ${controls.showOn || "touch"}`, value: "showOn" },
       { label: `D-pad: ${yesNo(controls.dpad !== false)}`, value: "dpad" },
-      { label: `Opacity: ${controls.opacity ?? 0.35}`, value: "opacity" },
+      { label: `L / R buttons: ${yesNo(controls.shoulder === true)}`, value: "shoulder" },
+      { label: `Opacity: ${controls.opacity ?? 0.2}`, value: "opacity" },
       { label: `Size: ${controls.scale ?? 1}`, value: "scale" },
       { label: `Key buttons (${(controls.buttons || []).length})`, value: "buttons" },
       BACK,
@@ -202,7 +203,8 @@ async function controlsMenu(cfg, io) {
         { label: "Never", value: "never" },
       ], ["touch", "always", "never"].indexOf(controls.showOn || "touch"));
     } else if (pick === "dpad") controls.dpad = await io.confirm("Include the D-pad? (No = move by tapping the map only)", controls.dpad !== false);
-    else if (pick === "opacity") controls.opacity = Number(await io.ask("Opacity, 0 (invisible) to 1", String(controls.opacity ?? 0.35), numCheck(0, 1)));
+    else if (pick === "shoulder") controls.shoulder = await io.confirm("Include the L / R buttons (page up / down)? Most games do not use them", controls.shoulder === true);
+    else if (pick === "opacity") controls.opacity = Number(await io.ask("Opacity, 0 (invisible) to 1", String(controls.opacity ?? 0.2), numCheck(0, 1)));
     else if (pick === "scale") controls.scale = Number(await io.ask("Size multiplier (0.5 to 3)", String(controls.scale ?? 1), numCheck(0.5, 3)));
     else await editButtons(controls, io);
   }
