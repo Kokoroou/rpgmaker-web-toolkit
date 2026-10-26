@@ -1,3 +1,8 @@
+---
+description: "Use several of the same item at once in an RPG Maker web game: the game asks how many to use, up to 99, in menus and in battle."
+lang: en
+---
+
 # Use several items at once
 
 Choose an item you hold several of, and the game asks **how many** to use (up to 99):

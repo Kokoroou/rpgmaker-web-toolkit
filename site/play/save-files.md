@@ -1,3 +1,8 @@
+---
+description: "Export, import or delete an RPG Maker save slot in the web copy, and move a save between the web game and the desktop game or a save editor."
+lang: en
+---
+
 # Edit or move a save
 
 ⚙ → **Saves**:

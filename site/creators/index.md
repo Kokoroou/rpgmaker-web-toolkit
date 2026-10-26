@@ -1,3 +1,8 @@
+---
+description: "For RPG Maker game creators: what the toolkit does with a copy of your game, what it never does, and how to allow, limit or forbid web hosting."
+lang: en
+---
+
 # For game creators
 
 A player runs the toolkit on their copy of your game. It puts that copy on **their own** Cloudflare account, behind an email login by default, with [touch controls](/play/controls) and [cloud saves](/play/saves).

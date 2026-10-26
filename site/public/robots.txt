@@ -1,0 +1,7 @@
+# The guide is public documentation: search engines and AI assistants may read all of it.
+# Policy choice: AI crawlers are allowed on purpose, so assistants can quote the guide.
+# To opt out of one, add a "User-agent: <name>" group with "Disallow: /" below.
+User-agent: *
+Allow: /
+
+Sitemap: https://kokoroou.github.io/rpgmaker-web-toolkit/sitemap.xml

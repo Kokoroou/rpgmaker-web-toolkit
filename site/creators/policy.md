@@ -1,3 +1,8 @@
+---
+description: "Game creators can control web hosting of their RPG Maker game with an rwk-policy.json file: allow personal use only, block save tools, show a message."
+lang: en
+---
+
 # Hosting policy (`rwk-policy.json`)
 
 A game creator can put a file named `rwk-policy.json` in the game folder, next to `index.html` (for MV, in `www/` or next to `Game.exe`). The toolkit reads it every time someone publishes the game, so a new release can change it.

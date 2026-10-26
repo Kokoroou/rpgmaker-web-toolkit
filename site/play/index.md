@@ -1,3 +1,8 @@
+---
+description: "Open a link to an RPG Maker web game, sign in with your email and play on a phone, tablet or PC. Add it to a phone home screen to play full screen."
+lang: en
+---
+
 # Open and play
 
 Someone sent you a link like `https://my-game.name.workers.dev`.

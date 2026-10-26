@@ -1,3 +1,8 @@
+---
+description: "Fast forward an RPG Maker web game at 2x, 3x or 4x speed: walking, battles, animations, text and cutscenes, while music keeps its normal speed."
+lang: en
+---
+
 # Fast forward
 
 Speeds up the whole game ×2, ×3 or ×4: walking, battles, animations, text and cutscenes. Music and sound keep their normal speed.

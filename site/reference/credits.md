@@ -1,3 +1,8 @@
+---
+description: "Credits and licenses: the game in the screenshots, tools, libraries and the PolyForm Noncommercial License of rpgmaker-web-toolkit."
+lang: en
+---
+
 # Credits and licenses
 
 ## The game in the screenshots

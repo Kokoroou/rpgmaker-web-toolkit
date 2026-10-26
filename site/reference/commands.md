@@ -1,3 +1,8 @@
+---
+description: "Every command of rpgmaker-web-toolkit: deploy or update a game, edit its config, import saves, rename the site and update from a link."
+lang: en
+---
+
 # Commands
 
 The one-liner deploys, and asks for the game folder:

@@ -1,3 +1,8 @@
+---
+description: "Update a published RPG Maker web game after a patch or translation: copy the files over the game folder and run the same command. Saves are kept."
+lang: en
+---
+
 # Update the game
 
 ## Install a patch or a translation

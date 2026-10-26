@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#2a347a"/>
+  <rect x="0" y="560" width="1200" height="70" fill="#1d2557"/>
+  <g transform="translate(80 110) scale(20)" shape-rendering="crispEdges">
+    <rect x="2" y="3" width="12" height="11" fill="#171d4d"/>
+    <rect x="1" y="5" width="14" height="9" fill="#171d4d"/>
+    <rect x="3" y="4" width="10" height="3" fill="#c88a12"/>
+    <rect x="2" y="6" width="12" height="1" fill="#c88a12"/>
+    <rect x="2" y="8" width="12" height="5" fill="#c88a12"/>
+    <rect x="3" y="4" width="10" height="1" fill="#f2c14e"/>
+    <rect x="2" y="8" width="12" height="1" fill="#f2c14e"/>
+    <rect x="2" y="7" width="12" height="1" fill="#7a4a24"/>
+    <rect x="7" y="6" width="2" height="4" fill="#e6e9ff"/>
+    <rect x="7" y="9" width="2" height="1" fill="#171d4d"/>
+  </g>
+  <g font-family="DejaVu Sans, Arial, sans-serif" fill="#e6e9ff">
+    <text x="440" y="230" font-size="52" font-weight="700">rpgmaker-web-toolkit</text>
+    <text x="440" y="310" font-size="38" fill="#f2c14e">Play your RPG Maker game</text>
+    <text x="440" y="360" font-size="38" fill="#f2c14e">in any browser</text>
+    <text x="440" y="440" font-size="28">RPG Maker MZ / MV on Cloudflare Workers</text>
+    <text x="440" y="482" font-size="28">Cloud saves, on-screen gamepad, email login</text>
+    <text x="80" y="603" font-size="24" fill="#b9bfe6">For games you own, played by you</text>
+  </g>
+</svg>

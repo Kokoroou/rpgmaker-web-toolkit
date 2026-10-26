@@ -1,3 +1,8 @@
+---
+description: "Cloudflare free plan limits that matter for an RPG Maker web game: files, requests, R2 storage and Access users, and what the toolkit does past them."
+lang: en
+---
+
 # Free plan limits
 
 | Service | Limit | In practice |

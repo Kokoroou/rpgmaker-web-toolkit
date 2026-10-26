@@ -1,3 +1,8 @@
+---
+description: "On-screen controls for RPG Maker games on a phone: D-pad, A / B / X / Y and L / R, extra plugin keys, and how to move, resize or hide each button."
+lang: en
+---
+
 # Touch controls
 
 <div class="shots">

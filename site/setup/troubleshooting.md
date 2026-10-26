@@ -1,3 +1,8 @@
+---
+description: "Fixes for common errors when publishing an RPG Maker game to Cloudflare: Node.js, wrangler login, uploads, Access and in-game problems."
+lang: en
+---
+
 # Troubleshooting
 
 Full error details: set `$env:RWK_DEBUG = "1"` in PowerShell, then run the command again.

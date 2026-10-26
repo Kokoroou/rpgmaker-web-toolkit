@@ -1,3 +1,8 @@
+---
+description: "Cloud save sync for an RPG Maker web game: saves follow your email, so you can save on a phone and continue on a PC. "
+lang: en
+---
+
 # Saves on several devices
 
 With **cloud save sync** on, your saves follow your email. Save on your phone, continue on your PC. Nothing to do: save in the game as usual.
