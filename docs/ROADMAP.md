@@ -35,6 +35,7 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
 | CLI from a link (#16b): `status`, `saves export` (via the R2 API: `cli/lib/r2-api.js`), `logs`, `open`, `list` and `delete` take a link or site name, no folder needed | next |
 | CLI from the game folder (#17): `analyze` / `deploy --dry-run` (warnings and file count, no Cloudflare login, nothing written), `doctor` (Node.js, wrangler, login, token permissions), the current directory as the default target when it holds a game; `analyze` in the GitHub Action for pull requests | next |
+| Key and gamepad remapping (#11, Ideas #12): ⚙ → Keys and buttons, kept per device, `remap` config key and policy switch | next |
 | Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
 | Deployment architecture diagrams (#13): architecture, deploy and first-load / save-sync sequence on "How it works", as light and dark SVG drawn by `site/diagrams/build.mjs`; the archify skill was checked and not used (see Details) | next |
 
@@ -49,7 +50,6 @@ Order of work from here. Row numbers stay as they were, so "needs #n" still poin
 | **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
 | **Wave D: narrower audiences** ||||
-| 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
 | **Wave E: polish and support** ||||
 | 14 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/`. Needs the maintainer's decisions, so it can move earlier whenever those are made |

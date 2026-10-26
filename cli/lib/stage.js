@@ -13,7 +13,7 @@ import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.j
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -163,6 +163,14 @@ export function alwaysDashConfig(value) {
   return { on, lock: on !== null && v.lock === true };
 }
 
+// remap: false | true | { keyboard, gamepad } -> false | { keyboard, gamepad } (each default true; both off = false)
+export function remapConfig(value) {
+  if (value === false) return false;
+  const v = value && typeof value === "object" ? value : {};
+  const out = { keyboard: bool(v.keyboard, true), gamepad: bool(v.gamepad, true) };
+  return out.keyboard || out.gamepad ? out : false;
+}
+
 // saveTools: false | true | { export, import, delete } -> false | { export, import, delete }
 export function saveToolsConfig(value) {
   if (value === false) return false;
@@ -188,6 +196,7 @@ export function runtimeConfigOf(engine, gameConfig) {
     messageMode: messageModeConfig(gameConfig.messageMode),
     alwaysDash: alwaysDashConfig(gameConfig.alwaysDash),
     backlog: backlogConfig(gameConfig.backlog),
+    remap: remapConfig(gameConfig.remap),
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),

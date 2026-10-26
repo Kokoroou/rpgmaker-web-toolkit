@@ -34,6 +34,14 @@ export const FEATURES = [
   },
   { key: "alwaysDash", label: "Always dash", fields: [{ key: "on", ask: "Run by default for players who never chose?", def: false }] },
   { key: "backlog", label: "Messages log", number: { ask: "How many messages to keep (10 to 500)", int: [10, 500], def: 100 } },
+  {
+    key: "remap",
+    label: "Keys and buttons (players remap them)",
+    fields: [
+      { key: "keyboard", ask: "Let players remap keyboard keys?", def: true },
+      { key: "gamepad", ask: "Let players remap gamepad buttons?", def: true },
+    ],
+  },
   { key: "quickSave", label: "Quick save / load", fields: [{ key: "ignoreSaveLock", ask: "Allow it where the game disallows saving?", def: true }] },
   { key: "autoSave", label: "Autosave", fields: [{ key: "minutes", ask: "Save every how many minutes (1 to 60)?", int: [1, 60], def: 5 }] },
   {

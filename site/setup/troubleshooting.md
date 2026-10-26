@@ -53,4 +53,5 @@ Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cl
 | `Login expired: reload the page to sync saves` | Reload and sign in. Saves made meanwhile upload afterwards |
 | `Offline: using this device's saves` | Keep playing; saves upload once back online |
 | Saves gone after clearing browser data | With sync on, reload: they come back. Without it they are lost, so [export](/play/save-files#export) important ones |
+| A key or button does nothing after changing it | ⚙ → [Keys and buttons](/play/keys) → **Reset to defaults**. An action shown as *No key* lost its key to another action |
 | Black screen or an error | Does the desktop version show it too? If not, it comes from the web copy: [report it here](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues) with the engine and the error, **not to the game's creator** |

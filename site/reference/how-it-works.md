@@ -48,6 +48,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_Message         message modes: tap to finish, Auto, Skip (Window_Message)
              RWK_Backlog         message backlog: last messages kept in memory, shown in a panel (Window_Message.startMessage)
              RWK_Dash            always dash switch (ConfigManager.alwaysDash)
+             RWK_Remap           key and gamepad remapping: edits Input.keyMapper / Input.gamepadMapper, choices in localStorage
              RWK_SaveTools       save export / import / delete (desktop save file format)
              RWK_SaveHistory     older saves from the cloud: list and restore
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)

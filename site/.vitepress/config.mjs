@@ -65,6 +65,7 @@ export default defineConfig({
           { text: "Fast forward", link: "/play/speed" },
           { text: "Messages: Auto and Skip", link: "/play/messages" },
           { text: "Always dash", link: "/play/dash" },
+          { text: "Keys and buttons", link: "/play/keys" },
           { text: "Use several items at once", link: "/play/items" },
           { text: "Cheats", link: "/play/cheats" },
         ],

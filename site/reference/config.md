@@ -29,6 +29,7 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `fastForward` | `false` turns off [fast forward](/play/speed); `{ "maxSpeed": 3, "speed": 2, "inBattle": false, "lock": true }` sets the top speed (2–4, default 4), the starting speed, whether it works in battles, and whether players may change the speed | Same |
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip); `{ "auto": true, "skip": false, "mode": "auto", "autoSpeed": "slow", "lock": true }` picks the modes offered, the mode and Auto speed to start in, and whether players may change them | Same |
 | `backlog` | `false` removes ⚙ → [Messages log](/play/messages#messages-log); a number (10–500, default 100) sets how many messages it keeps | Same |
+| `remap` | `false` removes ⚙ → [Keys and buttons](/play/keys); `{ "keyboard": true, "gamepad": false }` lets players remap only the keyboard (or only the gamepad) | Same |
 | `alwaysDash` | `false` removes ⚙ → [Always dash](/play/dash); `{ "on": true }` makes players who never chose run; `{ "on": true, "lock": true }` keeps it on (no switch) | Same |
 | `quickSave` | `false` turns off [quick save / load](/play/quick-save); `{ "ignoreSaveLock": false }` keeps it off where the game disallows saving | Same |
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |
