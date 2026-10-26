@@ -14,22 +14,19 @@ export const DEFAULT_EXCLUDES = ["**/.*", "**/Thumbs.db", "**/desktop.ini", "**/
 
 // Resolves path segments below `dir` ignoring letter case, so a game made on
 // Windows (Index.html, JS/, Data/System.json) is found on Linux and macOS
-// (case-sensitive disks). Returns the plain join when nothing matches.
+// (case-sensitive disks). Returns the real name on disk, also on case-insensitive
+// disks where `existsSync` would accept any spelling, and the plain join when
+// nothing matches.
 export function resolveCI(dir, ...segments) {
   let current = dir;
   for (const seg of segments) {
-    const exact = path.join(current, seg);
-    if (fs.existsSync(exact)) {
-      current = exact;
-      continue;
-    }
     let names = [];
     try {
       names = fs.readdirSync(current);
     } catch {
       // Not a folder: fall through to the plain join.
     }
-    const found = names.find((n) => n.toLowerCase() === seg.toLowerCase());
+    const found = names.includes(seg) ? seg : names.find((n) => n.toLowerCase() === seg.toLowerCase());
     current = path.join(current, found || seg);
   }
   return current;
