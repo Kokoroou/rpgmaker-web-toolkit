@@ -210,6 +210,29 @@ export function playerOverrides(engine, cfg, policy) {
   return out;
 }
 
+// What the build itself is made of: a settings change cannot touch these.
+const BUILD_KEYS = ["version", "gameId", "engine", "cache", "media"];
+// Config keys the Worker applies from R2 without a redeploy (liveSettingsOf).
+export const LIVE_KEYS = [...FEATURE_KEYS, "preset", "players", "controls", "sync"];
+
+// The settings file the Worker reads from R2 (worker/settings.js), so
+// edit-config applies without a redeploy: everyone's RWK_Core settings
+// but the build's own keys, and each player's (with Access only).
+// -> { config, players }
+export function liveSettingsOf(engine, cfg, policy) {
+  const config = runtimeConfigOf(engine, applyPolicy(cfg, policy));
+  for (const key of BUILD_KEYS) delete config[key];
+  const players = cfg.auth && cfg.auth.mode === "access" ? playerOverrides(engine, cfg, policy) : {};
+  return { config, players };
+}
+
+// Top-level keys that differ between two configs and only a deploy applies.
+export function keysNeedingDeploy(before, after) {
+  const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "url", "savesImportedAt"]);
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return [...keys].filter((key) => !skip.has(key) && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+}
+
 // Folders whose files the Service Worker keeps, and the biggest file it keeps
 // (iOS limits what a site may store).
 const CACHED_DIRS = /^(img|audio|effects|data|fonts|movies|js)\//;

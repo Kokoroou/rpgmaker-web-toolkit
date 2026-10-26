@@ -4,11 +4,11 @@
 // (worker/toolkit.js). Settings come from R2, as for a normal deploy.
 
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess } from "../lib/cloudflare.js";
+import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { findGameBySite, siteNameFromLink, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
-import { RUNTIME_PLUGINS, TOOLKIT_VERSION, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
+import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
 import { ask, c, confirm, log, print } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
 import { checkPlayers, connect, isAuthReady, perPlayerSettings, siteOf } from "./deploy.js";
@@ -25,7 +25,8 @@ export async function updateFromLink(link) {
   const bucket = DEFAULT_BUCKET;
 
   log.step("Finding the game");
-  const [, cfg] = findGameBySite(await loadGameConfigs(bucket), name);
+  const configs = await loadGameConfigs(bucket);
+  const [fingerprint, cfg] = findGameBySite(configs, name);
   log.ok(`${cfg.engine} · ${cfg.title}`);
   if (cfg.url) log.info(c.dim(cfg.url));
 
@@ -71,8 +72,17 @@ export async function updateFromLink(link) {
   });
   const token = await apiToken();
   if (!token) throw new Error("Not logged in to Cloudflare.");
+  // Without a recorded policy the Worker keeps what the deployed build turned
+  // off (keepOff), which a settings file would override: a deploy from the
+  // game folder writes the first one.
+  const known = cfg.policy !== undefined;
+  if (known) await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(cfg.engine, cfg, policy));
   await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch });
   log.ok(`Worker "${cfg.slug}" updated`);
+  if (known && !cfg.liveSettings) {
+    configs[fingerprint] = { ...cfg, liveSettings: true };
+    await saveGameConfigs(bucket, configs);
+  }
 
   if (cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);

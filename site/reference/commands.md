@@ -34,7 +34,7 @@ The table uses the PowerShell form (`& $rwk <command>`). On macOS and Linux, wri
 |---|---|---|
 | `& $rwk "D:\Games\My Game"` | First deploy, or update (changed files only) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk import-saves "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | [Update](/setup/updating#upload-desktop-saves-again) |
-| `& $rwk edit-config "D:\Games\My Game"` | Edits the game's settings in Notepad (TextEdit on macOS, `$EDITOR` or nano on Linux) | [Customize](/setup/configuration) |
+| `& $rwk edit-config "D:\Games\My Game"` | Edits the game's settings in Notepad (TextEdit on macOS, `$EDITOR` or nano on Linux). Feature settings apply without publishing again | [Customize](/setup/configuration) |
 | `& $rwk rename "D:\Games\My Game"` | Moves the site to a new name (address), keeping the saves | [Update](/setup/updating#change-the-site-address) |
 | `& $rwk update-from-link "https://my-game.alice.workers.dev"` | Updates the toolkit of a deployed game whose folder is gone; the game files stay as uploaded | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk help` | Lists the commands | |

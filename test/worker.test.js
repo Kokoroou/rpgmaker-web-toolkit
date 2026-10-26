@@ -355,3 +355,78 @@ test("per-player settings: each player's js/plugins.js, /api/config and save his
   assert.equal(await (await worker.fetch(new Request(BASE + "/js/plugins.js"), env)).text(), deployed);
   assert.equal(patchConfig("var $plugins = [];\n", { a: 1 }), "var $plugins = [];\n", "not a toolkit build: untouched");
 });
+
+test("settings from R2: applied to js/plugins.js and the save API without a redeploy", async (t) => {
+  const { appendToolkit } = await import("../worker/toolkit.js");
+  const { SETTINGS_TTL_MS, settingsKey } = await import("../worker/settings.js");
+  const game = "var $plugins = [];\n";
+  const deployed = appendToolkit(game, ["RWK_Core"], { gameId: "g", backlog: { max: 100 }, saveHistory: { keep: 10, days: 30 } });
+  const env = makeEnv({
+    AUTH_MODE: "none",
+    RWK_SAVE_HISTORY: '{"keep":10,"days":30}',
+    ASSETS: { fetch: async (req) => new Response(new URL(req.url).pathname === "/js/plugins.js" ? deployed : "static") },
+  });
+  const plain = createWorker();
+  const get = (path, init) => plain.fetch(new Request(BASE + path, init), env);
+  const coreOf = (js) => JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config);
+  let now = 1_000_000;
+  t.mock.method(Date, "now", () => now);
+
+  assert.equal(await (await get("/js/plugins.js")).text(), deployed, "no settings file: as deployed");
+  assert.equal((await get("/api/history")).status, 200);
+
+  await env.BUCKET.put(settingsKey(env.GAME_ID), JSON.stringify({ config: { backlog: false, saveHistory: false }, players: {} }));
+  assert.equal(await (await get("/js/plugins.js")).text(), deployed, "read again only after a while");
+  now += SETTINGS_TTL_MS + 1;
+  const res = await get("/js/plugins.js");
+  assert.equal(res.headers.get("cache-control"), "private, no-cache");
+  assert.deepEqual(coreOf(await res.text()), { gameId: "g", backlog: false, saveHistory: false });
+  assert.equal((await get("/api/history")).status, 404, "the Worker enforces the new save history setting");
+
+  const realGet = env.BUCKET.get;
+  env.BUCKET.get = async () => {
+    throw new Error("R2 down");
+  };
+  t.mock.method(console, "error", () => {});
+  now += SETTINGS_TTL_MS + 1;
+  assert.equal(coreOf(await (await get("/js/plugins.js")).text()).backlog, false, "R2 unreachable: the settings read last");
+  env.BUCKET.get = realGet;
+
+  await env.BUCKET.put(settingsKey(env.GAME_ID), "not json");
+  now += SETTINGS_TTL_MS + 1;
+  assert.equal(await (await get("/js/plugins.js")).text(), deployed, "a broken file: as deployed");
+});
+
+test("settings from R2: each player's own entry replaces the deploy's", async (t) => {
+  const { appendToolkit } = await import("../worker/toolkit.js");
+  const { settingsKey } = await import("../worker/settings.js");
+  const { userHash } = await import("../worker/auth.js");
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const team = "live.cloudflareaccess.com";
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ keys: [{ ...publicKey.export({ format: "jwk" }), kid: "l1", alg: "RS256" }] })));
+  const token = (email) => {
+    const enc = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const head = enc({ alg: "RS256", kid: "l1" });
+    const body = enc({ aud: ["aud1"], email, exp: Math.floor(Date.now() / 1000) + 60, iss: `https://${team}` });
+    return `${head}.${body}.${crypto.sign("RSA-SHA256", Buffer.from(`${head}.${body}`), privateKey).toString("base64url")}`;
+  };
+  const as = (email) => ({ headers: { "cf-access-jwt-assertion": token(email) } });
+  const deployed = appendToolkit("var $plugins = [];\n", ["RWK_Core"], { gameId: "g", cheats: false, backlog: { max: 100 } });
+  const env = makeEnv({
+    AUTH_MODE: "access",
+    ACCESS_TEAM_DOMAIN: team,
+    ACCESS_AUD: "aud1",
+    ASSETS: { fetch: async () => new Response(deployed) },
+  });
+  const old = await userHash("old@example.com");
+  const kid = await userHash("kid@example.com");
+  const w = createWorker({ playerSettings: { [old]: { cheats: { party: true } } } });
+  await env.BUCKET.put(settingsKey(env.GAME_ID), JSON.stringify({ config: { cheats: false, backlog: { max: 20 } }, players: { [kid]: { cheats: { items: true } } } }));
+  const coreOf = async (res) => JSON.parse(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(await res.text())[1]).parameters.config);
+  const get = (path, init) => w.fetch(new Request(BASE + path, init), env);
+
+  assert.deepEqual(await coreOf(await get("/js/plugins.js", as("kid@example.com"))), { gameId: "g", cheats: { items: true }, backlog: { max: 20 } });
+  assert.deepEqual(await coreOf(await get("/js/plugins.js", as("old@example.com"))), { gameId: "g", cheats: false, backlog: { max: 20 } }, "the deploy's entry is replaced");
+  assert.deepEqual(await coreOf(await get("/js/plugins.js")), { gameId: "g", cheats: false, backlog: { max: 20 } }, "not signed in: everyone's");
+  assert.deepEqual((await (await get("/api/config", as("kid@example.com"))).json()).settings, { cheats: { items: true } });
+});

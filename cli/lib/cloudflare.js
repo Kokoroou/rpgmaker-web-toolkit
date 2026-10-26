@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import LZString from "lz-string";
 import { NeedsAnswer, choose, isUnattended, log } from "./ui.js";
+import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
 //---------------------------------------------------------------------------
@@ -162,6 +163,12 @@ export async function saveGameConfigs(bucket, configs) {
   await r2PutJson(bucket, CONFIGS_KEY, configs);
 }
 
+// The settings the Worker applies without a redeploy (worker/settings.js).
+// settings: from liveSettingsOf() (stage.js)
+export async function saveLiveSettings(bucket, gameId, settings) {
+  await r2PutJson(bucket, settingsKey(gameId), settings);
+}
+
 // { [sha256(email)]: first save time }, kept by the Worker (worker/players.js).
 export async function loadPlayers(bucket, slug) {
   const raw = await r2Get(bucket, `rwk/players/${slug}.json`);
@@ -283,8 +290,9 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory }) {
   };
 }
 
-// playerSettings: from playerOverrides() (stage.js). With any, the Worker
-// also serves js/plugins.js, to put each player's own settings in it.
+// playerSettings: from playerOverrides() (stage.js). With a bucket or any
+// player settings, the Worker also serves js/plugins.js, to put the settings
+// from R2 (worker/settings.js) and each player's own in it.
 export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {} }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
@@ -309,7 +317,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       directory: "public",
       binding: "ASSETS",
       not_found_handling: "none",
-      run_worker_first: locked ? true : overflowRoutes(overflowRels, Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
+      run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
     vars: workerVars({ gameId, auth, locked, indexable, saveHistory }),
     observability: { enabled: false },

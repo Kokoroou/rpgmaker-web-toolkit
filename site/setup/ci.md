@@ -13,7 +13,7 @@ A game kept in a Git repository can publish itself: each push to `main` updates 
 2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts.
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
-The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`edit-config`](/setup/configuration) on your PC, and the next CI run uses them.
+The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`edit-config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
 
 ## GitHub Actions
 

@@ -10,15 +10,15 @@ Each game's settings are a small JSON file in your Cloudflare account.
 ::: code-group
 ```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk edit-config "D:\Games\My Game"   # 1. Notepad opens: edit, Ctrl+S, close
-& $rwk "D:\Games\My Game"               # 2. publish again to apply
+& $rwk edit-config "D:\Games\My Game"   # Notepad opens: edit, Ctrl+S, close
 ```
 ```sh [macOS / Linux]
 rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
-rwk edit-config ~/Games/"My Game"   # 1. TextEdit (macOS) or $EDITOR / nano (Linux) opens: edit, save, close
-rwk ~/Games/"My Game"               # 2. publish again to apply
+rwk edit-config ~/Games/"My Game"   # TextEdit (macOS) or $EDITOR / nano (Linux) opens: edit, save, close
 ```
 :::
+
+Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `edit-config` names them and you publish again (`& $rwk "D:\Games\My Game"`) to apply them. A game last published with a toolkit older than this needs one more publish first; `edit-config` says so.
 
 On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use another editor. A JSON mistake reopens the editor. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 
@@ -95,7 +95,7 @@ With Cloudflare Access, `"players"` gives some emails settings of their own, on 
 }
 ```
 
-Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. Publish again to apply a change.
+Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. A change applies without publishing again, like the other feature settings.
 
 The emails never reach the web build: the deploy gives the Worker only a hash of each email, with the settings that differ. When a player opens the game, the Worker checks their Access login and puts their settings in the copy of `js/plugins.js` it sends them. A public site (no Access) cannot tell players apart, so everyone gets the shared settings.
 
