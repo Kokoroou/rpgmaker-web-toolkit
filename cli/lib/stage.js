@@ -282,7 +282,7 @@ export function generatedFiles(game, gameConfig, files = []) {
   const indexHtml = fs.readFileSync(resolveCI(game.root, "index.html"), "utf8");
   if (!indexHtml.includes("rwk.webmanifest")) {
     const head =
-      '<link rel="manifest" href="rwk.webmanifest">\n' +
+      '<link rel="manifest" href="rwk.webmanifest" crossorigin="use-credentials">\n' +
       '<meta name="mobile-web-app-capable" content="yes">\n' +
       '<meta name="theme-color" content="#000000">\n' +
       '<meta name="generator" content="rpgmaker-web-toolkit">\n' +

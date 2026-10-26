@@ -65,7 +65,7 @@ test("analyze: a game made on Windows with mixed-case names works on case-sensit
 
   // The generated files read the real names.
   const out = generatedFiles(game, { slug: "g", sync: {} }, files);
-  assert.ok(out.get("index.html").includes("rwk.webmanifest"));
+  assert.ok(out.get("index.html").includes('href="rwk.webmanifest" crossorigin="use-credentials"'));
   assert.ok(out.has("js/plugins.js"));
   assert.equal(resolveCI(dir, "js", "PLUGINS.JS"), path.join(dir, "JS", "plugins.js"));
   assert.equal(resolveCI(dir, "nope", "x"), path.join(dir, "nope", "x"));
