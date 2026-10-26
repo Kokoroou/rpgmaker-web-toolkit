@@ -59,7 +59,7 @@ The first deploy asks which features players may use, and keeps the answer as `"
 |---|---|---|
 | `"comfortable"` (default) | Playing alone or with family | Nothing: every convenience on |
 | `"original"` | Playing the game as its creator designed it | No fast forward in battles, no Skip, no quick save where the game disallows saving, no save import. Fast forward outside battles, Auto and cloud saves stay |
-| `"shared"` | Letting other people play your copy | No save export / import; older saves: 5 copies for 14 days (saves R2 space) |
+| `"shared"` | Letting other people play your copy | No save export / import, no [offline download](/play/offline); older saves: 5 copies for 14 days (saves R2 space) |
 
 Games published before presets existed have none, which is `"comfortable"`: nothing changes for them.
 
@@ -78,6 +78,7 @@ Each feature key takes one of three kinds of value:
 | `alwaysDash` | `on` (`true` / `false` for players who never chose), `lock` (stays at `on`; Options → Always Dash cannot change it) |
 | `saveTools` | `export`, `import`, `delete` (default `true` each) |
 | `cheats` | `party`, `items`, `battle`, `switches`, `movement` (default `true` each). Off when the key is missing, whatever the preset |
+| `offline` | `true` / `false` only: a full copy of the game on the player's device. Needs `cache` |
 | `remap` | `keyboard`, `gamepad` (default `true` each; both `false` is the same as `false`) |
 | `quickSave`, `autoSave`, `backlog`, `saveHistory` | See [Config keys](/reference/config) |
 
@@ -97,7 +98,7 @@ With Cloudflare Access, `"players"` gives some emails settings of their own, on 
 }
 ```
 
-Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `remap`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. A change applies without publishing again, like the other feature settings.
+Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `remap`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`, `offline`. Emails match whatever their case. A change applies without publishing again, like the other feature settings.
 
 The emails never reach the web build: the deploy gives the Worker only a hash of each email, with the settings that differ. When a player opens the game, the Worker checks their Access login and puts their settings in the copy of `js/plugins.js` it sends them. A public site (no Access) cannot tell players apart, so everyone gets the shared settings.
 

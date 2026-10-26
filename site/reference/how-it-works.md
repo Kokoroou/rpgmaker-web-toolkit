@@ -12,7 +12,7 @@ lang: en
 
 In words, top to bottom:
 
-- **The player's device.** The game runs with the `RWK_*` plugins added to its `js/plugins.js`. A Service Worker (`rwk-sw.js`) answers requests for pictures, sounds, data and scripts from Cache Storage. Saves live in the browser first (localforage on MZ, `localStorage` on MV), and `RWK_SaveSync` mirrors them to the cloud.
+- **The player's device.** The game runs with the `RWK_*` plugins added to its `js/plugins.js`. A Service Worker (`rwk-sw.js`) answers requests for pictures, sounds, data and scripts from Cache Storage, and for the page itself when there is no connection. Saves live in the browser first (localforage on MZ, `localStorage` on MV), and `RWK_SaveSync` mirrors them to the cloud.
 - **Cloudflare Access.** It sits in front of the site and lets in only the emails you invited. It adds a signed login (a JWT) to each request.
 - **One Worker.** `index.js` routes the request. `auth.js` checks the login's signature and reads the email. `saves.js` is the save API and the save history. `players.js` counts the emails that saved. `settings.js` reads the settings from R2, and `toolkit.js` serves the toolkit's part of `js/plugins.js`.
 - **Storage.** Static Assets hold the game files under 25 MiB. One R2 bucket holds the larger files, the saves and their history, the settings and the list of players (details in [Storage](#storage)).
@@ -54,6 +54,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Cheats          cheats, off by default: party, gold and items, win a battle, switches and variables, movement
                                  (god mode: Game_Actor.setHp; walk through walls: Game_Player.isDebugThrough)
+             RWK_Offline         ⚙ → Play offline: downloads every file in the Service Worker's list into its cache, resumable
              RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
              index.js            static files + large files from R2 (with Range) + /api, each player's settings
@@ -72,6 +73,8 @@ The game folder is never written to. Each run:
 2. **Hard-links** them into `<game drive>:\.rwk-build\` (no extra disk space; copies on another drive).
 3. Adds the plugins to the build's copy of `js/plugins.js` and marks `index.html` with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
    Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Game files on this device**. Turn it off with [`cache`](/reference/config).
+
+   The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
 5. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
 6. Deletes the build folder.

@@ -13,7 +13,7 @@ import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.j
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -122,6 +122,12 @@ export function cheatsConfig(value) {
   const out = Object.fromEntries(CHEAT_GROUPS.map((group) => [group, bool(v[group], true)]));
   return CHEAT_GROUPS.some((group) => out[group]) ? out : false;
 }
+
+// offline: false | true -> boolean. Downloading the whole game needs the
+// Service Worker, so `cache: false` turns it off too.
+export function offlineConfig(value, cacheOn = true) {
+  return cacheOn && value !== false;
+}
 const clampInt = (v, min, max, fallback) => {
   const n = Math.round(Number(v));
   return n >= min ? Math.min(max, n) : fallback;
@@ -201,6 +207,7 @@ export function runtimeConfigOf(engine, gameConfig) {
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
     cheats: cheatsConfig(gameConfig.cheats),
+    offline: offlineConfig(gameConfig.offline, gameConfig.cache !== false),
     cache: gameConfig.cache !== false,
   };
 }
@@ -244,23 +251,34 @@ export function keysNeedingDeploy(before, after) {
 
 // Folders whose files the Service Worker keeps, and the biggest file it keeps
 // (iOS limits what a site may store).
-const CACHED_DIRS = /^(img|audio|effects|data|fonts|movies|js)\//;
+const CACHED_DIRS = /^(img|audio|effects|data|fonts|movies|js|css|icon)\//;
 export const CACHE_MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 // rwk-sw.js with the list of cacheable files; a file's version changes
-// whenever its size or modified time does. generated: rels the toolkit writes
-// itself (js/plugins.js…), whose version is not the game file's.
+// whenever its size or modified time does. Files over the size limit go in a
+// second list that only "download for offline" stores. generated: rels the
+// toolkit writes itself (js/plugins.js…), whose version is not the game file's.
 export function serviceWorkerSource(files, generated = new Set()) {
   const manifest = {};
+  const large = {};
   for (const f of [...files].sort((a, b) => (a.rel < b.rel ? -1 : 1))) {
-    if (CACHED_DIRS.test(f.rel) && !generated.has(f.rel) && f.size <= CACHE_MAX_FILE_BYTES) manifest[f.rel] = `${f.size}-${f.mtimeMs}`;
+    if (!CACHED_DIRS.test(f.rel) || generated.has(f.rel)) continue;
+    (f.size <= CACHE_MAX_FILE_BYTES ? manifest : large)[f.rel] = `${f.size}-${f.mtimeMs}`;
   }
   const json = JSON.stringify(manifest);
-  const buildId = crypto.createHash("sha256").update(json).digest("hex").slice(0, 12);
+  const largeJson = JSON.stringify(large);
+  const buildId = crypto.createHash("sha256").update(json).update(largeJson).digest("hex").slice(0, 12);
   return fs
     .readFileSync(path.join(TOOLKIT_ROOT, "runtime", "rwk-sw.js"), "utf8")
     .replace("/*RWK_MANIFEST*/ {}", () => json)
+    .replace("/*RWK_LARGE*/ {}", () => largeJson)
     .replace("/*RWK_BUILD_ID*/", buildId);
+}
+
+// Width and height of a PNG file's content, or null.
+export function pngSize(buffer) {
+  if (buffer.length < 24 || buffer.readUInt32BE(0) !== 0x89504e47 || buffer.toString("ascii", 12, 16) !== "IHDR") return null;
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
 // The runtime plugins' sources: { name: source }
@@ -302,19 +320,23 @@ export function generatedFiles(game, gameConfig, files = []) {
   // the assets' _headers file.
   out.set("robots.txt", indexable ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n");
   if (!indexable) out.set("_headers", "/*\n  X-Robots-Tag: noindex, nofollow\n");
-  const iconExists = fs.existsSync(resolveCI(game.root, "icon", "icon.png"));
+  // The real size lets a browser decide the game can be installed as an app.
+  const iconPath = resolveCI(game.root, "icon", "icon.png");
+  const iconSize = fs.existsSync(iconPath) ? pngSize(fs.readFileSync(iconPath)) : null;
   out.set(
     "rwk.webmanifest",
     JSON.stringify(
       {
         name: game.title,
         short_name: game.title.slice(0, 24),
+        id: "./",
         start_url: "./",
+        scope: "./",
         display: "fullscreen",
         orientation: "landscape",
         background_color: "#000000",
         theme_color: "#000000",
-        icons: iconExists ? [{ src: "icon/icon.png", sizes: "any", type: "image/png" }] : [],
+        icons: iconSize ? [{ src: "icon/icon.png", sizes: `${iconSize.width}x${iconSize.height}`, type: "image/png", purpose: "any" }] : [],
       },
       null,
       2

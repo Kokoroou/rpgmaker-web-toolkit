@@ -62,6 +62,7 @@ export const FEATURES = [
     ],
   },
   { key: "itemBatch", label: "Using several items at once", fields: [] },
+  { key: "offline", label: "Download the game to play offline", fields: [] },
   {
     key: "cheats",
     label: "Cheats",

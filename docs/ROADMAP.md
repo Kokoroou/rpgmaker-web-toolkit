@@ -37,18 +37,17 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | CLI from the game folder (#17): `analyze` / `deploy --dry-run` (warnings and file count, no Cloudflare login, nothing written), `doctor` (Node.js, wrangler, login, token permissions), the current directory as the default target when it holds a game; `analyze` in the GitHub Action for pull requests | next |
 | Key and gamepad remapping (#11, Ideas #12): ⚙ → Keys and buttons, kept per device, `remap` config key and policy switch | next |
 | Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
+| Download to play offline + PWA (#5, Ideas #6): ⚙ → Play offline (`RWK_Offline`) downloads every file, big ones from R2 included, into the Service Worker's cache; resumable, with progress, a free-space check and a screen wake lock. The page itself opens from the cache without a connection, a cached file answers `Range` requests, the web manifest carries the icon's real size so browsers offer to install, and `offline` is a feature key (preset `shared` and the creator's policy can turn it off). Diagrams redrawn | next |
 | Deployment architecture diagrams (#13): architecture, deploy and first-load / save-sync sequence on "How it works", as light and dark SVG drawn by `site/diagrams/build.mjs`; the archify skill was checked and not used (see Details) | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is done: #17, the CLI from the game folder, #16 (apart from `rename` without the folder, see Details), #9, #10, #7 and #2b all shipped.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Waves A and B are done: #5, #17, the CLI from the game folder, #16 (apart from `rename` without the folder, see Details), #9, #10, #7 and #2b all shipped.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
-| **Wave B: offline** ||||
-| 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
 | **Wave D: narrower audiences** ||||
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
 | **Wave E: polish and support** ||||
@@ -83,14 +82,14 @@ Not built yet, in the order they would pay off:
 
 Before this, the browser relied only on the HTTP cache on every launch. That cache is easily evicted on phones, so the 10–27 MB parallax images got downloaded again and again.
 
-Status: shipped except "Preload", which goes with #5 (one cache, `rwk-files`, whose per-file versions replace a cache per `buildId`; ⚙ → Game files on this device shows its size and clears it).
+Status: shipped, "Preload" included (#5: ⚙ → Play offline; one cache, `rwk-files`, whose per-file versions replace a cache per `buildId`; ⚙ → Game files on this device shows its size and clears it).
 
 Plan:
 
 - A build-generated `rwk-sw.js`, cache-first for `img/ audio/ effects/ data/ js/ fonts/`.
 - Each build produces a `buildId` (hash of the manifest) used as the cache name. On a new deploy the Service Worker drops the old cache and **re-downloads only the files that changed** (per-file hash comparison, not a full cache wipe).
 - Never cache `/api/*`. Skip files over 25 MiB, or cache them with a cap, since iOS limits storage.
-- A "Preload" option in the menu: download maps and music ahead of time while on Wi-Fi.
+- A "Preload" option in the menu: download maps and music ahead of time while on Wi-Fi. **Shipped (#5)** as ⚙ → Play offline: it takes the whole file list, files over 25 MiB included.
 - Risk: iOS Safari limits quota and may evict data after 7 days without a visit. Show how much is cached and offer a button to clear it.
 
 ### Cross-platform launchers (macOS, Linux)
@@ -135,8 +134,6 @@ Plan:
 Shipped as #13. The "How it works" page has an architecture diagram, a deploy diagram and a first-load / save-sync sequence, each with alt text and a text description. They are static SVG in `site/public/img/` (one light and one dark file, shown by theme in `site/.vitepress/theme/style.css`) and are drawn by `site/diagrams/build.mjs`, which has no dependencies. Update the script and the SVGs in the same PR as any change to the architecture.
 
 The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0, pinned `81c6be8`, v3.2.0) and not used: it writes explorable standalone HTML with its own themes rather than a static SVG that follows the guide's light / dark switch, its `finalize` step needs a real browser, its update check calls a remote manifest and keeps a cache in the home folder, and its `SKILL.md` can add a line to the agent's global rules. Hand-drawn SVG avoids all of that. If a skill is tried again, vet it first: license, what `SKILL.md` asks the agent to do, scripts' network / file / environment access, dependencies and install hooks, and that its HTML loads nothing remote; run it in a throwaway folder, with no Cloudflare credentials.
-
-**#5 (offline / PWA) will change the architecture** (a Web App Manifest, a preloaded cache, maybe a different Service Worker), so redraw the diagrams in that PR.
 
 ### Ways to say thanks: GitHub Sponsors and Ko-fi
 

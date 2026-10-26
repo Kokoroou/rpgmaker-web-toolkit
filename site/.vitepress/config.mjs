@@ -68,6 +68,7 @@ export default defineConfig({
           { text: "Keys and buttons", link: "/play/keys" },
           { text: "Use several items at once", link: "/play/items" },
           { text: "Cheats", link: "/play/cheats" },
+          { text: "Play offline", link: "/play/offline" },
         ],
       },
       {

@@ -23,9 +23,10 @@ export const PRESETS = {
     },
   },
   shared: {
-    label: "Shared with others: no save export / import, fewer older saves (saves R2 space)",
+    label: "Shared with others: no save export / import, no download for offline, fewer older saves (saves R2 space)",
     values: {
       saveTools: { export: false, import: false },
+      offline: false,
       saveHistory: { keep: 5, days: 14 },
     },
   },
@@ -60,7 +61,7 @@ export function baseConfig(game, { slug, include = [], syncEnabled = true, prese
 }
 
 // Keys a preset or a player's entry may set.
-export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats"];
+export const FEATURE_KEYS = ["fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "saveHistory", "saveTools", "itemBatch", "cheats", "offline"];
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
