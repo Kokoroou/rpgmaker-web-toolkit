@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, createBuildDir, loadSettings } from "../lib/config.js";
 import {
+  apiToken,
   deleteWorker,
   deployWorker,
   ensureBucket,
@@ -18,6 +19,7 @@ import {
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
+import { AccessApiError, enableAccess } from "../lib/access-api.js";
 import { analyzeGame, collectFiles, mobileOnlyMissing, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
 import { editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
@@ -157,7 +159,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   await saveGameConfig();
 
   if (!authReady) {
-    await setupAuth(cfg, account, policy);
+    await setupAuth(cfg, account, policy, email);
     await saveGameConfig();
     if (isAuthReady(cfg.auth)) {
       // A public site that asked to be listed needs the files without noindex.
@@ -446,13 +448,39 @@ async function retireWorkers(cfg) {
 // Access protection
 //---------------------------------------------------------------------------
 
-async function setupAuth(cfg, account, policy) {
+const ACCESS_TOKEN_HINT =
+  'Give the API token the "Access: Apps and Policies → Edit" and "Access: Organizations, Identity Providers, and Groups → Read" permissions (see the guide, "Run without questions"), or run the command once in a terminal.';
+
+// Creates the Access application and its policy through the API.
+// -> true when cfg.auth is set; false when it could not be done (the reason is logged).
+async function accessThroughApi(cfg, account, email) {
+  const emails = [...new Set([email, ...playerEmails(cfg)].filter(Boolean).map((e) => e.trim().toLowerCase()))];
+  if (!cfg.url) return fail("the site's link is not known yet");
+  if (!emails.length) return fail("no email to allow: set \"players\" in the config, or give the API token the User Details → Read permission");
+  const token = await apiToken();
+  if (!token) return fail("not logged in");
+  try {
+    const result = await enableAccess({ token, accountId: account.id, slug: cfg.slug, url: cfg.url, emails });
+    cfg.auth = { mode: "access", teamDomain: result.teamDomain, aud: result.aud };
+    log.ok(`Cloudflare Access is on for ${emails.join(", ")} (${result.teamDomain})`);
+    return true;
+  } catch (err) {
+    if (!(err instanceof AccessApiError)) throw err;
+    return fail(err.denied ? `${err.message}\n${ACCESS_TOKEN_HINT}` : err.message);
+  }
+
+  function fail(reason) {
+    log.warn(`Could not turn Access on through the Cloudflare API: ${reason}`);
+    return false;
+  }
+}
+
+async function setupAuth(cfg, account, policy, email) {
   log.step("Access protection");
   if (isUnattended()) {
-    throw new NeedsAnswer(
-      "The site is deployed but locked: protecting it (Cloudflare Access, or public) needs a person once. " +
-        "Run the command in a terminal; later runs can be non-interactive."
-    );
+    // Nobody to ask: Access is the only safe answer, and a public site stays a person's call.
+    if (await accessThroughApi(cfg, account, email)) return;
+    throw new NeedsAnswer("The site is deployed but locked, and Access could not be turned on without a person (see above). Run the command in a terminal once; later runs can be non-interactive.");
   }
   log.info("The site is locked for now. Choose how to protect it:");
   const options = [{ label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" }];
@@ -468,6 +496,11 @@ async function setupAuth(cfg, account, policy) {
   }
 
   if (!cfg.url) cfg.url = await ask("Worker URL (https://<name>.<username>.workers.dev)");
+  if (await accessThroughApi(cfg, account, email)) {
+    log.info("Only that email may sign in at first. To invite players, see \"Protect the site and invite players\" in the guide.");
+    return;
+  }
+  log.info("Doing it in the dashboard instead:");
   const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/access`;
   log.info("Follow these steps in the browser (opening the Worker's Access page):");
   log.info(`  1. Select ${c.bold("Protect this Worker behind Access")}.`);

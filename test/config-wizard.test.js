@@ -131,3 +131,14 @@ test("the source config is never modified", async () => {
   await guidedEdit(cfg, { io: scripted(["features", "fastForward", false, "back", "save"]) });
   assert.equal(JSON.stringify(cfg), before);
 });
+
+test("guidedEdit asks every question with clear: true so answered menus are erased", async () => {
+  const seen = [];
+  const io = {
+    ask: async () => "",
+    confirm: async (_t, d, o) => (seen.push(o), d),
+    choose: async (_t, options, _d, o) => (seen.push(o), options.find((x) => x.value === "quit").value),
+  };
+  await guidedEdit({}, { io });
+  assert.ok(seen.length > 0 && seen.every((o) => o && o.clear === true));
+});
