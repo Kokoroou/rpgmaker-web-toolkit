@@ -33,26 +33,26 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | `config` asks questions (a wizard in `cli/lib/config-wizard.js`) instead of opening a JSON file | next |
 | Fixes: the missing `print` import that failed every deploy at its end, and credentials sent when fetching the web manifest | next |
 | CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
+| Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is the CLI from a link and from a folder, plus Access through the API; the three rows touch different files (link commands, the analysis step, Access setup), so they can be built in parallel branches, with a merge on `cli/lib/args.js` to expect between #16 and #17. #10, #7 and #2b of the previous Wave A shipped.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is the CLI from a link and from a folder, the two rows share the parser, so expect a merge on `cli/lib/args.js` between #16 and #17. #9 (Access through the API), #10, #7 and #2b shipped.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
 | **Wave A: next up** ||||
 | 16 | [CLI: from the deployed site's link](#cli-commands-from-a-folder-and-from-a-link): `status`, `saves export`, `logs`, `rename` and `site delete` without the folder | M | Needs #16a (shipped): the target already accepts a link or a site name, and `config` works that way today |
 | 17 | [CLI: from the game folder, without Cloudflare](#cli-commands-from-a-folder-and-from-a-link): `analyze` / `deploy --dry-run`, `doctor`, the current folder as the default target | S | Same parser; the analysis already runs before the first Cloudflare call. `deploy --dry-run` is also the "build only" run the CI page still lacks for pull requests |
-| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; the last question a first deploy in CI cannot answer. Check the API token permissions of `site/setup/ci.md` with a real CI run at the same time |
 | **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
 | **Wave D: narrower audiences** ||||
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
 | **Wave E: polish and support** ||||
-| 13 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time. Best after #1, #5 and #9 change the architecture |
+| 13 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time. Best after #1 and #5 change the architecture |
 | 14 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/`. Needs the maintainer's decisions, so it can move earlier whenever those are made |
 | **Later** ||||
 | 15+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
@@ -75,7 +75,7 @@ Not built yet, in the order they would pay off:
 
 - **From a link or name** (#16): `status` (is the site up, is Access on, which toolkit version, how many emails have saves); `saves export` (download the cloud saves to a folder, the counterpart of `saves import`); `logs` (Worker logs); `rename` and `site delete` without the folder (rename needs the Workers API to create a Worker with the existing static files, as `upgrade` already patches one); `open` (the link in the browser); `upgrade` with a folder target, to take the site name from the game's config; `list` (every site in the account).
 - **From a folder** (#17): `analyze` / `deploy --dry-run` (the warnings and the file count, without logging in to Cloudflare or touching anything); `doctor` (Node.js version, login, token permissions, wrangler); the current directory as the default target when it holds a game; a `rwk.json` next to `index.html` with the site name and exclude patterns, so a repository carries them; `config get` / `config set <key> <value>` without an editor, for scripts.
-- **Everywhere**: `--account` to pick one of several Cloudflare accounts; `--dry-run` for `rename` and `saves import`; progress for uploads (one line that updates in place on a terminal, plain lines in CI); GitHub Actions annotations (`::warning::`) for the run's warnings; `[n/N]` on the steps once their number is known; shell completion; and a `--yes` that also answers the Access setup once #9 removes that question.
+- **Everywhere**: `--account` to pick one of several Cloudflare accounts; `--dry-run` for `rename` and `saves import`; progress for uploads (one line that updates in place on a terminal, plain lines in CI); GitHub Actions annotations (`::warning::`) for the run's warnings; `[n/N]` on the steps once their number is known; shell completion; and a `--yes` flag per first-deploy question other than Access (the site name).
 - **Deploy from a download link** (to decide before building): a game that is not on this PC but at a URL (a zip), with the questions of who may redistribute it that [the hosting policy](../site/creators/policy.md) already raises.
 
 ### Service Worker cache for game files (important when playing over 4G)
@@ -106,13 +106,13 @@ Plan:
 
 Goal: a game repository redeploys itself on every push (or tag), with no one at the keyboard.
 
-- **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; document the minimal token permissions. **Shipped (#10a)**: questions take their default or stop with exit code 2, and only unattended runs read the token. Not done: a flag per first-deploy question (the first deploy stays in a terminal until #9), and a check of the documented token permissions against a real account.
+- **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; document the minimal token permissions. **Shipped (#10a)**: questions take their default or stop with exit code 2, and only unattended runs read the token. Access is answered through the API since #9. Not done: a flag per first-deploy question other than Access (the site name), and a check of the documented token permissions, the Access ones included, against a real account.
 - **Machine-readable output**: `--json` (final URL, build report, warnings) and `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` support, plus no ANSI colours when not a TTY. **Shipped (#10)** in `cli/lib/report.js`.
 - **Reusable GitHub Action** (**shipped (#10)**: `action.yml`, composite) that checks out the toolkit at a pinned ref, installs it, runs the CLI on the game folder and exposes the URL as an output. A copy-paste workflow example in `site/` (on push to `main`: deploy; on pull request: build only, then post the build report).
 - **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works. **Shipped (#10)** in `site/setup/ci.md`.
 - **Pull request previews** (later): deploy each PR to a preview URL such as `<game>-pr-<n>`, and clean it up when the PR closes. Needs decisions on the Worker's shared-assets model and Access policy.
 - **Safety**: never print tokens, skip deploy on forks, and keep the "game folder stays untouched" rule. The game's own assets are big, so document how to cache `node_modules` and the staged build between runs, and that the Workers free plan limits in `cli/limits.json` still apply.
-- Still open: pull request previews and the build-only run for pull requests (needs #17's `--dry-run` or the "build only" target under [Later](#later)), and a check of the token permissions against a real CI run.
+- Still open: pull request previews and the build-only run for pull requests (needs #17's `--dry-run` or the "build only" target under [Later](#later)), and a check of the token permissions (the Access ones of #9 included) against a real CI run.
 
 ### Search engine and AI discoverability (SEO / AIEO)
 
