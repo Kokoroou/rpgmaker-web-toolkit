@@ -240,7 +240,13 @@ async function filesMenu(cfg, io) {
 
 // -> the edited copy of cfg; null when the person quit without saving.
 // editJson: opens the raw JSON (the caller's editor) and returns the new config.
-export async function guidedEdit(source, { io = ui, editJson } = {}) {
+export async function guidedEdit(source, { io: rawIo = ui, editJson } = {}) {
+  // Each answered question is erased from the terminal, so the loops of menus do not pile up.
+  const io = {
+    ask: (text, def, validate, opts) => rawIo.ask(text, def, validate, { ...opts, clear: true }),
+    confirm: (text, def, opts) => rawIo.confirm(text, def, { ...opts, clear: true }),
+    choose: (text, options, def, opts) => rawIo.choose(text, options, def, { ...opts, clear: true }),
+  };
   let cfg = structuredClone(source);
   const snapshot = () => JSON.stringify(cfg);
   const original = snapshot();
