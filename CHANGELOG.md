@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.4.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.3.0...v0.4.0) (2026-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** shorten config edit and site rename to config and rename ([#72](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/72))
+* **cli:** standardize the command syntax and the output ([#70](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/70))
+
+### Features
+
+* add presets, per-feature limits and per-player settings ([#58](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/58)) ([15f8d45](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/15f8d458b9d4b256612939a87164ddd67cda0199))
+* apply edit-config feature settings without a redeploy ([#65](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/65)) ([2a12b4a](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/2a12b4a62811fed833af77acd52b640ecbf0883f))
+* **cli:** add macOS and Linux launchers ([#56](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/56)) ([c89b53c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/c89b53c2d62359f171adfe399adad1772620947a))
+* **cli:** config edit asks questions instead of opening a JSON file ([#71](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/71)) ([28983b2](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/28983b250f2a424ce389757ce3469915b77492fa))
+* **cli:** publish from CI with a --json result and a GitHub Action ([#63](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/63)) ([b7c89c5](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b7c89c537e02b28915faf084e5c5529a3a4cc460))
+* **cli:** run without questions in CI, with an API token login ([#62](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/62)) ([edee9c1](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/edee9c1e85b4062e0be919b640c29a2622bff726))
+* **cli:** shorten config edit and site rename to config and rename ([#72](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/72)) ([8490e04](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8490e043415d5fa1eeae6868dc47f6a03fa20b87))
+* **cli:** standardize the command syntax and the output ([#70](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/70)) ([26c4301](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/26c4301c6bb9d992052dc3b3b3412f66f53d2498))
+* **controls:** larger touch targets and a pull-down settings sheet for phones ([#67](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/67)) ([bc1ed1e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/bc1ed1e87e5e8bfdabc1f601e0c1ec5d87852b4e))
+* **runtime:** add a messages log players can reopen ([#54](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/54)) ([3c86feb](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/3c86feb84de5d9f0fc38568baf70a02a171cfd69))
+* **runtime:** add basic cheats, off unless the deployer turns them on ([#61](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/61)) ([bd92805](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/bd92805521402292dbba82b736c8cef8a5f4f749))
+* **runtime:** add switches, variables and movement to the cheats ([#64](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/64)) ([39d2f15](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/39d2f151c19f64de77f0143945619bf4bff701b7))
+* **runtime:** cache game files in the browser with a Service Worker ([#53](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/53)) ([b013f6b](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b013f6b04a17be7757a09211db7228710225187a))
+* **runtime:** show the cached game files and let players clear them ([#60](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/60)) ([67aa12e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/67aa12eea8c963a8cb90d1c1e509c6f0325c2e31))
+
+
+### Bug Fixes
+
+* **cli:** restore the missing print import that fails every deploy at the end ([#68](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/68)) ([163cf2f](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/163cf2fe5e2138d0931a681546a0e3c6413c4fdc))
+* **cli:** send credentials when fetching the web manifest ([#69](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/69)) ([1a8d785](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1a8d7855870887bffdb19007971ec9cf2e3a11e1))
+* **controls:** lay out once per rotation instead of once per event ([#52](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/52)) ([9e57fed](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/9e57fedcd1208ff36a918b829e90c2543b5ae469))
+* **runtime:** stop the problem report keeping decoded audio alive ([#50](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/50)) ([77e8869](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/77e8869d8bed49bcc513420111ffd84ac3d880ee))
+
 ## [0.3.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.2.0...v0.3.0) (2026-10-25)
 
 
