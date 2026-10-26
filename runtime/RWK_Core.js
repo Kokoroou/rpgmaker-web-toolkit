@@ -327,34 +327,40 @@
 .rwk-menu-head button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;
   border:0;border-radius:50%;background:none;color:inherit;cursor:pointer}
 .rwk-menu-head svg{width:22px;height:22px}
-.rwk-menu-body{overflow:auto;overscroll-behavior:contain;padding:4px 16px 16px}
-.rwk-quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
-.rwk-quick button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:64px;
-  padding:10px 6px;font:inherit;font-size:13px;line-height:1.2;border-radius:12px;border:1px solid #444;
+.rwk-menu-body{overflow:auto;overscroll-behavior:contain;padding:4px 16px 20px}
+.rwk-menu-head{touch-action:none}
+.rwk-quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px}
+.rwk-quick button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:72px;
+  padding:12px 6px;font:inherit;font-size:14px;line-height:1.2;border-radius:12px;border:1px solid #444;
   background:#2c2c33;color:#eee;cursor:pointer}
-.rwk-quick svg{width:22px;height:22px}
-.rwk-tools-list{display:flex;flex-direction:column;gap:6px}
-.rwk-tools-list h3{margin:12px 0 0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.6}
-.rwk-tools-list button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:10px 12px;
+.rwk-quick svg{width:24px;height:24px}
+.rwk-quick button:active,.rwk-tools-list button:active{background:#3a3a46}
+.rwk-tools-list{display:flex;flex-direction:column;gap:8px}
+.rwk-tools-list h3{margin:14px 0 0;font-size:13px;font-weight:600;opacity:.7}
+.rwk-tools-list button{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:10px 14px;
   text-align:left;font:inherit;border-radius:10px;border:1px solid #444;background:#2c2c33;color:#eee;cursor:pointer}
 .rwk-tools-list b{display:flex;width:24px;justify-content:center}
 .rwk-tools-list svg{width:20px;height:20px}
 .rwk-tools-list span{flex:1;min-width:0}
-.rwk-tools-list small{display:block;opacity:.65;font-size:12px}
+.rwk-tools-list small{display:block;opacity:.7;font-size:13px}
 .rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:55;display:flex;align-items:center;justify-content:center;
   width:30px;height:30px;padding:0;border-radius:50%;
   border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
   opacity:.2;transition:opacity .2s}
 .rwk-tools-btn:hover{opacity:1}
+@media (pointer:coarse){.rwk-tools-btn{width:44px;height:44px;opacity:.5}.rwk-tools-btn svg{width:22px;height:22px}}
 .rwk-tools-btn svg{width:17px;height:17px}
 @media (pointer:coarse) and (orientation:portrait){
   .rwk-menu-overlay{align-items:flex-end;padding:0}
   .rwk-modal-box.rwk-menu{max-width:none;max-height:85%;border-radius:16px 16px 0 0;
     padding-bottom:env(safe-area-inset-bottom)}
+  .rwk-menu-head::before{content:"";position:absolute;left:50%;top:6px;width:36px;height:4px;margin-left:-18px;
+    border-radius:2px;background:rgba(255,255,255,.3)}
+  .rwk-menu-head{position:relative;padding-top:14px}
 }
 @media (pointer:coarse) and (orientation:landscape){
   .rwk-menu-overlay{justify-content:flex-start;align-items:stretch;padding:0}
-  .rwk-modal-box.rwk-menu{max-width:400px;border-radius:0 16px 16px 0;padding-left:env(safe-area-inset-left)}
+  .rwk-modal-box.rwk-menu{max-width:400px;border-radius:0 16px 16px 0;padding-left:env(safe-area-inset-left);padding-right:0}
 }
 `;
   document.head.appendChild(toolsStyle);
@@ -518,6 +524,16 @@
     closeBtn.setAttribute("aria-label", "Resume");
     closeBtn.addEventListener("click", closeTools);
     head.append(h, closeBtn);
+    // Pull the sheet's header down to dismiss it, as on a phone's own sheets.
+    let pullFrom = null;
+    head.addEventListener("pointerdown", (e) => {
+      if (e.target !== closeBtn && !closeBtn.contains(e.target)) pullFrom = e.clientY;
+    });
+    head.addEventListener("pointerup", (e) => {
+      if (pullFrom !== null && e.clientY - pullFrom > 60) closeTools();
+      pullFrom = null;
+    });
+    head.addEventListener("pointercancel", () => (pullFrom = null));
     const body = document.createElement("div");
     body.className = "rwk-menu-body";
     const quick = document.createElement("div");

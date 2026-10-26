@@ -42,7 +42,13 @@
     return String(key);
   }
 
+  // A short buzz on each press where the browser allows it (Android).
+  const buzz = () => {
+    if (cfg.haptics !== false && navigator.vibrate) navigator.vibrate(8);
+  };
+
   function press(key) {
+    buzz();
     const name = keyName(key);
     const h = held.get(name) || { count: 0, seen: false };
     h.count++;
@@ -129,9 +135,9 @@
 .rwk-face .rwk-btn{position:absolute;left:50%;top:50%;width:calc(var(--u)*1.12);height:calc(var(--u)*1.12);
   border-radius:50%;flex-direction:column;gap:1px}
 .rwk-face .rwk-btn b{font-size:calc(var(--u)*.44)}
-.rwk-shoulder{width:calc(var(--u)*1.8);height:calc(var(--u)*.82);border-radius:calc(var(--u)*.41)}
+.rwk-shoulder{width:calc(var(--u)*1.8);height:max(44px,calc(var(--u)*.82));border-radius:calc(var(--u)*.41)}
 .rwk-shoulder b{font-size:calc(var(--u)*.36)}
-.rwk-key{min-width:calc(var(--u)*1.2);height:calc(var(--u)*.9);padding:0 calc(var(--u)*.25);
+.rwk-key{min-width:max(44px,calc(var(--u)*1.2));height:max(44px,calc(var(--u)*.9));padding:0 calc(var(--u)*.25);
   border-radius:calc(var(--u)*.2);white-space:nowrap;border-bottom-width:4px}
 .rwk-dpad{width:calc(var(--u)*3);height:calc(var(--u)*3);border-radius:50%;background:rgba(20,20,28,${opacity * 0.45})}
 .rwk-arm{position:absolute;width:34%;height:34%;display:flex;align-items:center;justify-content:center;
@@ -141,29 +147,30 @@
 .rwk-arm.left{top:33%;left:3%;border-radius:22% 0 0 22%;border-right:0}
 .rwk-arm.right{top:33%;right:3%;border-radius:0 22% 22% 0;border-left:0}
 .rwk-arm.mid{left:33%;top:33%;border:0;width:34%;height:34%}
-.rwk-tools{position:absolute;display:flex;gap:8px;transform:translate(-50%,-50%);transition:opacity .4s}
+.rwk-tools{position:absolute;display:flex;gap:10px;transform:translate(-50%,-50%);transition:opacity .4s}
 .rwk-tools.stacked{flex-direction:column}
-.rwk-tool{width:calc(var(--u)*.66);height:calc(var(--u)*.66);border-radius:50%;font-size:calc(var(--u)*.3)}
+.rwk-tool{width:max(44px,calc(var(--u)*.66));height:max(44px,calc(var(--u)*.66));border-radius:50%;font-size:calc(var(--u)*.3)}
 .rwk-tool svg{width:1.4em;height:1.4em;pointer-events:none}
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
-.rwk-panel{position:absolute;display:none;flex-direction:column;gap:8px;padding:10px;overflow:auto;
-  width:max-content;max-width:calc(100vw - 16px);transform:translateX(-50%);pointer-events:auto;
+.rwk-panel{position:absolute;display:none;flex-direction:column;gap:10px;padding:12px;overflow:auto;
+  overscroll-behavior:contain;width:min(calc(100vw - 16px - var(--safe)*2),30em);font-size:14px;transform:translateX(-50%);pointer-events:auto;
   background:rgba(20,20,28,.88);border:1px solid rgba(255,255,255,.3);border-radius:12px}
 .rwk-panel.open,.rwk-backdrop.open{display:flex}
 .rwk-backdrop{position:absolute;inset:0;display:none;pointer-events:auto}
-.rwk-panel-title{font-size:calc(var(--u)*.24);font-weight:500;opacity:.75;text-align:center}
+.rwk-panel-title{font-size:14px;font-weight:600;opacity:.85;text-align:center}
 .rwk-pad:not(.editing) .rwk-off{display:none}
 .rwk-pad.editing .rwk-off{opacity:.35}
 .rwk-badge{position:absolute;display:none;width:calc(var(--u)*.5);height:calc(var(--u)*.5);transform:translate(-50%,-50%);
   align-items:center;justify-content:center;border-radius:50%;background:#ffd54a;color:#000;text-shadow:none;
   font-size:calc(var(--u)*.36);line-height:1}
 .rwk-pad.editing .rwk-badge{display:flex}
-.rwk-panel-keys{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.rwk-panel .rwk-key{flex-direction:column;height:auto;min-height:calc(var(--u)*1.1);max-width:calc(var(--u)*3);
-  padding:calc(var(--u)*.12) calc(var(--u)*.2)}
-.rwk-panel .rwk-key b{font-size:calc(var(--u)*.36)}
+.rwk-panel-keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.rwk-panel .rwk-key{flex-direction:column;height:auto;min-height:56px;min-width:0;
+  padding:8px 6px;white-space:normal}
+.rwk-panel .rwk-key b{font-size:16px}
+.rwk-panel .rwk-key small{font-size:12px}
 .rwk-panel .rwk-key small{white-space:normal;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 @media (orientation:portrait){
   body.rwk-ctl #gameCanvas,body.rwk-ctl #gameVideo,body.rwk-ctl #GameCanvas,body.rwk-ctl #GameVideo,body.rwk-ctl #UpperCanvas{bottom:var(--rwk-game-bottom,0px)!important}
@@ -185,6 +192,17 @@
     );
   }
 
+  // Notches and rounded corners: the largest inset, read once per layout.
+  const probe = el0("div");
+  probe.style.cssText = "position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+  pad.appendChild(probe);
+  let safe = 0;
+  const readSafe = () => {
+    const c = getComputedStyle(probe);
+    safe = Math.max(...["Top", "Right", "Bottom", "Left"].map((s) => parseFloat(c["padding" + s]) || 0));
+    pad.style.setProperty("--safe", safe + "px");
+  };
+
   const vw = () => window.innerWidth;
   const vh = () => window.innerHeight;
   const orientation = () => (vh() > vw() ? "portrait" : "landscape");
@@ -195,6 +213,10 @@
   const off = new Set(RWK.storage.get(OFF_KEY, []));
   let editing = false;
   const items = []; // { id, el, def: () => pos }; pos = { h: "l"|"r", x, v: "t"|"b", y } in px from that corner
+
+  function el0(tag) {
+    return document.createElement(tag);
+  }
 
   function el(tag, className, html) {
     const node = document.createElement(tag);
@@ -312,7 +334,8 @@
   //   columns down the left edge.
   //---------------------------------------------------------------------------
 
-  const margin = () => unit() * 0.3 + 8;
+  const margin = () => unit() * 0.3 + 8 + safe;
+  const keyH = () => Math.max(44, unit() * 0.9);
   const clusterHeight = () => Math.max(dpadOn ? unit() * 3 : 0, gamepadOn ? unit() * 3.32 : 0);
   const shoulderY = () => margin() + clusterHeight() + unit() * 0.75;
 
@@ -427,7 +450,7 @@
           extraSlots.set(item, { h: "l", x: x + item.el.offsetWidth / 2, v: "b", y });
           x += item.el.offsetWidth + gap;
         }
-        y += unit() * 0.9 + gap;
+        y += keyH() + gap;
         row = [];
         width = 0;
       };
@@ -685,6 +708,7 @@
 
   function layout() {
     pad.style.setProperty("--u", unit().toFixed(1) + "px");
+    readSafe();
     stackTools();
     for (const item of items) {
       item.el.classList.toggle("rwk-off", off.has(item.id));
