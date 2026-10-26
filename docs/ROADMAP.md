@@ -1,10 +1,10 @@
 # Roadmap
 
-Build order for the toolkit, updated after release 0.3.0 (2026-10-25). [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs what each item depends on, what players and game creators feel most today, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
+Build order for the toolkit, updated 2026-10-26 (after release 0.3.0 and the work merged since). [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs what each item depends on, what players and game creators feel most today, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
 
 ## Shipped
 
-Waves 0 and 1 of the previous plan are done (details in [CHANGELOG.md](../CHANGELOG.md)):
+Waves 0 and 1 of the previous plan are done, and so is most of the next wave (details in [CHANGELOG.md](../CHANGELOG.md)):
 
 | Item | Release |
 |---|---|
@@ -17,31 +17,32 @@ Waves 0 and 1 of the previous plan are done (details in [CHANGELOG.md](../CHANGE
 | Several items at once (battle and events), simpler touch toolbar with full screen button | 0.2.0, 0.3.0 |
 | CLI: rename a site and keep its saves; update the toolkit of a deployed game from its link; Access page follows Cloudflare's new flow | 0.3.0 |
 | Tooling: runtime performance measurement (`npm run perf`), Node.js 22 minimum, Workers API schema check | 0.3.0 |
+| Performance fixes P1 (`RWK_Report` keeps decoded audio through `WeakRef`) and P2 (one layout per rotation) | next |
+| Service Worker cache for the game's files (#1, core: cache-first, per-file versions, 25 MiB cap, `cache: false`) | next |
+| Presets, per-feature limits and per-player settings (#2, FEATURE_IDEAS §5, for the features that exist) | next |
+| SEO / AIEO for the guide: sitemap, social tags, JSON-LD, `robots.txt`, `llms.txt`, Search Console tag (#3) | next |
+| Messages log players can reopen (#4, Ideas #10) | next |
+| macOS and Linux launchers `run.sh` / `rwk.sh`, tests on three OSes (#8) | next |
 
-Not finished from those waves and moved down: `storage.persist()` in the save flow (check, then fold into #3), the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
+"next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. P1 and P2 are small fixes for problems the performance run found; after them, the next three rows come first because each one changes what the others can rely on: the cache fixes the biggest day-to-day cost for phone players, the config tiers let creators control the features already shipped (and unblock cheats), and discoverability is cheap and independent, so it can be done in a gap between the larger items.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. The first three rows are independent of each other (runtime menu, runtime plugin, CLI), so they can be built in parallel branches.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
-| **Wave 0: performance findings** ([PERFORMANCE.md](PERFORMANCE.md), measured 2026-10-25) ||||
-| P1 | `RWK_Report` keeps decoded audio alive: use `WeakRef` ([details](PERFORMANCE.md#1-rwk_report-giữ-âm-thanh-cao)) | S | A real bug in a released version (`fix(runtime)`): on MV it holds ~90 MB of decoded sound, enough to reload or crash a phone tab. Do this before anything else |
-| P2 | `RWK_MobileControls`: batch the layouts on rotation ([details](PERFORMANCE.md#2-xoay-màn-hình-trung-bình)) | S | About 100 ms stutter per rotation on a slow phone (`fix(controls)`) |
 | **Wave A: next up** ||||
-| 1 | [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g) (core shipped in this PR; preload and clear-cache button remain) | M–L | Highest value left: 10–27 MB images are downloaded again on every launch over 4G. Also the base of #5 |
-| 2 | Two-tier config, presets, per-email `/api/config` (FEATURE_IDEAS §5) (shipped in this PR for the features that exist; new features add their keys as they come, and editing without a redeploy remains) | M–L | Fast forward, Skip, quick save and always dash already ship with no creator switch except the ones that exist today; cheats must not ship before this |
-| 3 | [SEO / AIEO](#search-engine-and-ai-discoverability-seo--aieo) for the guide in `site/` | S–M | Cheap, independent, and nobody finds the toolkit without it. Do it in any gap between #1 and #2 |
-| **Wave B: offline and cheats** ||||
-| 4 | Message backlog (Ideas #10) | M | Message modes shipped; Skip makes "I skipped something, let me reread" a real need. Small and self-contained |
-| 5 | Download to play offline + PWA (Ideas #6) | L | Needs #1 |
-| 6 | Basic cheats (Ideas #5) | M | Needs #2 (off by default, per-player limits). Save history (#4 shipped) is the safety net |
+| 1b | Rest of the [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g): show how much is cached and a button to clear it | S | iOS may evict the cache, and a player with a full phone needs a way out. "Preload" moves into #5, which downloads everything anyway |
+| 6 | Basic cheats (Ideas #5) | M | Unblocked: #2 gives the `cheats` key a place (off by default, per player). Save history is the safety net |
+| 10a | [Game CD integration](#game-cd-integration-ci), first step: non-interactive mode | M | The CLI must never wait on a prompt in CI; the templates and the Action come after, on top of it |
+| 2b | Edit the settings without a redeploy (config in R2, read by the Worker) | M | Every other part of #2 shipped; new features add their keys as they come |
+| **Wave B: offline and more cheats** ||||
+| 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
 | 7 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #6 |
 | **Wave C: running the toolkit anywhere** ||||
-| 8 | [macOS and Linux launchers](#cross-platform-launchers-macos-linux) (`run.sh`, `rwk.sh`) | S–M | The CLI is already cross-platform; only the launchers are Windows-only |
 | 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; needed for unattended CD |
-| 10 | [Game CD integration](#game-cd-integration-ci): non-interactive mode, GitHub Actions and GitLab CI templates | M | Non-interactive CLI first, templates after; Linux runners need #8, unattended setup needs #9 |
+| 10 | [Game CD integration](#game-cd-integration-ci): `--json` output, GitHub Action and GitLab CI templates | M | Needs #10a; Linux runners (#8) shipped, unattended setup needs #9 |
 | **Wave D: narrower audiences** ||||
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
@@ -55,7 +56,9 @@ Order of work from here. P1 and P2 are small fixes for problems the performance 
 
 ### Service Worker cache for game files (important when playing over 4G)
 
-Right now the browser relies only on the HTTP cache on every launch. That cache is easily evicted on phones, so the 10–27 MB parallax images get downloaded again and again.
+Before this, the browser relied only on the HTTP cache on every launch. That cache is easily evicted on phones, so the 10–27 MB parallax images got downloaded again and again.
+
+Status: the first three points shipped (one cache, `rwk-files`, whose per-file versions replace a cache per `buildId`). Left: the size and clear button (#1b); "Preload" goes with #5.
 
 Plan:
 
