@@ -8,19 +8,31 @@
 // CLI (playerOverrides in cli/lib/stage.js). Hashed, so the emails are not
 // in the Worker. Each player's js/plugins.js carries their own settings, and
 // the save API applies the ones it enforces (saveHistory).
+//
+// The settings file in R2 (settings.js), when there is one, replaces both
+// everyone's settings and playerSettings, so an edit needs no redeploy.
 
 import { AuthError, identify, userHash } from "./auth.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
+import { liveSettings } from "./settings.js";
 import { patchConfig, serveToolkit } from "./toolkit.js";
 
 export function createWorker({ overflow = [], toolkit = null, playerSettings = {} } = {}) {
   const overflowSet = new Set(overflow);
-  const perPlayer = Object.keys(playerSettings).length > 0;
 
-  // -> the request's user, with `settings` (their own entry, or null)
+  // -> { config: everyone's settings from R2 or null, players }
+  const settingsOf = async (env) => {
+    const live = await liveSettings(env);
+    return live || { config: null, players: playerSettings };
+  };
+
+  // -> the request's user, with `settings` (their own entry, or null) and
+  // `shared` (everyone's settings from R2, or null: the deploy's)
   const whoIs = async (request, env) => {
     const user = await identify(request, env);
-    return { ...user, settings: perPlayer ? playerSettings[await userHash(user.email)] || null : null };
+    const { config, players } = await settingsOf(env);
+    const settings = Object.keys(players).length ? players[await userHash(user.email)] || null : null;
+    return { ...user, settings, shared: config };
   };
 
   return {
@@ -36,7 +48,7 @@ export function createWorker({ overflow = [], toolkit = null, playerSettings = {
       let res = null;
       if (toolkit) res = await serveToolkit(request, env, rel, toolkit);
       if (!res && overflowSet.has(rel) && env.BUCKET) res = await serveOverflow(request, env, rel);
-      if (perPlayer && rel === "js/plugins.js" && request.method === "GET") res = await servePlayerPlugins(request, env, res, whoIs);
+      if (rel === "js/plugins.js" && request.method === "GET") res = await servePlugins(request, env, res, settingsOf, whoIs);
       if (res) {
         if (env.RWK_INDEXABLE !== "1") res.headers.set("x-robots-tag", "noindex, nofollow");
         return res;
@@ -64,20 +76,27 @@ async function handleApi(request, env, path, whoIs) {
   }
 }
 
-// js/plugins.js with the player's own settings in RWK_Core's config.
-// res: the toolkit's plugins.js (update-from-link), or null for the static one.
-async function servePlayerPlugins(request, env, res, whoIs) {
+// js/plugins.js with the settings from R2 and the player's own settings in
+// RWK_Core's config. res: the toolkit's plugins.js (update-from-link), or
+// null for the static one.
+async function servePlugins(request, env, res, settingsOf, whoIs) {
+  const { config, players } = await settingsOf(env);
+  if (!config && !Object.keys(players).length) return res; // as deployed
   // Without the browser's conditional headers, so the original always has a body.
   const base = res || (await env.ASSETS.fetch(new Request(request.url)));
   if (!base.ok) return res; // null: left to static assets
   let settings = null;
-  try {
-    settings = (await whoIs(request, env)).settings;
-  } catch {
-    // Not signed in (yet): everyone's settings. The API refuses them anyway.
+  if (Object.keys(players).length) {
+    try {
+      settings = (await whoIs(request, env)).settings;
+    } catch {
+      // Not signed in (yet): everyone's settings. The API refuses them anyway.
+    }
   }
-  const body = await base.text();
-  return new Response(settings ? patchConfig(body, settings) : body, {
+  let body = await base.text();
+  if (config) body = patchConfig(body, config);
+  if (settings) body = patchConfig(body, settings);
+  return new Response(body, {
     // Never shared between players, nor kept without asking again.
     headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "private, no-cache" },
   });

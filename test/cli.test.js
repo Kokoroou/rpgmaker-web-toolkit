@@ -10,6 +10,7 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
+import { LIVE_KEYS, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
 import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
@@ -658,16 +659,40 @@ test("per-player settings: the differences only, keyed by the email's hash, neve
 });
 
 test("per-player settings reach the Worker, which then serves js/plugins.js", () => {
-  const project = (playerSettings) => {
+  const project = (playerSettings, bucket = "b") => {
     const buildDir = tmp();
-    const file = writeWorkerProject({ buildDir, slug: "g", bucket: "b", overflowRels: [], auth: {}, locked: false, toolkitRoot: path.join(import.meta.dirname, ".."), playerSettings });
+    const file = writeWorkerProject({ buildDir, slug: "g", bucket, overflowRels: [], auth: {}, locked: false, toolkitRoot: path.join(import.meta.dirname, ".."), playerSettings });
     return { buildDir, config: JSON.parse(fs.readFileSync(file, "utf8")) };
   };
+  assert.deepEqual(project(undefined, null).config.assets.run_worker_first, ["/api/*"]);
   const none = project(undefined);
-  assert.deepEqual(none.config.assets.run_worker_first, ["/api/*"]);
+  assert.deepEqual(none.config.assets.run_worker_first, ["/api/*", "/js/plugins.js"], "the settings in R2 may change it");
   assert.equal(fs.readFileSync(path.join(none.buildDir, "player-settings.json"), "utf8"), "{}");
   const some = project({ abc: { backlog: false } });
   assert.deepEqual(some.config.assets.run_worker_first, ["/api/*", "/js/plugins.js"]);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(some.buildDir, "player-settings.json"), "utf8")), { abc: { backlog: false } });
   assert.match(fs.readFileSync(path.join(some.buildDir, "worker.js"), "utf8"), /createWorker\(\{ overflow, playerSettings \}\)/);
+});
+
+test("settings without a redeploy: what the Worker reads from R2, and what still needs a deploy", () => {
+  const cfg = { slug: "g", auth: { mode: "access" }, sync: { enabled: true }, preset: "original", backlog: { max: 50 }, players: { "me@example.com": { cheats: true } } };
+  const live = liveSettingsOf("MZ", cfg, null);
+  const runtime = runtimeConfigOf("MZ", cfg);
+  for (const key of ["version", "gameId", "engine", "cache"]) assert.equal(key in live.config, false, `${key} is the build's`);
+  assert.deepEqual(live.config.backlog, { max: 50 });
+  assert.equal(live.config.fastForward.inBattle, false, "with the preset under it");
+  assert.deepEqual(live.config, Object.fromEntries(Object.entries(runtime).filter(([key]) => !["version", "gameId", "engine", "cache"].includes(key))));
+  assert.deepEqual(live.players, playerOverrides("MZ", cfg, null));
+  assert.equal(Object.keys(live.players).length, 1);
+
+  assert.deepEqual(liveSettingsOf("MZ", { ...cfg, auth: { mode: "none" } }, null).players, {}, "a public site cannot tell players apart");
+  const policy = parsePolicy({ hosting: "personal", features: { backlog: false, sync: false } });
+  const locked = liveSettingsOf("MZ", cfg, policy);
+  assert.equal(locked.config.backlog, false, "the creator's policy still wins");
+  assert.equal(locked.config.sync.enabled, false);
+
+  for (const key of ["fastForward", "cheats", "players", "preset", "controls", "sync"]) assert.ok(LIVE_KEYS.includes(key), key);
+  const after = { ...cfg, backlog: false, players: {}, exclude: ["*.txt"], cache: false, liveSettings: true, url: "https://x" };
+  assert.deepEqual(keysNeedingDeploy(cfg, after), ["exclude", "cache"]);
+  assert.deepEqual(keysNeedingDeploy(cfg, { ...cfg }), []);
 });

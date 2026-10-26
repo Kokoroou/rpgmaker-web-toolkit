@@ -15,6 +15,7 @@ import {
   loadPlayers,
   probeAccess,
   saveGameConfigs,
+  saveLiveSettings,
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
@@ -24,7 +25,7 @@ import { loadLimits } from "../lib/limits.js";
 import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
-import { generatedFiles, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
+import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
 import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, warnings } from "../lib/ui.js";
 import { updateFromLink } from "./update-from-link.js";
 
@@ -84,9 +85,19 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
 
   if (editOnly) {
     if (isUnattended()) throw new NeedsAnswer("edit-config opens a text editor: run it in a terminal.");
+    const before = cfg;
     cfg = editInEditor(cfg);
     await saveGameConfig();
-    log.ok("Config saved to R2. Run the deploy command again to apply it.");
+    if (!cfg.liveSettings) {
+      log.ok("Config saved to R2. Run the deploy command again to apply it.");
+      log.info(c.dim("After that deploy, changes to the in-game features apply without one."));
+      return;
+    }
+    for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
+    await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
+    log.ok("Config saved to R2. Players get the new settings the next time they open the game (within a minute).");
+    const rebuild = keysNeedingDeploy(before, cfg);
+    if (rebuild.length) log.warn(`Run the deploy command again to apply ${rebuild.map((k) => `"${k}"`).join(", ")}: only a deploy changes these.`);
     return;
   }
 
@@ -156,8 +167,12 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
     playerSettings,
   };
   const authReady = isAuthReady(cfg.auth);
+  // Written before the Worker, which reads it from R2 and puts it over the build's own.
+  const publishSettings = () => saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
+  await publishSettings();
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
+  cfg.liveSettings = true; // edit-config applies without a redeploy from now on
   await saveGameConfig();
 
   if (!authReady) {
@@ -170,6 +185,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
         syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy), files));
       }
       project.playerSettings = perPlayerSettings(game.engine, cfg, policy);
+      await publishSettings();
       log.step("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
     } else {
@@ -248,7 +264,8 @@ function editInEditor(cfg) {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
         // The rename command changes the site name. The policy is the game creator's.
-        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy };
+        // liveSettings says what the deployed Worker can do.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy, liveSettings: cfg.liveSettings };
       } catch (err) {
         log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
       }

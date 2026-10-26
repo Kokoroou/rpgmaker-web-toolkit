@@ -28,10 +28,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_HISTORY = new Set(["config", "global"]);
 
 // RWK_SAVE_HISTORY, written by the CLI: "off" | '{"keep":10,"days":30}'.
-// A player's own settings (players.js) replace it.
+// Everyone's settings from R2 (settings.js) replace it, and a player's own
+// settings replace both.
 export function historySettings(env, user = {}) {
   const own = user.settings ? user.settings.saveHistory : undefined;
-  if (own !== undefined) return own ? { keep: Number(own.keep) || 10, days: Number(own.days) || 30 } : null;
+  const set = own !== undefined ? own : user.shared ? user.shared.saveHistory : undefined;
+  if (set !== undefined) return set ? { keep: Number(set.keep) || 10, days: Number(set.days) || 30 } : null;
   const raw = env.RWK_SAVE_HISTORY;
   if (raw === "off") return null;
   let value = {};
