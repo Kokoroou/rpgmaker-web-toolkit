@@ -23,26 +23,26 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | SEO / AIEO for the guide: sitemap, social tags, JSON-LD, `robots.txt`, `llms.txt`, Search Console tag (#3) | next |
 | Messages log players can reopen (#4, Ideas #10) | next |
 | macOS and Linux launchers `run.sh` / `rwk.sh`, tests on three OSes (#8) | next |
+| ⚙ → Game files on this device: what the cache holds, and a button to clear it (#1b) | next |
+| Basic cheats, off unless the deployer turns them on, per player too (#6, Ideas #5) | next |
+| Non-interactive CLI (`--yes`, or no terminal), exit code 2 when a question needs a person, `CLOUDFLARE_API_TOKEN` login (#10a) | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. The first three rows are independent of each other (runtime menu, runtime plugin, CLI), so they can be built in parallel branches.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. The three rows of Wave A touch different parts (CLI and CI files, a runtime plugin, the Worker), so they can again be built in parallel branches.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
 | **Wave A: next up** ||||
-| 1b | Rest of the [Service Worker cache](#service-worker-cache-for-game-files-important-when-playing-over-4g): show how much is cached and a button to clear it | S | iOS may evict the cache, and a player with a full phone needs a way out. "Preload" moves into #5, which downloads everything anyway |
-| 6 | Basic cheats (Ideas #5) | M | Unblocked: #2 gives the `cheats` key a place (off by default, per player). Save history is the safety net |
-| 10a | [Game CD integration](#game-cd-integration-ci), first step: non-interactive mode | M | The CLI must never wait on a prompt in CI; the templates and the Action come after, on top of it |
+| 10 | [Game CD integration](#game-cd-integration-ci), on top of #10a: `--json` output, `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY`, a GitHub Action and a GitLab CI example | M | #10a shipped, so updates already run unattended; the first deploy still needs a person until #9. Check the API token permissions with a real CI run first |
+| 7 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #6 (shipped): new sections of the same panel and new groups of the `cheats` key |
 | 2b | Edit the settings without a redeploy (config in R2, read by the Worker) | M | Every other part of #2 shipped; new features add their keys as they come |
-| **Wave B: offline and more cheats** ||||
+| **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
-| 7 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #6 |
 | **Wave C: running the toolkit anywhere** ||||
-| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; needed for unattended CD |
-| 10 | [Game CD integration](#game-cd-integration-ci): `--json` output, GitHub Action and GitLab CI templates | M | Needs #10a; Linux runners (#8) shipped, unattended setup needs #9 |
+| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; the last question a first deploy in CI cannot answer |
 | **Wave D: narrower audiences** ||||
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
@@ -58,7 +58,7 @@ Order of work from here. Row numbers stay as they were, so "needs #n" still poin
 
 Before this, the browser relied only on the HTTP cache on every launch. That cache is easily evicted on phones, so the 10–27 MB parallax images got downloaded again and again.
 
-Status: the first three points shipped (one cache, `rwk-files`, whose per-file versions replace a cache per `buildId`). Left: the size and clear button (#1b); "Preload" goes with #5.
+Status: shipped except "Preload", which goes with #5 (one cache, `rwk-files`, whose per-file versions replace a cache per `buildId`; ⚙ → Game files on this device shows its size and clears it).
 
 Plan:
 
@@ -82,7 +82,7 @@ Plan:
 
 Goal: a game repository redeploys itself on every push (or tag), with no one at the keyboard.
 
-- **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (already read in `cli/lib/wrangler.js`); document the minimal token permissions.
+- **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; document the minimal token permissions. **Shipped (#10a)**: questions take their default or stop with exit code 2, and only unattended runs read the token. Not done: a flag per first-deploy question (the first deploy stays in a terminal until #9), and a check of the documented token permissions against a real account.
 - **Machine-readable output**: `--json` (final URL, build report, warnings) and `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` support, plus no ANSI colours when not a TTY (already the case in `cli/lib/ui.js`).
 - **Reusable GitHub Action** (`action.yml`, composite) that checks out the toolkit at a pinned ref, installs it, runs the CLI on the game folder and exposes the URL as an output. A copy-paste workflow example in `site/` (on push to `main`: deploy; on pull request: build only, then post the build report).
 - **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works.
