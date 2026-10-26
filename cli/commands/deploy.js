@@ -323,7 +323,7 @@ async function createConfig(game, takenSlugs) {
       gamepad: true,
       shoulder: false,
       dpad: true,
-      opacity: 0.35,
+      opacity: 0.2,
       scale: 1,
       buttons: [],
       scannedKeys: [],

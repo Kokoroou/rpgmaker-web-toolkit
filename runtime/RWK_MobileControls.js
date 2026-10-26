@@ -118,7 +118,7 @@
   //---------------------------------------------------------------------------
 
   const scale = Number(cfg.scale) || 1;
-  const opacity = cfg.opacity ?? 0.35;
+  const opacity = cfg.opacity ?? 0.2;
   const style = document.createElement("style");
   style.textContent = `
 .rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
