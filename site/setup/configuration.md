@@ -42,6 +42,8 @@ On macOS and Linux, set `EDITOR` (for example `EDITOR="code --wait"`) to use ano
 | No quick save where the game disallows saving | `"quickSave": { "ignoreSaveLock": false }` |
 | Turn off the autosave, or change how often | `"autoSave": false`, `"autoSave": { "minutes": 10 }` |
 | Keep fewer older saves, or none (saves R2 space) | `"saveHistory": { "keep": 5, "days": 14 }`, `"saveHistory": false` |
+| Turn on [cheats](/play/cheats), or only gold and items | `"cheats": true`, `"cheats": { "party": false, "battle": false }` |
+| Cheats for you only | `"players": { "me@example.com": { "cheats": true } }` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |
@@ -74,6 +76,7 @@ Each feature key takes one of three kinds of value:
 | `messageMode` | `auto`, `skip` (default `true`), `mode` (`"normal"` or `"auto"` to start in), `autoSpeed` (`"slow"`, `"normal"`, `"fast"`), `lock` (players keep `mode` and `autoSpeed`) |
 | `alwaysDash` | `on` (`true` / `false` for players who never chose), `lock` (stays at `on`; Options → Always Dash cannot change it) |
 | `saveTools` | `export`, `import`, `delete` (default `true` each) |
+| `cheats` | `party`, `items`, `battle` (default `true` each). Off when the key is missing, whatever the preset |
 | `quickSave`, `autoSave`, `backlog`, `saveHistory` | See [Config keys](/reference/config) |
 
 The game creator's [policy](/creators/policy) still wins: a feature it turns off stays off, whatever the config says.
@@ -92,7 +95,7 @@ With Cloudflare Access, `"players"` gives some emails settings of their own, on 
 }
 ```
 
-Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`. Emails match whatever their case. Publish again to apply a change.
+Keys that can be set per player: `fastForward`, `messageMode`, `alwaysDash`, `backlog`, `quickSave`, `autoSave`, `saveHistory`, `saveTools`, `itemBatch`, `cheats`. Emails match whatever their case. Publish again to apply a change.
 
 The emails never reach the web build: the deploy gives the Worker only a hash of each email, with the settings that differ. When a player opens the game, the Worker checks their Access login and puts their settings in the copy of `js/plugins.js` it sends them. A public site (no Access) cannot tell players apart, so everyone gets the shared settings.
 
@@ -101,7 +104,7 @@ The emails never reach the web build: the deploy gives the Worker only a hash of
 | Setting | Enforced by | How firm |
 |---|---|---|
 | `saveHistory` (also per player) | The Worker refuses the older saves API | **Blocked** |
-| Fast forward, message modes, always dash, quick save, autosave, save export / import / delete, several items at once | The plugins in the browser | **Hidden**: someone who knows the browser's developer tools can still get around it. A choice about how the game plays, not security |
+| Fast forward, message modes, always dash, quick save, autosave, save export / import / delete, several items at once, cheats | The plugins in the browser | **Hidden**: someone who knows the browser's developer tools can still get around it. A choice about how the game plays, not security |
 
 ## Patterns
 

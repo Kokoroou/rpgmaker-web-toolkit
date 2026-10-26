@@ -25,11 +25,15 @@ import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js"
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
-import { ask, c, choose, confirm, formatBytes, log, pause, warnings } from "../lib/ui.js";
+import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, warnings } from "../lib/ui.js";
 import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {
-  if (!inputPath) inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)");
+  if (!inputPath) {
+    inputPath = await ask("Drag and drop or paste the game folder path (or the game's link, if its folder is gone)", "", null, {
+      hint: 'Pass it after the command: rwk --yes "<game folder>".',
+    });
+  }
   inputPath = cleanPathInput(inputPath);
   if (!importOnly && !editOnly && !rename && isLink(inputPath)) return updateFromLink(inputPath);
 
@@ -79,6 +83,7 @@ export async function deploy(inputPath, { importOnly = false, editOnly = false, 
   }
 
   if (editOnly) {
+    if (isUnattended()) throw new NeedsAnswer("edit-config opens a text editor: run it in a terminal.");
     cfg = editInEditor(cfg);
     await saveGameConfig();
     log.ok("Config saved to R2. Run the deploy command again to apply it.");
@@ -395,12 +400,17 @@ async function addNewKeys(game, cfg) {
 async function renameSite(cfg, taken) {
   log.step("New site name");
   log.info(`Now: ${cfg.url || cfg.slug}`);
-  const slug = await ask("New site name (becomes <name>.<username>.workers.dev)", "", (v) => {
-    if (v === cfg.slug) return "That is the current name.";
-    const problem = validateSlug(v);
-    if (problem) return problem;
-    return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
-  });
+  const slug = await ask(
+    "New site name (becomes <name>.<username>.workers.dev)",
+    "",
+    (v) => {
+      if (v === cfg.slug) return "That is the current name.";
+      const problem = validateSlug(v);
+      if (problem) return problem;
+      return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
+    },
+    { hint: "Rename in a terminal." }
+  );
   const access = cfg.auth.mode === "access";
   log.info("What happens next:");
   log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
@@ -427,7 +437,8 @@ async function retireWorkers(cfg) {
   }
   log.step("Old site address");
   for (const name of cfg.retiredWorkers) {
-    if (!(await confirm(`Delete the old Worker "${name}" now? Its link stops working; saves are kept.`, true))) {
+    // Deleting a site is for a person to say yes to.
+    if (!(await confirm(`Delete the old Worker "${name}" now? Its link stops working; saves are kept.`, true, { whenUnattended: false }))) {
       log.info(c.dim("Asked again at the next deploy."));
       continue;
     }
@@ -451,6 +462,12 @@ async function retireWorkers(cfg) {
 
 async function setupAuth(cfg, account, policy) {
   log.step("Access protection");
+  if (isUnattended()) {
+    throw new NeedsAnswer(
+      "The site is deployed but locked: protecting it (Cloudflare Access, or public) needs a person once. " +
+        "Run the command in a terminal; later runs can be non-interactive."
+    );
+  }
   log.info("The site is locked for now. Choose how to protect it:");
   const options = [{ label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" }];
   if (allowsPublic(policy)) options.push({ label: "No protection: a public site anyone can open, everyone shares saves", value: "none" });
@@ -510,11 +527,16 @@ async function askPublic(cfg, policy) {
     basis = "creator-policy";
   } else {
     log.warn("A public site is redistribution of the game: only the people who hold its rights may decide that.");
-    basis = await choose("Why may this game be public?", [
-      { label: "I made this game, or I publish it for the people who made it", value: "author" },
-      { label: "Its creators allow anyone to host it publicly (its license or their written permission says so)", value: "permission" },
-      { label: "Neither: keep the site locked and use Cloudflare Access instead", value: null },
-    ]);
+    basis = await choose(
+      "Why may this game be public?",
+      [
+        { label: "I made this game, or I publish it for the people who made it", value: "author" },
+        { label: "Its creators allow anyone to host it publicly (its license or their written permission says so)", value: "permission" },
+        { label: "Neither: keep the site locked and use Cloudflare Access instead", value: null },
+      ],
+      0,
+      { whenUnattended: null, hint: "Only a person can answer this: run the command once in a terminal." }
+    );
     if (!basis) return null;
   }
   cfg.indexable = await confirm("Let search engines list the site?", false);
@@ -610,14 +632,22 @@ async function offerSaveImport(game, cfg, bucket, accountEmail, force) {
 
   log.step("Local saves");
   log.info(`Found ${saves.length} save(s) in ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
-  if (!(await confirm("Upload these saves to the cloud? (overwrites cloud saves with the same name)", !cfg.savesImportedAt))) {
+  // Unattended, only the import-saves command uploads them; a deploy leaves
+  // the question for the next run in a terminal.
+  if (!force && isUnattended()) {
+    log.info(c.dim("Not uploaded in a non-interactive run: use the import-saves command to upload them."));
+    return;
+  }
+  if (!(await confirm("Upload these saves to the cloud? (overwrites cloud saves with the same name)", !cfg.savesImportedAt, { whenUnattended: true }))) {
     if (!force) cfg.savesImportedAt = "skipped";
     return;
   }
   const email =
     cfg.auth.mode === "none"
       ? "public"
-      : await ask("The email you use to sign in through Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Invalid email"));
+      : await ask("The email you use to sign in through Cloudflare Access", accountEmail || "", (v) => (/.+@.+/.test(v) ? null : "Invalid email"), {
+          hint: 'Give the API token "User Details: Read", or upload the saves from a terminal.',
+        });
   const count = await importSaves({ bucket, slug: storageIdOf(cfg), email, saves, engine: game.engine, gameTitle: game.gameTitle });
   cfg.savesImportedAt = new Date().toISOString();
   log.ok(`Uploaded ${count} save(s) to the cloud`);

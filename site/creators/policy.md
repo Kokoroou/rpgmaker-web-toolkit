@@ -45,6 +45,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 | `alwaysDash` | ⚙ → [Always dash](/play/dash). The game's own Options menu still has it unless the game removed it |
 | `quickSave` | [Quick save / load](/play/quick-save), e.g. for a game that disallows saving in some places on purpose |
 | `autoSave` | The toolkit's [autosave](/play/quick-save#autosave). The game's own autosave is not affected |
+| `cheats` | ⚙ → [Cheats](/play/cheats) (off unless the player turns them on) |
 | `sync` | Cloud save sync: each browser keeps its own saves |
 
 Keys the toolkit does not know yet are ignored, so you can already list features from later versions.

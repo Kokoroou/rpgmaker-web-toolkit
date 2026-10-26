@@ -7,7 +7,7 @@
 export const TOOLKIT_MARKER = "// ---- rpgmaker-web-toolkit (web build only) ----";
 
 // Features a game creator's policy can turn off (cli/lib/policy.js).
-const FEATURES = ["saveTools", "itemBatch", "fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave"];
+const FEATURES = ["saveTools", "itemBatch", "fastForward", "messageMode", "alwaysDash", "backlog", "quickSave", "autoSave", "cheats"];
 
 // names: RWK_* plugin names in load order; config: RWK_Core's runtime config.
 export function appendToolkit(pluginsJs, names, config) {

@@ -158,3 +158,126 @@ test("save tools: only the allowed actions", () => {
   assert.equal(detail(true), "Export, import or delete save slots");
   assert.equal(load("RWK_SaveTools", { saveTools: false }).tools.length, 0);
 });
+
+function cheatGlobals() {
+  class Game_Actor {
+    constructor(name, hp, level) {
+      Object.assign(this, { _name: name, hp, mhp: 100, level, states: [] });
+    }
+    name() {
+      return this._name;
+    }
+    setHp(hp) {
+      this.hp = Math.max(0, hp);
+    }
+    addState(id) {
+      this.states.push(id);
+    }
+    deathStateId() {
+      return 1;
+    }
+    isAlive() {
+      return !this.states.includes(1);
+    }
+    isDead() {
+      return !this.isAlive();
+    }
+    revive() {
+      this.states = this.states.filter((id) => id !== 1);
+    }
+    recoverAll() {
+      this.hp = this.mhp;
+      this.states = [];
+    }
+    maxLevel() {
+      return 99;
+    }
+    changeLevel(level) {
+      this.level = level;
+    }
+  }
+  const actors = [new Game_Actor("Eve", 40, 5), new Game_Actor("Max", 10, 99)];
+  const held = new Map();
+  const potion = { id: 1, name: "Potion" };
+  const enemies = [{ states: [], collapsed: false }];
+  for (const enemy of enemies) {
+    Object.assign(enemy, { deathStateId: () => 1, addNewState: (id) => enemy.states.push(id), performCollapse: () => (enemy.collapsed = true) });
+  }
+  return {
+    Game_Actor,
+    actors,
+    potion,
+    enemies,
+    TextManager: { currencyUnit: "G" },
+    $dataItems: [null, potion, { id: 2, name: "" }, { id: 3, name: "Hi-Potion" }],
+    $dataWeapons: [null, { id: 1, name: "Sword" }],
+    $dataArmors: [],
+    $gameParty: {
+      _gold: 0,
+      members: () => actors,
+      gold() {
+        return this._gold;
+      },
+      gainGold(n) {
+        this._gold = Math.min(99999999, this._gold + n);
+      },
+      maxItems: () => 99,
+      numItems: (item) => held.get(item) || 0,
+      gainItem: (item, n) => held.set(item, (held.get(item) || 0) + n),
+      inBattle: () => true,
+    },
+    $gameTroop: { aliveMembers: () => enemies.filter((e) => !e.states.includes(1)) },
+    BattleManager: { _phase: "input" },
+  };
+}
+
+test("cheats: off unless the deployer turns them on; the groups it allows", () => {
+  assert.equal(load("RWK_Cheats", { cheats: false }, { globals: cheatGlobals() }).tools.length, 0);
+  const on = load("RWK_Cheats", { cheats: { party: true, items: true, battle: false } }, { globals: cheatGlobals() });
+  assert.deepEqual(on.labels(), ["Cheats"]);
+  assert.equal(on.tools[0].group, "cheat");
+  assert.equal(value(on.tools[0].detail), "party, gold and items");
+});
+
+test("cheats: god mode, heal, level, gold, items, win a battle", () => {
+  const globals = cheatGlobals();
+  const { context, stored } = load("RWK_Cheats", { cheats: { party: true, items: true, battle: true } }, { globals });
+  const cheats = context.window.RWK.cheats;
+  const [eve, max] = globals.actors;
+
+  eve.setHp(20);
+  assert.equal(eve.hp, 20, "god mode off: damage as usual");
+  cheats.setGod(true);
+  assert.equal(stored["rwk.cheats.god.g"], true, "remembered in this browser");
+  eve.setHp(0);
+  eve.addState(1);
+  assert.equal(eve.hp, 20, "god mode: HP does not go down");
+  assert.ok(eve.isAlive(), "and nothing knocks them out");
+  eve.setHp(90);
+  assert.equal(eve.hp, 90, "healing still works");
+  cheats.setGod(false);
+
+  assert.equal(cheats.healAll(), "Party healed");
+  assert.equal(max.hp, 100);
+  assert.equal(cheats.levelUp(), "Level up: Eve", "Max is at the top level");
+  assert.equal(eve.level, 6);
+  assert.equal(cheats.addGold(1000), "+1,000 G");
+
+  assert.deepEqual([...cheats.findItems("potion").map((i) => i.name)], ["Potion", "Hi-Potion"]);
+  assert.deepEqual([...cheats.findItems("").map((i) => i.name)], ["Potion", "Hi-Potion", "Sword"], "items without a name are left out");
+  assert.equal(cheats.addItem(globals.potion, 10), "Potion ×10");
+  assert.equal(cheats.addItem(globals.potion, 200), "Potion ×99", "capped at what the game allows");
+  assert.match(cheats.addItem(globals.potion, 1), /already hold the most/);
+
+  cheats.winBattle();
+  assert.deepEqual([...globals.enemies[0].states], [1]);
+  assert.ok(globals.enemies[0].collapsed);
+});
+
+test("cheats: god mode is per game and only with the party group", () => {
+  const stored = { "rwk.cheats.god.g": true };
+  const globals = cheatGlobals();
+  load("RWK_Cheats", { cheats: { party: false, items: true, battle: true } }, { globals, stored });
+  globals.actors[0].setHp(0);
+  assert.equal(globals.actors[0].hp, 0, "a god mode left on before the deployer took the group away does nothing");
+});
