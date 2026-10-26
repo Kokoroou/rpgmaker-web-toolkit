@@ -26,7 +26,7 @@ import { GAMEPAD_KEYS, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js"
 import { POLICY_FILE, allowsPublic, applyPolicy, describeHosting, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
-import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, warnings } from "../lib/ui.js";
+import { NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, print, warnings } from "../lib/ui.js";
 import { updateFromLink } from "./update-from-link.js";
 
 export async function deploy(inputPath, { importOnly = false, editOnly = false, rename = false } = {}) {

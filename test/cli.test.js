@@ -698,3 +698,22 @@ test("settings without a redeploy: what the Worker reads from R2, and what still
   assert.deepEqual(keysNeedingDeploy(cfg, after), ["exclude", "cache"]);
   assert.deepEqual(keysNeedingDeploy(cfg, { ...cfg }), []);
 });
+
+test("cli files import the ui.js helpers they use", () => {
+  // A merge once dropped `print` from deploy.js's import: the run only failed
+  // at its last line, after the deploy, which no other test reaches.
+  const ui = fs.readFileSync("cli/lib/ui.js", "utf8");
+  const exported = [...ui.matchAll(/^export (?:const|function|async function|class) (\w+)/gm)].map((m) => m[1]);
+  const files = fs.readdirSync("cli", { recursive: true }).filter((f) => f.endsWith(".js") && path.basename(f) !== "ui.js");
+  for (const file of files) {
+    const src = fs.readFileSync(path.join("cli", file), "utf8");
+    const imported = new Set(
+      [...src.matchAll(/import\s*\{([^}]*)\}\s*from\s*"[./]*(?:lib\/)?ui\.js"/g)].flatMap((m) => m[1].split(",").map((s) => s.trim().split(/\s+as\s+/).pop())),
+    );
+    for (const name of exported) {
+      const used = new RegExp(`(?<![.\\w$])${name}\\s*[(.]`).test(src);
+      const defined = new RegExp(`(?:const|let|function|class)\\s+${name}\\b`).test(src);
+      if (used && !defined) assert.ok(imported.has(name), `${file} uses ${name} without importing it from ui.js`);
+    }
+  }
+});
