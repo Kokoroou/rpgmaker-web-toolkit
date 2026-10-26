@@ -35,6 +35,7 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
 | CLI from a link (#16b): `status`, `saves export` (via the R2 API: `cli/lib/r2-api.js`), `logs`, `open`, `list` and `delete` take a link or site name, no folder needed | next |
 | Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
+| Deployment architecture diagrams (#13): architecture, deploy and first-load / save-sync sequence on "How it works", as light and dark SVG drawn by `site/diagrams/build.mjs`; the archify skill was checked and not used (see Details) | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
@@ -52,7 +53,6 @@ Order of work from here. Row numbers stay as they were, so "needs #n" still poin
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
 | **Wave E: polish and support** ||||
-| 13 | [Deployment architecture diagrams](#deployment-architecture-diagrams) with the archify skill | S–M | Better "How it works" page; the skill must be vetted at that time. Best after #1 and #5 change the architecture |
 | 14 | [Ways to say thanks: GitHub Sponsors and Ko-fi](#ways-to-say-thanks-github-sponsors-and-ko-fi) | S | Setup is mostly accounts and links; no code in `cli/` or `worker/`. Needs the maintainer's decisions, so it can move earlier whenever those are made |
 | **Later** ||||
 | 15+ | The rest of [Later](#later) and Ideas group C (#13–#20) | | |
@@ -133,19 +133,11 @@ Plan:
 
 ### Deployment architecture diagrams
 
-Goal: a clear picture of what a deploy creates (Worker, static assets, R2 for large files, Access in front, save API, browser runtime plugins) on the "How it works" page.
+Shipped as #13. The "How it works" page has an architecture diagram, a deploy diagram and a first-load / save-sync sequence, each with alt text and a text description. They are static SVG in `site/public/img/` (one light and one dark file, shown by theme in `site/.vitepress/theme/style.css`) and are drawn by `site/diagrams/build.mjs`, which has no dependencies. Update the script and the SVGs in the same PR as any change to the architecture.
 
-Plan:
+The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0, pinned `81c6be8`, v3.2.0) and not used: it writes explorable standalone HTML with its own themes rather than a static SVG that follows the guide's light / dark switch, its `finalize` step needs a real browser, its update check calls a remote manifest and keeps a cache in the home folder, and its `SKILL.md` can add a line to the agent's global rules. Hand-drawn SVG avoids all of that. If a skill is tried again, vet it first: license, what `SKILL.md` asks the agent to do, scripts' network / file / environment access, dependencies and install hooks, and that its HTML loads nothing remote; run it in a throwaway folder, with no Cloudflare credentials.
 
-- Use the [archify](https://github.com/tt-a1i/archify) skill to draw `architecture` (components and boundaries) and perhaps `sequence` (first load with Access login, save sync) diagrams from `site/reference/how-it-works.md`, `worker/` and `cli/`. Export as static SVG/PNG into `site/public/img/` (plus the standalone HTML if it can be linked), so the published guide does not depend on the skill or on scripts at view time. Give each diagram a text description next to it (also good for SEO / AIEO).
-- **Vet the skill first, at the time of the work, not before.** It is third-party code that runs in the agent's shell and may have changed since it was first looked at. Pin the commit or release tag being used, and check at least:
-  - the license (and that using its output in this project is allowed);
-  - what `SKILL.md` tells the agent to do beyond drawing (writing outside the working folder, editing global agent rules, installing or updating things);
-  - the scripts it runs: child processes, network access (update checks, brand-mark fetching), file writes and where, environment variables it reads;
-  - dependencies and lockfiles, and any `postinstall`-style hooks;
-  - that the generated HTML loads nothing remote.
-  Run it in a throwaway folder with network off if possible, never with Cloudflare credentials in the environment, and write the result in the PR description. If the check fails, hand-draw the SVG instead.
-- Keep the source JSON of each diagram in the repository (for example `site/diagrams/`) so it can be regenerated, and update it in the same PR as any architecture change.
+**#5 (offline / PWA) will change the architecture** (a Web App Manifest, a preloaded cache, maybe a different Service Worker), so redraw the diagrams in that PR.
 
 ### Ways to say thanks: GitHub Sponsors and Ko-fi
 

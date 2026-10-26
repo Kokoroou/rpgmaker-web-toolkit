@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 664" role="img" aria-labelledby="t d">
+<title id="t">What a deployed game is made of</title>
+<desc id="d">Four layers from top to bottom. The player's device runs the game with the RWK plugins, a Service Worker with Cache Storage, and local saves. Requests pass Cloudflare Access, which checks the login. One Worker routes them: it verifies the login, serves settings and the toolkit's plugins, and runs the save API. The Worker reads Static Assets for game files under 25 MiB and one R2 bucket for large files, saves, save history, settings and the list of players.</desc>
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#8e8e93"/></marker>
+</defs>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#1f1f23;font-size:13px}
+.s{fill:#55555c;font-size:11.5px}.b{font-weight:600}.z{font-size:12px;font-weight:600;fill:#55555c;letter-spacing:.02em}
+.m{text-anchor:middle}.e{text-anchor:end}
+</style>
+<rect width="440" height="664" fill="#ffffff"/>
+<rect x="8" y="8" width="424" height="214" rx="10" fill="#f6f6f7" stroke="#c2c2c4" stroke-width="1.2"/><text class="z" x="20" y="27">Player's device (browser)</text>
+<rect x="22" y="36" width="192" height="70" rx="7" fill="#eef1fb" stroke="#3451b2" stroke-width="1.2"/><text class="b m" x="118" y="59">Game + RWK plugins</text><text class="s m" x="118" y="75">RWK_Core, SaveSync,</text><text class="s m" x="118" y="91">SafeSaves, MobileControls…</text>
+<rect x="226" y="36" width="192" height="70" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="322" y="59">Service Worker</text><text class="s m" x="322" y="75">rwk-sw.js: answers file</text><text class="s m" x="322" y="91">requests from the cache</text>
+<rect x="22" y="130" width="192" height="70" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="118" y="153">Local saves</text><text class="s m" x="118" y="169">MZ: localforage</text><text class="s m" x="118" y="185">MV: localStorage</text>
+<rect x="226" y="130" width="192" height="70" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="322" y="153">Cache Storage</text><text class="s m" x="322" y="169">pictures, sounds, data,</text><text class="s m" x="322" y="185">scripts (each &lt; 25 MiB)</text>
+<path d="M118 106 L118 130" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)" marker-start="url(#ah)"/>
+<path d="M214 71 L226 71" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)"/>
+<path d="M322 106 L322 130" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)" marker-start="url(#ah)"/>
+<path d="M220 222 L220 252" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)"/>
+<text class="s" x="232" y="241">page, game files, /api/…</text>
+<rect x="8" y="252" width="424" height="52" rx="10" fill="#fdecea" stroke="#c0392b" stroke-width="1.2"/><text class="z" x="20" y="271">Cloudflare Access (at the edge)</text>
+<text class="s" x="20" y="291">Only invited emails get in; the request carries a signed login.</text>
+<path d="M220 304 L220 334" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)"/>
+<rect x="8" y="334" width="424" height="196" rx="10" fill="#f6f6f7" stroke="#c2c2c4" stroke-width="1.2"/><text class="z" x="20" y="353">One Worker, shared by every game</text>
+<rect x="22" y="360" width="396" height="40" rx="7" fill="#eef1fb" stroke="#3451b2" stroke-width="1.2"/><text class="b m" x="220" y="384">index.js: routes each request</text>
+<rect x="22" y="412" width="124" height="56" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="84" y="428">auth.js</text><text class="s m" x="84" y="444">checks the JWT,</text><text class="s m" x="84" y="460">reads the email</text>
+<rect x="158" y="412" width="124" height="56" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="220" y="428">saves.js</text><text class="s m" x="220" y="444">save API, ETag,</text><text class="s m" x="220" y="460">save history</text>
+<rect x="294" y="412" width="124" height="56" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="356" y="428">players.js</text><text class="s m" x="356" y="444">counts emails</text><text class="s m" x="356" y="460">that saved</text>
+<rect x="22" y="478" width="192" height="44" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="118" y="496">settings.js</text><text class="s m" x="118" y="512">config from R2, no redeploy</text>
+<rect x="226" y="478" width="192" height="44" rx="7" fill="#ffffff" stroke="#8e8e93" stroke-width="1.2"/><text class="b m" x="322" y="496">toolkit.js</text><text class="s m" x="322" y="512">plugins.js, newer plugins</text>
+<path d="M110 530 L110 560" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)"/>
+<path d="M330 530 L330 560" fill="none" stroke="#8e8e93" stroke-width="1.4" marker-end="url(#ah)" marker-start="url(#ah)"/>
+<rect x="8" y="560" width="196" height="96" rx="10" fill="#fff7e6" stroke="#b7791f" stroke-width="1.2"/><text class="z" x="20" y="579">Static Assets</text>
+<text class="s" x="20" y="599">game files under 25 MiB</text>
+<text class="s" x="20" y="616">free, no bandwidth limit</text>
+<rect x="216" y="560" width="216" height="96" rx="10" fill="#fff7e6" stroke="#b7791f" stroke-width="1.2"/><text class="z" x="228" y="579">R2 bucket</text>
+<text class="s" x="228" y="599">files over 25 MiB (Range)</text>
+<text class="s" x="228" y="616">saves/ and history/</text>
+<text class="s" x="228" y="633">settings and players</text>
+</svg>

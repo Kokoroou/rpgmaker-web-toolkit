@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 500" role="img" aria-labelledby="t d">
+<title id="t">What a deploy does</title>
+<desc id="d">On the creator's PC, the CLI reads the game folder without writing to it, hard-links the files into a temporary build folder, adds the RWK plugins to js/plugins.js, writes the Service Worker file and a robots rule, and then sends the result to Cloudflare. Files over 25 MiB go to R2, the settings go to R2 as a JSON file, and wrangler deploys the Worker with the remaining files as static assets. The build folder is deleted at the end.</desc>
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#8a8a92"/></marker>
+</defs>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#f0f0f2;font-size:13px}
+.s{fill:#b4b4bb;font-size:11.5px}.b{font-weight:600}.z{font-size:12px;font-weight:600;fill:#b4b4bb;letter-spacing:.02em}
+.m{text-anchor:middle}.e{text-anchor:end}
+</style>
+<rect width="440" height="500" fill="#1b1b1f"/>
+<rect x="8" y="8" width="424" height="304" rx="10" fill="#232327" stroke="#4a4a50" stroke-width="1.2"/><text class="z" x="20" y="27">Creator's PC (run.ps1 / rwk)</text>
+<rect x="22" y="36" width="396" height="44" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="220" y="54">Game folder</text><text class="s m" x="220" y="70">read only: never written to</text>
+<path d="M220 80 L220 98" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<rect x="22" y="98" width="396" height="44" rx="7" fill="#2b2e47" stroke="#a8b1ff" stroke-width="1.2"/><text class="b m" x="220" y="116">cli/ analyzes the game</text><text class="s m" x="220" y="132">engine, file sizes, names, rwk-policy.json</text>
+<path d="M220 142 L220 160" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<rect x="22" y="160" width="396" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="220" y="175">Temporary build (.rwk-build)</text><text class="s m" x="220" y="191">hard links to the game files</text><text class="s m" x="220" y="207">+ RWK_*.js in js/plugins.js, rwk-sw.js,</text><text class="s m" x="220" y="223">noindex rules</text>
+<path d="M220 230 L220 248" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<rect x="22" y="248" width="396" height="50" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="220" y="269">wrangler + Cloudflare API</text><text class="s m" x="220" y="285">uploads, deploys, then deletes the build</text>
+<path d="M84 298 L84 340" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<path d="M220 298 L220 340" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<path d="M356 298 L356 340" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+<text class="s" x="92" y="324">Worker + files</text>
+<text class="s" x="228" y="324">files over 25 MiB</text>
+<text class="s" x="364" y="324">settings</text>
+<rect x="8" y="340" width="424" height="152" rx="10" fill="#3a2f1a" stroke="#d9a441" stroke-width="1.2"/><text class="z" x="20" y="359">Cloudflare (free plan)</text>
+<rect x="20" y="366" width="128" height="62" rx="7" fill="#2b2e47" stroke="#a8b1ff" stroke-width="1.2"/><text class="b m" x="84" y="385">Worker</text><text class="s m" x="84" y="401">worker/ and the</text><text class="s m" x="84" y="417">plugins inside it</text>
+<rect x="154" y="366" width="128" height="62" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="218" y="385">R2</text><text class="s m" x="218" y="401">assets/&lt;site&gt;/…</text><text class="s m" x="218" y="417">changed files only</text>
+<rect x="288" y="366" width="132" height="62" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="354" y="385">R2</text><text class="s m" x="354" y="401">rwk/settings/</text><text class="s m" x="354" y="417">&lt;site&gt;.json</text>
+<rect x="20" y="438" width="128" height="44" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="84" y="456">Static Assets</text><text class="s m" x="84" y="472">the other files</text>
+<path d="M84 428 L84 438" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
+</svg>
