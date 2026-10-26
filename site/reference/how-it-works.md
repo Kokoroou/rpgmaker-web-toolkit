@@ -36,7 +36,7 @@ The game folder is never written to. Each run:
 1. Picks the files: the standard RPG Maker folders, plus `include`, minus `exclude`.
 2. **Hard-links** them into `<game drive>:\.rwk-build\` (no extra disk space; copies on another drive).
 3. Adds the plugins to the build's copy of `js/plugins.js` and marks `index.html` with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
-   Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Turn it off with [`cache`](/reference/config).
+   Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Game files on this device**. Turn it off with [`cache`](/reference/config).
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
 5. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
 6. Deletes the build folder.
