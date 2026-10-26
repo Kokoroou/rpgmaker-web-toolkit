@@ -8,7 +8,7 @@ import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/
 import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
 import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
-import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
+import { cleanHint, gamepadKeys, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
 import { LIVE_KEYS, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
 import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
@@ -716,4 +716,12 @@ test("cli files import the ui.js helpers they use", () => {
       if (used && !defined) assert.ok(imported.has(name), `${file} uses ${name} without importing it from ui.js`);
     }
   }
+});
+
+test("gamepadKeys: page up / down are covered only when L / R are on", () => {
+  assert.equal(gamepadKeys().has("pageup"), false);
+  assert.equal(gamepadKeys(false).has("pagedown"), false);
+  assert.equal(gamepadKeys(true).has("pageup"), true);
+  assert.equal(gamepadKeys(true).has("pagedown"), true);
+  assert.equal(gamepadKeys().has("ok"), true);
 });
