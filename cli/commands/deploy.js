@@ -29,9 +29,9 @@ import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, run
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
-// deploy, saves import (importOnly) and site rename (rename, to): the commands that start from the game folder.
+// deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
 export async function deploy(inputPath, { importOnly = false, rename = false, to } = {}) {
-  const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk site rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
+  const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
   if (!inputPath) {
     inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command: ${usage}` });
   }
@@ -153,7 +153,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   await publishSettings();
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
-  cfg.liveSettings = true; // config edit applies without a redeploy from now on
+  cfg.liveSettings = true; // config applies without a redeploy from now on
   await saveGameConfig();
 
   if (!authReady) {
@@ -243,7 +243,7 @@ export function editInEditor(cfg) {
       try {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
-        // rwk site rename changes the site name. The policy is the game creator's.
+        // rwk rename changes the site name. The policy is the game creator's.
         // liveSettings says what the deployed Worker can do.
         return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy, liveSettings: cfg.liveSettings };
       } catch (err) {
@@ -276,7 +276,7 @@ function tooManyFiles(assets, count, max) {
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
     `The web build has ${count} files, over the Workers limit of ${max} (free plan).\n` +
-      `${lines.join("\n")}\nAdd exclude patterns (rwk config edit, e.g. "data-tw/**") and run again.`
+      `${lines.join("\n")}\nAdd exclude patterns (rwk config, e.g. "data-tw/**") and run again.`
   );
 }
 
@@ -302,7 +302,7 @@ async function createConfig(game, takenSlugs) {
   const syncEnabled = await confirm("Enable cloud save sync (continue playing on other devices)?", true);
   const presetNames = Object.keys(PRESETS);
   const preset = await choose(
-    "Which features may players use? (each one can be changed later with rwk config edit)",
+    "Which features may players use? (each one can be changed later with rwk config)",
     presetNames.map((name) => ({ label: PRESETS[name].label, value: name })),
     presetNames.indexOf(DEFAULT_PRESET)
   );
@@ -341,7 +341,7 @@ async function createConfig(game, takenSlugs) {
     cfg.controls.enabled = true;
     cfg.controls.dpad = await confirm("Include the D-pad? (No = move by tapping the map only)", true);
     cfg.controls.buttons = await askButtons(keys);
-    log.info(c.dim("Labels, groups, size and opacity can be changed with rwk config edit; in game, ⚙ → Edit button layout moves buttons around."));
+    log.info(c.dim("Labels, groups, size and opacity can be changed with rwk config; in game, ⚙ → Edit button layout moves buttons around."));
   }
   return cfg;
 }
@@ -404,7 +404,7 @@ async function renameSite(cfg, taken, to) {
     to !== undefined
       ? to
       : await ask("New site name (becomes <name>.<username>.workers.dev)", "", check, {
-          hint: "Pass the new name: rwk site rename \"<game folder>\" --to <new name>",
+          hint: "Pass the new name: rwk rename \"<game folder>\" --to <new name>",
         });
   const access = cfg.auth.mode === "access";
   log.info("What happens next:");

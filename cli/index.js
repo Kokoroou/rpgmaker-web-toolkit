@@ -55,9 +55,9 @@ async function main() {
       return upgrade(target);
     case "saves import":
       return deploy(target, { importOnly: true });
-    case "config edit":
+    case "config":
       return editConfig(target);
-    case "site rename":
+    case "rename":
       return deploy(target, { rename: true, to: flags.to });
     default:
       throw new UsageError(`Unknown command "${name}".`, { hint: `Commands: ${COMMANDS.map((s) => s.name).join(", ")}` });

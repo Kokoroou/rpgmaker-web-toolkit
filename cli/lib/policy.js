@@ -61,7 +61,7 @@ export function allowsPublic(policy) {
 }
 
 // The config the build uses: the creator's "false" always wins over the
-// deployer's settings, so config edit cannot turn a feature back on.
+// deployer's settings, so config cannot turn a feature back on.
 export function applyPolicy(cfg, policy) {
   if (!policy) return cfg;
   const out = { ...cfg };

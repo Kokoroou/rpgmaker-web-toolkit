@@ -13,7 +13,7 @@ A game kept in a Git repository can publish itself: each push to `main` updates 
 2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts.
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
-The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config edit`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
+The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
 
 ## GitHub Actions
 
@@ -124,4 +124,4 @@ A failed run has `"ok": false`, `error`, `hint` (what to try, or `null`) and `ex
 
 - Each run uploads only the files that changed, as on your PC; the [free plan limits](/reference/limits) still apply.
 - The game folder in the checkout is never changed. The toolkit never prints the token; keep it in the CI's secrets, never in the repository.
-- Unattended, a deploy does not upload the `save/` folder (`saves import` does) and never deletes the old Worker after a [`site rename`](/setup/updating#change-the-site-address): run those from a terminal.
+- Unattended, a deploy does not upload the `save/` folder (`saves import` does) and never deletes the old Worker after a [`rename`](/setup/updating#change-the-site-address): run those from a terminal.

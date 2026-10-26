@@ -19,7 +19,7 @@ test("result: what a deploy returns, or why it failed", () => {
   assert.equal(deployed.ok, true);
   assert.equal(deployed.command, "deploy");
   assert.equal(deployed.url, "https://my-game.alice.workers.dev");
-  assert.deepEqual(runResult("config edit", undefined, []), { schema: 1, ok: true, command: "config edit", site: null, url: null, warnings: [] });
+  assert.deepEqual(runResult("config", undefined, []), { schema: 1, ok: true, command: "config", site: null, url: null, warnings: [] });
 
   const failed = failedResult("deploy", new NeedsAnswer("Nobody can answer", "Run it in a terminal."), ["w"]);
   assert.deepEqual(failed, { schema: 1, ok: false, command: "deploy", error: "Nobody can answer", hint: "Run it in a terminal.", exitCode: 2, warnings: ["w"] });
@@ -116,7 +116,7 @@ test("summary: the same closing block for every command", () => {
   ]);
   assert.match(lines.join("\n"), /! 3 file name\(s\)/);
   assert.match(lines.at(-1), /^  Next     Open the link\.$/);
-  const bare = renderSummary(runResult("config edit", { site: "g", url: null }, []));
+  const bare = renderSummary(runResult("config", { site: "g", url: null }, []));
   assert.match(bare, /g: config saved\n {2}Warnings none/);
   setColor(true);
 });

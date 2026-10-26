@@ -35,17 +35,17 @@ export const COMMANDS = [
     examples: ['rwk saves import "D:\\Games\\My Game"'],
   },
   {
-    name: "config edit",
+    name: "config",
     summary: "Change the game's settings (buttons, features, files…) by answering questions",
     targets: ["folder", "link", "name"],
-    examples: ['rwk config edit "D:\\Games\\My Game"', "rwk config edit my-game"],
+    examples: ['rwk config "D:\\Games\\My Game"', "rwk config my-game"],
   },
   {
-    name: "site rename",
+    name: "rename",
     summary: "Move the site to a new name (address); saves carry over",
     targets: ["folder"],
     options: { to: "The new site name; without it the command asks" },
-    examples: ['rwk site rename "D:\\Games\\My Game" --to new-name'],
+    examples: ['rwk rename "D:\\Games\\My Game" --to new-name'],
   },
 ];
 

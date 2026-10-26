@@ -216,7 +216,7 @@ const BUILD_KEYS = ["version", "gameId", "engine", "cache", "media"];
 export const LIVE_KEYS = [...FEATURE_KEYS, "preset", "players", "controls", "sync"];
 
 // The settings file the Worker reads from R2 (worker/settings.js), so
-// config edit applies without a redeploy: everyone's RWK_Core settings
+// config applies without a redeploy: everyone's RWK_Core settings
 // but the build's own keys, and each player's (with Access only).
 // -> { config, players }
 export function liveSettingsOf(engine, cfg, policy) {

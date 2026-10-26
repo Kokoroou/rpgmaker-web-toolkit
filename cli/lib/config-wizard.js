@@ -1,4 +1,4 @@
-// The guided editor behind `rwk config edit`: the same settings as the JSON,
+// The guided editor behind `rwk config`: the same settings as the JSON,
 // changed by answering questions. It covers what most creators change (features,
 // on-screen buttons, cloud saves, files, cache); the rest stays in the JSON,
 // one menu entry away, and keys the questions do not know are left as they are.

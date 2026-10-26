@@ -1,4 +1,4 @@
-// The deployer's settings, changed without a redeploy (`rwk config edit`).
+// The deployer's settings, changed without a redeploy (`rwk config`).
 // The CLI writes them to R2 at every deploy and every edit:
 //
 //   rwk/settings/<GAME_ID>.json   { config: { key: runtime value }, players: { [userHash]: { key: runtime value } } }

@@ -43,8 +43,8 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game whose folder is gone; the game files stay as uploaded | link, name | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | folder | [Update](/setup/updating#upload-desktop-saves-again) |
-| `& $rwk config edit "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
-| `& $rwk site rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks | folder | [Update](/setup/updating#change-the-site-address) |
+| `& $rwk config "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
+| `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks | folder | [Update](/setup/updating#change-the-site-address) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 
@@ -71,7 +71,7 @@ A name that is also a folder in the current directory is read as the folder: giv
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
-| `--to <name>` | Only `site rename`: the new site name |
+| `--to <name>` | Only `rename`: the new site name |
 
 ## What it prints
 
@@ -125,8 +125,8 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 ```
 
 - Each question takes its default answer, and the log shows it with `(non-interactive)`.
-- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, the site's first [access protection](/setup/access), `config edit` (it asks questions). `site rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
-- Two questions answer **no** when nobody is there: deleting the old Worker after a `site rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`saves import --yes` uploads it).
+- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, the site's first [access protection](/setup/access), `config` (it asks questions). `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
+- Two questions answer **no** when nobody is there: deleting the old Worker after a `rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`saves import --yes` uploads it).
 - [Exit codes](#exit-codes) tell a script what happened.
 - `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).
 
