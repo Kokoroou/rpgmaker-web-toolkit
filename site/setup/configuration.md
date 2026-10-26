@@ -1,24 +1,24 @@
 ---
-description: "Change a published game's settings with config edit by answering questions: features, on-screen buttons, cloud saves and files, stored in your Cloudflare account."
+description: "Change a published game's settings with the config command by answering questions: features, buttons, cloud saves and files, kept in your Cloudflare account."
 lang: en
 ---
 
 # Customize the game
 
-`config edit` shows a menu and asks questions: no JSON to write. Pick what to change (features players can use, on-screen buttons, cloud saves, files, cache), answer, then choose **Save and finish**. Each game's settings are kept as a small JSON file in your Cloudflare account.
+`config` shows a menu and asks questions: no JSON to write. Pick what to change (features players can use, on-screen buttons, cloud saves, files, cache), answer, then choose **Save and finish**. Each game's settings are kept as a small JSON file in your Cloudflare account.
 
 ::: code-group
 ```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
-& $rwk config edit "D:\Games\My Game"   # a menu: pick what to change, answer, save
+& $rwk config "D:\Games\My Game"   # a menu: pick what to change, answer, save
 ```
 ```sh [macOS / Linux]
 rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
-rwk config edit ~/Games/"My Game"   # a menu: pick what to change, answer, save
+rwk config ~/Games/"My Game"   # a menu: pick what to change, answer, save
 ```
 :::
 
-Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `config edit` names them and you publish again (`& $rwk deploy "D:\Games\My Game"`) to apply them. A game last published with a toolkit older than this needs one more publish first; `config edit` says so.
+Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `config` names them and you publish again (`& $rwk deploy "D:\Games\My Game"`) to apply them. A game last published with a toolkit older than this needs one more publish first; `config` says so.
 
 The menu's last entries are **Save and finish** and **Quit without saving**. For anything the questions do not cover (limits such as `speed` or `lock`, [settings for one player](#settings-for-one-player)), pick **Advanced: edit the JSON in a text editor**: Notepad opens (TextEdit on macOS, `$EDITOR` or nano on Linux; set `EDITOR`, for example `EDITOR="code --wait"`, to use another), and a JSON mistake reopens it. The tables below show the key behind each question. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 

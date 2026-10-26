@@ -28,8 +28,8 @@ const DONE = {
   deploy: "deployed",
   upgrade: "toolkit updated",
   "saves import": "saves uploaded",
-  "site rename": "renamed",
-  "config edit": "config saved",
+  "rename": "renamed",
+  "config": "config saved",
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.

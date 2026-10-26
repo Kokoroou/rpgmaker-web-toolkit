@@ -5,7 +5,7 @@ lang: en
 
 # Config keys
 
-Every key of a game's settings, as [`config edit`](/setup/configuration) shows them. Common changes have recipes on [Customize the game](/setup/configuration#common-changes).
+Every key of a game's settings, as [`config`](/setup/configuration) shows them. Common changes have recipes on [Customize the game](/setup/configuration#common-changes).
 
 | Key | Meaning | Editable |
 |---|---|---|

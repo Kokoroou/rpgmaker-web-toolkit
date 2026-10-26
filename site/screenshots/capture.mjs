@@ -27,7 +27,7 @@ fs.mkdirSync(out, { recursive: true });
 const PORTRAIT = { width: 390, height: 844 };
 const LANDSCAPE = { width: 844, height: 390 };
 
-// The game's settings, as config edit would show them after a first deploy
+// The game's settings, as config would show them after a first deploy
 // with cloud saves on. The keys are the ones the game's plugins read (1-5).
 const SETTINGS = {
   sync: { enabled: true },

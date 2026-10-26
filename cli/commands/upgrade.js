@@ -43,7 +43,7 @@ export async function upgrade(input) {
   }
 
   log.info(`What happens next (toolkit ${TOOLKIT_VERSION}):`);
-  log.info("  1. The Worker and the toolkit's in-game plugins are updated, with the settings stored in R2 (rwk config edit).");
+  log.info("  1. The Worker and the toolkit's in-game plugins are updated, with the settings stored in R2 (rwk config).");
   log.info("  2. The game files already uploaded stay as they are: nothing is downloaded or uploaded from this PC.");
   log.info("  3. Saves and older saves are not touched.");
   log.info(c.dim("  To change the game itself (a patch, a translation), run rwk deploy from the game folder."));

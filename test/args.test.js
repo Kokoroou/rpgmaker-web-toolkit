@@ -13,9 +13,9 @@ test("commands: one or two words, then the target", () => {
   assert.equal(deploy.spec.name, "deploy");
   assert.equal(deploy.target, "D:\\Games\\My Game", "an unquoted path with spaces is joined back");
   assert.equal(parse(["saves", "import", "g"]).spec.name, "saves import");
-  assert.equal(parse(["config", "edit", "my-game"]).target, "my-game");
-  const rename = parse(["site", "rename", "g", "--to", "new-name"]);
-  assert.deepEqual([rename.spec.name, rename.target, rename.flags.to], ["site rename", "g", "new-name"]);
+  assert.equal(parse(["config", "my-game"]).target, "my-game");
+  const rename = parse(["rename", "g", "--to", "new-name"]);
+  assert.deepEqual([rename.spec.name, rename.target, rename.flags.to], ["rename", "g", "new-name"]);
   assert.equal(parse(["deploy"]).target, undefined);
   assert.equal(parse([]).spec, null, "no command: the one-liner asks for the game");
 });
@@ -49,7 +49,7 @@ test("usage errors: exit code 64, with what to do instead", () => {
   fails(["saves"], /needs a subcommand/, /rwk saves import/);
   fails(["deploy", "g", "--bogus"], /Unknown option --bogus/, /rwk --help/);
   fails(["deploy", "g", "--to", "x"], /Unknown option --to/, /Usage: rwk deploy/);
-  fails(["site", "rename", "g", "--to"], /./, /--to/);
+  fails(["rename", "g", "--to"], /./, /--to/);
 });
 
 test("targets: a folder, a link or a site name", () => {

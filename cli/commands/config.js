@@ -1,4 +1,4 @@
-// rwk config edit: changes the game's settings (stored in R2) by questions and
+// rwk config: changes the game's settings (stored in R2) by questions and
 // answers, or in a text editor on request.
 // It works from the game folder, or from the deployed site's link or name
 // when the folder is not at hand: the settings do not need the game's files.
@@ -15,8 +15,8 @@ import { CliError, NeedsAnswer, ask, c, isUnattended, log } from "../lib/ui.js";
 import { addNewKeys, connect, editInEditor, siteOf } from "./deploy.js";
 
 export async function editConfig(input) {
-  const usage = 'rwk config edit <game folder | game link | site name>';
-  if (isUnattended()) throw new NeedsAnswer("config edit asks its questions in the terminal.", "Run it in a terminal.");
+  const usage = 'rwk config <game folder | game link | site name>';
+  if (isUnattended()) throw new NeedsAnswer("config asks its questions in the terminal.", "Run it in a terminal.");
   if (!input) {
     input = await ask("Drag and drop or paste the game folder path (or the game's link or site name)", "", null, {
       hint: `Pass it after the command: ${usage}`,

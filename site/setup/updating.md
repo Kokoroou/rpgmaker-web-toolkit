@@ -38,7 +38,7 @@ rwk upgrade "https://my-game.alice.workers.dev"
 
 (Or run the one-liner and paste the link when it asks for the game.)
 
-Log in to the **same Cloudflare account**. The toolkit finds the game from its link and updates the Worker and the in-game plugins (on-screen controls, save sync, the ⚙ menu…) to the new version. It uses the settings stored in your account, including what you changed with [`config edit`](/setup/configuration). Players get the new version on their next reload and keep their saves.
+Log in to the **same Cloudflare account**. The toolkit finds the game from its link and updates the Worker and the in-game plugins (on-screen controls, save sync, the ⚙ menu…) to the new version. It uses the settings stored in your account, including what you changed with [`config`](/setup/configuration). Players get the new version on their next reload and keep their saves.
 
 What stays as it was:
 
@@ -68,11 +68,11 @@ Cloud saves with the same name (`file1`…) are replaced. For a single save, use
 ## Change the site address
 
 ```powershell
-& $rwk site rename "D:\Games\My Game" --to new-name      # Windows
+& $rwk rename "D:\Games\My Game" --to new-name      # Windows
 ```
 
 ```sh
-rwk site rename ~/Games/"My Game" --to new-name           # macOS / Linux
+rwk rename ~/Games/"My Game" --to new-name           # macOS / Linux
 ```
 
 Without `--to`, it asks for the new site name. It then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.
