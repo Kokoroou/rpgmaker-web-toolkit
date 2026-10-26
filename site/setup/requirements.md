@@ -9,8 +9,8 @@ About 15 minutes the first time, mostly in the Cloudflare dashboard. After that,
 
 | You need | |
 |---|---|
-| A **Windows** PC with PowerShell | Only to publish. Players use any browser, on any device |
-| **Node.js 22+** | [nodejs.org](https://nodejs.org) (LTS), or `winget install OpenJS.NodeJS.LTS`, then reopen PowerShell |
+| A **Windows**, **macOS** or **Linux** computer | Only to publish. Windows uses PowerShell; macOS and Linux use Terminal (with `curl` and `tar`, already there on most systems). Players use any browser, on any device |
+| **Node.js 22+** | [nodejs.org](https://nodejs.org) (LTS), or `winget install OpenJS.NodeJS.LTS` (Windows) / `brew install node` (macOS), then reopen the terminal |
 | A free **Cloudflare** account | With a workers.dev subdomain and R2 turned on: [Set up Cloudflare](/setup/cloudflare) |
 | A **payment method** | Visa, Mastercard, PayPal… Cloudflare asks for one to turn on R2 and Access, even for free use: [what it costs](/setup/cloudflare#what-it-costs) |
 | The **game** folder | The one with `Game.exe` (or its `www/` subfolder) |

@@ -12,20 +12,47 @@ const RUNTIME_DIRS = new Set(["locales", "swiftshader", "save", "log", "logs", "
 
 export const DEFAULT_EXCLUDES = ["**/.*", "**/Thumbs.db", "**/desktop.ini", "**/*.zip", "**/*.rar", "**/*.7z", "**/*.psd", "**/*.bak", "**/*.log"];
 
+// Resolves path segments below `dir` ignoring letter case, so a game made on
+// Windows (Index.html, JS/, Data/System.json) is found on Linux and macOS
+// (case-sensitive disks). Returns the real name on disk, also on case-insensitive
+// disks where `existsSync` would accept any spelling, and the plain join when
+// nothing matches.
+export function resolveCI(dir, ...segments) {
+  let current = dir;
+  for (const seg of segments) {
+    let names = [];
+    try {
+      names = fs.readdirSync(current);
+    } catch {
+      // Not a folder: fall through to the plain join.
+    }
+    const found = names.includes(seg) ? seg : names.find((n) => n.toLowerCase() === seg.toLowerCase());
+    current = path.join(current, found || seg);
+  }
+  return current;
+}
+
+// The name a top-level web folder or file is published under: the engine
+// asks for lowercase paths, and the Workers assets are case-sensitive.
+export function webName(name) {
+  const lower = name.toLowerCase();
+  return WEB_DIRS.has(lower) || lower === "index.html" ? lower : name;
+}
+
 export function analyzeGame(inputPath) {
   const given = path.resolve(inputPath);
   if (!fs.existsSync(given)) throw new Error(`Folder not found: ${given}`);
   const root = [given, path.join(given, "www")].find(
-    (dir) => fs.existsSync(path.join(dir, "index.html")) && fs.existsSync(path.join(dir, "js"))
+    (dir) => fs.existsSync(resolveCI(dir, "index.html")) && fs.existsSync(resolveCI(dir, "js"))
   );
-  if (!root) throw new Error(`No index.html + js/ in ${given} (or ${given}\\www). Is this an RPG Maker MZ/MV game?`);
+  if (!root) throw new Error(`No index.html + js/ in ${given} (or ${path.join(given, "www")}). Is this an RPG Maker MZ/MV game?`);
 
   let engine;
-  if (fs.existsSync(path.join(root, "js", "rmmz_core.js"))) engine = "MZ";
-  else if (fs.existsSync(path.join(root, "js", "rpg_core.js"))) engine = "MV";
+  if (fs.existsSync(resolveCI(root, "js", "rmmz_core.js"))) engine = "MZ";
+  else if (fs.existsSync(resolveCI(root, "js", "rpg_core.js"))) engine = "MV";
   else throw new Error("Unknown engine (neither js/rmmz_core.js nor js/rpg_core.js found).");
 
-  const system = readJson(path.join(root, "data", "System.json"));
+  const system = readJson(resolveCI(root, "data", "System.json"));
   const title = system.gameTitle || path.basename(given);
   const gameId = system.advanced && system.advanced.gameId;
   const fingerprint = engine === "MZ" && gameId ? `mz:${gameId}` : `${engine.toLowerCase()}:${title}`;
@@ -56,7 +83,7 @@ function isWebDir(name) {
 
 function findSaveDir(folder, root, engine) {
   const ext = engine === "MZ" ? ".rmmzsave" : ".rpgsave";
-  for (const dir of [path.join(root, "save"), path.join(folder, "save")]) {
+  for (const dir of [resolveCI(root, "save"), resolveCI(folder, "save")]) {
     if (fs.existsSync(dir) && fs.readdirSync(dir).some((f) => f.endsWith(ext))) return dir;
   }
   return null;
@@ -90,10 +117,10 @@ export function collectFiles(game, { include = [], exclude = [] } = {}) {
   for (const entry of fs.readdirSync(game.root, { withFileTypes: true })) {
     const abs = path.join(game.root, entry.name);
     if (entry.isDirectory()) {
-      if (isWebDir(entry.name) || extraTop.has(entry.name)) walk(abs, entry.name);
-    } else if (entry.isFile() && (entry.name === "index.html" || extraTop.has(entry.name))) {
+      if (isWebDir(entry.name) || extraTop.has(entry.name)) walk(abs, webName(entry.name));
+    } else if (entry.isFile() && (entry.name.toLowerCase() === "index.html" || extraTop.has(entry.name))) {
       const st = fs.statSync(abs);
-      files.push({ rel: entry.name, abs, size: st.size, mtimeMs: Math.floor(st.mtimeMs) });
+      files.push({ rel: webName(entry.name), abs, size: st.size, mtimeMs: Math.floor(st.mtimeMs) });
     }
   }
   return files;

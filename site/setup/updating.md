@@ -23,10 +23,16 @@ Install [Node.js](/setup/requirements), run the same command and log in to the *
 
 Deleted the game from your PC? Paste the game's link instead of the folder:
 
-```powershell
+::: code-group
+```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
 & $rwk update-from-link "https://my-game.alice.workers.dev"
 ```
+```sh [macOS / Linux]
+rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
+rwk update-from-link "https://my-game.alice.workers.dev"
+```
+:::
 
 (Or run the one-liner and paste the link when it asks for the folder.)
 
@@ -42,10 +48,16 @@ The site must already be set up (Access, or public). This command calls the Clou
 
 ## Upload desktop saves again
 
-```powershell
+::: code-group
+```powershell [Windows (PowerShell)]
 $rwk = [scriptblock]::Create((irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1))
 & $rwk import-saves "D:\Games\My Game"
 ```
+```sh [macOS / Linux]
+rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- "$@"; }
+rwk import-saves ~/Games/"My Game"
+```
+:::
 
 ::: danger This overwrites cloud saves
 Cloud saves with the same name (`file1`…) are replaced. For a single save, use [Import](/play/save-files#import) in the game instead.
@@ -54,7 +66,11 @@ Cloud saves with the same name (`file1`…) are replaced. For a single save, use
 ## Change the site address
 
 ```powershell
-& $rwk rename "D:\Games\My Game"
+& $rwk rename "D:\Games\My Game"      # Windows
+```
+
+```sh
+rwk rename ~/Games/"My Game"           # macOS / Linux
 ```
 
 It asks for the new site name, then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.

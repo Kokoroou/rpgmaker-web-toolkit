@@ -13,10 +13,18 @@ Put an **RPG Maker MZ or MV** game online with one command, on **Cloudflare Work
 
 ## Quick start
 
-Windows with [Node.js](https://nodejs.org) 22+, and a free [Cloudflare account][cloudflare] (it asks for a payment method to turn on R2 and Access, even for free use). In PowerShell:
+Windows, macOS or Linux with [Node.js](https://nodejs.org) 22+, and a free [Cloudflare account][cloudflare] (it asks for a payment method to turn on R2 and Access, even for free use).
+
+In PowerShell (Windows):
 
 ```powershell
 irm https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.ps1 | iex
+```
+
+In a terminal on macOS or Linux (needs `curl` and `tar`):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash
 ```
 
 Drop the game folder in, answer a few questions, and get a link:

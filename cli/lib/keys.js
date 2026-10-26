@@ -2,7 +2,7 @@
 // press, to suggest on-screen buttons.
 
 import fs from "node:fs";
-import path from "node:path";
+import { resolveCI } from "./game.js";
 
 // Already reachable by touch in MZ/MV (tap, two-finger cancel, built-in buttons).
 const TOUCH_COVERED = new Set(["ok", "cancel", "up", "down", "left", "right", "menu", "debug", "control", "tab", "shift"]);
@@ -11,7 +11,7 @@ const TOUCH_COVERED = new Set(["ok", "cancel", "up", "down", "left", "right", "m
 export const GAMEPAD_KEYS = new Set(["ok", "cancel", "escape", "menu", "shift", "pageup", "pagedown"]);
 
 export function readPlugins(root) {
-  const file = path.join(root, "js", "plugins.js");
+  const file = resolveCI(root, "js", "plugins.js");
   const src = fs.readFileSync(file, "utf8");
   const start = src.indexOf("[");
   const end = src.lastIndexOf("]");
@@ -24,7 +24,7 @@ export function scanKeys(root) {
   const found = new Map();
   for (const plugin of readPlugins(root)) {
     if (!plugin.status) continue;
-    const file = path.join(root, "js", "plugins", `${plugin.name}.js`);
+    const file = resolveCI(root, "js", "plugins", `${plugin.name}.js`);
     if (!fs.existsSync(file)) continue;
     const code = stripComments(fs.readFileSync(file, "utf8"));
     const patterns = [
