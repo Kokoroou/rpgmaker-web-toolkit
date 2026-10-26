@@ -1,10 +1,12 @@
-// rwk config edit: opens the game's settings (stored in R2) in a text editor.
+// rwk config edit: changes the game's settings (stored in R2) by questions and
+// answers, or in a text editor on request.
 // It works from the game folder, or from the deployed site's link or name
 // when the folder is not at hand: the settings do not need the game's files.
 
 import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
 import { loadGameConfigs, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
+import { guidedEdit } from "../lib/config-wizard.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { readPolicy } from "../lib/policy.js";
 import { keysNeedingDeploy, liveSettingsOf } from "../lib/stage.js";
@@ -14,7 +16,7 @@ import { addNewKeys, connect, editInEditor, siteOf } from "./deploy.js";
 
 export async function editConfig(input) {
   const usage = 'rwk config edit <game folder | game link | site name>';
-  if (isUnattended()) throw new NeedsAnswer("config edit opens a text editor.", "Run it in a terminal.");
+  if (isUnattended()) throw new NeedsAnswer("config edit asks its questions in the terminal.", "Run it in a terminal.");
   if (!input) {
     input = await ask("Drag and drop or paste the game folder path (or the game's link or site name)", "", null, {
       hint: `Pass it after the command: ${usage}`,
@@ -52,7 +54,14 @@ export async function editConfig(input) {
   const policy = cfg.policy || null;
 
   const before = cfg;
-  cfg = editInEditor(cfg);
+  // Questions and answers; the JSON stays one menu entry away.
+  const edited = await guidedEdit(cfg, { editJson: (current) => editInEditor(current) });
+  if (!edited) {
+    log.info("Nothing saved.");
+    return { ...siteOf(cfg), next: [] };
+  }
+  // Identity fields are not editable, whichever way the config was changed.
+  cfg = { ...edited, slug: before.slug, fingerprint: before.fingerprint, storageId: before.storageId, retiredWorkers: before.retiredWorkers, policy: before.policy, liveSettings: before.liveSettings };
   configs[fingerprint] = cfg;
   await saveGameConfigs(bucket, configs);
   if (!cfg.liveSettings) {

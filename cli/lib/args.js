@@ -36,7 +36,7 @@ export const COMMANDS = [
   },
   {
     name: "config edit",
-    summary: "Edit the game's settings (buttons, features, exclude…) in a text editor",
+    summary: "Change the game's settings (buttons, features, files…) by answering questions",
     targets: ["folder", "link", "name"],
     examples: ['rwk config edit "D:\\Games\\My Game"', "rwk config edit my-game"],
   },
