@@ -26,26 +26,28 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | ⚙ → Game files on this device: what the cache holds, and a button to clear it (#1b) | next |
 | Basic cheats, off unless the deployer turns them on, per player too (#6, Ideas #5) | next |
 | Non-interactive CLI (`--yes`, or no terminal), exit code 2 when a question needs a person, `CLOUDFLARE_API_TOKEN` login (#10a) | next |
-| CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
+| Game CD (#10): `--json` result, `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY`, the `action.yml` GitHub Action, GitLab CI and generic shell examples in `site/setup/ci.md` | next |
+| Advanced cheats (#7, Ideas #8): switches and variables by id or name, walk through walls, teleport and remembered places | next |
+| Settings without a redeploy (#2b): feature settings are edited in R2 and read by the Worker (`worker/settings.js`) | next |
+| Larger touch targets and a pull-down settings sheet for phones | next |
+| `config` asks questions (a wizard in `cli/lib/config-wizard.js`) instead of opening a JSON file | next |
+| Fixes: the missing `print` import that failed every deploy at its end, and credentials sent when fetching the web manifest | next |
+| CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
 
 "next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. The three rows of Wave A touch different parts (CLI and CI files, a runtime plugin, the Worker), so they can again be built in parallel branches.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Wave A is the CLI from a link and from a folder, plus Access through the API; the three rows touch different files (link commands, the analysis step, Access setup), so they can be built in parallel branches, with a merge on `cli/lib/args.js` to expect between #16 and #17. #10, #7 and #2b of the previous Wave A shipped.
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
 | **Wave A: next up** ||||
-| 10 | [Game CD integration](#game-cd-integration-ci), on top of #10a: `--json` output, `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY`, a GitHub Action and a GitLab CI example | M | #10a shipped, so updates already run unattended; the first deploy still needs a person until #9. Check the API token permissions with a real CI run first |
-| 7 | Advanced cheats: switches / variables, noclip, teleport (Ideas #8) | M | Extends #6 (shipped): new sections of the same panel and new groups of the `cheats` key |
-| 2b | Edit the settings without a redeploy (config in R2, read by the Worker) | M | Every other part of #2 shipped; new features add their keys as they come |
+| 16 | [CLI: from the deployed site's link](#cli-commands-from-a-folder-and-from-a-link): `status`, `saves export`, `logs`, `rename` and `site delete` without the folder | M | Needs #16a (shipped): the target already accepts a link or a site name, and `config` works that way today |
+| 17 | [CLI: from the game folder, without Cloudflare](#cli-commands-from-a-folder-and-from-a-link): `analyze` / `deploy --dry-run`, `doctor`, the current folder as the default target | S | Same parser; the analysis already runs before the first Cloudflare call. `deploy --dry-run` is also the "build only" run the CI page still lacks for pull requests |
+| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; the last question a first deploy in CI cannot answer. Check the API token permissions of `site/setup/ci.md` with a real CI run at the same time |
 | **Wave B: offline** ||||
 | 5 | Download to play offline + PWA (Ideas #6), with the "Preload" of #1 | L | Needs #1 (shipped) |
-| **Wave C: running the toolkit anywhere** ||||
-| 16 | [CLI: from the deployed site's link](#cli-commands-from-a-folder-and-from-a-link): `status`, `saves export`, `logs`, `rename` and `site delete` without the folder | M | Needs #16a (shipped): the target already accepts a link or a site name, and `config` works that way today |
-| 17 | [CLI: from the game folder, without Cloudflare](#cli-commands-from-a-folder-and-from-a-link): `analyze` / `deploy --dry-run`, `doctor`, the current folder as the default target | S | Same parser; the analysis already runs before the first Cloudflare call |
-| 9 | Enable Cloudflare Access through the API | M | Removes a manual setup step; the last question a first deploy in CI cannot answer |
 | **Wave D: narrower audiences** ||||
 | 11 | Gamepad / keyboard remapping (Ideas #12) | M | |
 | 12 | Live translation + Vietnamese font (Ideas #7) | L | High value, but only for foreign-language games |
@@ -105,12 +107,12 @@ Plan:
 Goal: a game repository redeploys itself on every push (or tag), with no one at the keyboard.
 
 - **Non-interactive mode** (do this first): a `--yes` / `--non-interactive` flag, or automatic when stdin is not a TTY, so the CLI never prompts. Every choice a prompt makes today gets a flag or a `config` value, and a missing answer is an error with a clear message instead of a hang. Exit codes distinguish "bad input" from "deploy failed". Credentials come from `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; document the minimal token permissions. **Shipped (#10a)**: questions take their default or stop with exit code 2, and only unattended runs read the token. Not done: a flag per first-deploy question (the first deploy stays in a terminal until #9), and a check of the documented token permissions against a real account.
-- **Machine-readable output**: `--json` (final URL, build report, warnings) and `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` support, plus no ANSI colours when not a TTY (already the case in `cli/lib/ui.js`).
-- **Reusable GitHub Action** (`action.yml`, composite) that checks out the toolkit at a pinned ref, installs it, runs the CLI on the game folder and exposes the URL as an output. A copy-paste workflow example in `site/` (on push to `main`: deploy; on pull request: build only, then post the build report).
-- **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works.
+- **Machine-readable output**: `--json` (final URL, build report, warnings) and `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` support, plus no ANSI colours when not a TTY. **Shipped (#10)** in `cli/lib/report.js`.
+- **Reusable GitHub Action** (**shipped (#10)**: `action.yml`, composite) that checks out the toolkit at a pinned ref, installs it, runs the CLI on the game folder and exposes the URL as an output. A copy-paste workflow example in `site/` (on push to `main`: deploy; on pull request: build only, then post the build report).
+- **GitLab CI and generic shell** examples built on `run.sh`, so any CI with Node.js 22+ works. **Shipped (#10)** in `site/setup/ci.md`.
 - **Pull request previews** (later): deploy each PR to a preview URL such as `<game>-pr-<n>`, and clean it up when the PR closes. Needs decisions on the Worker's shared-assets model and Access policy.
 - **Safety**: never print tokens, skip deploy on forks, and keep the "game folder stays untouched" rule. The game's own assets are big, so document how to cache `node_modules` and the staged build between runs, and that the Workers free plan limits in `cli/limits.json` still apply.
-- Depends on: the build report (shipped), #8 (Linux runners), and the "build only" deploy target under [Later](#later).
+- Still open: pull request previews and the build-only run for pull requests (needs #17's `--dry-run` or the "build only" target under [Later](#later)), and a check of the token permissions against a real CI run.
 
 ### Search engine and AI discoverability (SEO / AIEO)
 
