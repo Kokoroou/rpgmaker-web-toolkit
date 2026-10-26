@@ -9,6 +9,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_SafeSaves       quick save / load and autosave in slots of their own, ☁ sync state, storage.persist()
              RWK_Speed           fast forward: the scene updates 2–4 times per frame
              RWK_Message         message modes: tap to finish, Auto, Skip (Window_Message)
+             RWK_Backlog         message backlog: last messages kept in memory, shown in a panel (Window_Message.startMessage)
              RWK_Dash            always dash switch (ConfigManager.alwaysDash)
              RWK_SaveTools       save export / import / delete (desktop save file format)
              RWK_SaveHistory     older saves from the cloud: list and restore

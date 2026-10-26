@@ -10,7 +10,7 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
+import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, saveHistoryConfig, syncPublicDir } from "../cli/lib/stage.js";
 import { splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
@@ -104,11 +104,12 @@ test("creator policy: parsing, strict fallback, feature locks", () => {
   assert.equal(parsePolicy({}).problems.length, 1);
 
   const cfg = { slug: "g", sync: { enabled: true }, saveTools: true };
-  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, quickSave: false, autoSave: false, sync: false } }));
+  const locked = applyPolicy(cfg, parsePolicy({ hosting: "personal", features: { saveTools: false, fastForward: false, messageMode: false, alwaysDash: false, backlog: false, quickSave: false, autoSave: false, sync: false } }));
   assert.equal(locked.saveTools, false);
   assert.equal(locked.fastForward, false);
   assert.equal(locked.messageMode, false);
   assert.equal(locked.alwaysDash, false);
+  assert.equal(locked.backlog, false);
   assert.equal(locked.quickSave, false);
   assert.equal(locked.autoSave, false);
   assert.equal(locked.sync.enabled, false);
@@ -249,6 +250,7 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   assert.ok(out.has("js/plugins/RWK_Speed.js"));
   assert.ok(out.has("js/plugins/RWK_Message.js"));
   assert.ok(out.has("js/plugins/RWK_Dash.js"));
+  assert.ok(out.has("js/plugins/RWK_Backlog.js"));
   assert.ok(out.has("js/plugins/RWK_SafeSaves.js"));
   assert.ok(out.has("js/plugins/RWK_SaveHistory.js"));
   const js = out.get("js/plugins.js");
@@ -276,6 +278,19 @@ test("web build: quick save and autosave settings", () => {
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: 10 } }).autoSave, { minutes: 10 });
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: 999 } }).autoSave, { minutes: 60 });
   assert.deepEqual(runtimeConfig({ autoSave: { minutes: "x" } }).autoSave, { minutes: 5 });
+});
+
+test("backlog settings reach the plugin", () => {
+  assert.deepEqual(backlogConfig(undefined), { max: 100 });
+  assert.deepEqual(backlogConfig(true), { max: 100 });
+  assert.equal(backlogConfig(false), false);
+  assert.deepEqual(backlogConfig(250), { max: 250 });
+  assert.deepEqual(backlogConfig({ max: 30 }), { max: 30 });
+  assert.deepEqual(backlogConfig({ max: 99999 }), { max: 500 });
+  assert.deepEqual(backlogConfig({ max: 2 }), { max: 100 });
+  assert.deepEqual(backlogConfig("x"), { max: 100 });
+  assert.deepEqual(runtimeConfigOf("MV", { slug: "g" }).backlog, { max: 100 });
+  assert.equal(runtimeConfigOf("MV", { slug: "g", backlog: false }).backlog, false);
 });
 
 test("save history settings reach the plugin and the Worker", () => {

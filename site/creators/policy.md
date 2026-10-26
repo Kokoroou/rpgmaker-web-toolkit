@@ -36,6 +36,7 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 | `itemBatch` | Using several items at once, from the item menu, in battle and when an event asks for an item |
 | `fastForward` | [Fast forward](/play/speed), e.g. for a game built around timing |
 | `messageMode` | [Message modes](/play/messages): Auto, Skip, and a tap ending pauses in the text |
+| `backlog` | The [messages log](/play/messages#messages-log) (the last messages, reread in a panel) |
 | `alwaysDash` | ⚙ → [Always dash](/play/dash). The game's own Options menu still has it unless the game removed it |
 | `quickSave` | [Quick save / load](/play/quick-save), e.g. for a game that disallows saving in some places on purpose |
 | `autoSave` | The toolkit's [autosave](/play/quick-save#autosave). The game's own autosave is not affected |

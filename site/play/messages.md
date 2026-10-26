@@ -11,3 +11,9 @@ Change the mode with ⚙ → **Messages** (each tap picks the next one). On a PC
 Auto and Skip never answer for you: Skip stops by itself at a choice, a number to enter or an item to pick, and Auto waits there until you choose. Auto and the Auto speed are remembered in this browser; Skip starts off each time.
 
 Ctrl does nothing when one of the game's plugins already uses it. Some sites have message modes turned off by the person who set up the game or by the game's creator.
+
+## Messages log
+
+Skipped something? ⚙ → **Messages log** (or <kbd>L</kbd> on a keyboard) lists the last 100 messages with the speaker's name, newest at the bottom. Scroll with a finger, the wheel or the arrow keys; <kbd>Esc</kbd>, <kbd>L</kbd> or **Close** goes back. The game is paused while the log is open, so Auto does not turn pages behind it.
+
+Colors, icons and other codes in the text are removed. The log lives in the browser's memory only: it starts over on a new game, when you load a save and when the page reloads. Choices and scrolling text are not recorded. <kbd>L</kbd> does nothing when one of the game's plugins already uses it. Some sites have the log turned off by the person who set up the game or by the game's creator.

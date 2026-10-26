@@ -21,6 +21,7 @@ Every key of a game's settings, as [`edit-config`](/setup/configuration) shows t
 | `itemBatch` | `false` turns off using several items at once (item menu, battle and events that ask for an item) | Same |
 | `fastForward` | `false` turns off [fast forward](/play/speed) | Same |
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip) | Same |
+| `backlog` | `false` removes ⚙ → [Messages log](/play/messages#messages-log); a number (10–500, default 100) sets how many messages it keeps | Same |
 | `alwaysDash` | `false` removes ⚙ → [Always dash](/play/dash) | Same |
 | `quickSave` | `false` turns off [quick save / load](/play/quick-save); `{ "ignoreSaveLock": false }` keeps it off where the game disallows saving | Same |
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |

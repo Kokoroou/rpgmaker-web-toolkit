@@ -11,7 +11,7 @@ import { mobileOnlyMissing, storageIdOf } from "./game.js";
 import { isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -92,6 +92,13 @@ function autoSaveConfig(value) {
   return { minutes: minutes >= 1 ? Math.min(60, minutes) : 5 };
 }
 
+// backlog: false | true | { max } | max -> false | { max: 10..500, default 100 }
+export function backlogConfig(value) {
+  if (value === false) return false;
+  const max = Math.round(Number(value && typeof value === "object" ? value.max : value));
+  return { max: max >= 10 ? Math.min(500, max) : 100 };
+}
+
 // saveHistory: false | true | { keep, days } -> false | { keep: 1..50, default 10; days: 1..365, default 30 }
 // The Worker enforces it (RWK_SAVE_HISTORY); the ⚙ menu only shows the entry.
 export function saveHistoryConfig(value) {
@@ -116,6 +123,7 @@ export function runtimeConfigOf(engine, gameConfig) {
     fastForward: gameConfig.fastForward !== false,
     messageMode: gameConfig.messageMode !== false,
     alwaysDash: gameConfig.alwaysDash !== false,
+    backlog: backlogConfig(gameConfig.backlog),
     quickSave: quickSaveConfig(gameConfig.quickSave),
     autoSave: autoSaveConfig(gameConfig.autoSave),
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
