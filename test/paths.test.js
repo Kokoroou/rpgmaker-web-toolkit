@@ -10,6 +10,14 @@ import { analyzeGame, collectFiles } from "../cli/lib/game.js";
 import { countByKind, pathWarnings, scanPaths } from "../cli/lib/paths.js";
 import { warnings } from "../cli/lib/ui.js";
 
+
+// Windows and macOS disks ignore letter case: two files that differ only by case cannot exist there.
+const caseSensitiveDisk = (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-case-"));
+  fs.writeFileSync(path.join(dir, "a"), "");
+  return !fs.existsSync(path.join(dir, "A"));
+})();
+
 // files: { "img/characters/Actor1.png": "x", "data/Actors.json": object | string }
 function makeGame(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-paths-"));
@@ -133,7 +141,7 @@ test("paths: path literals in plugin scripts are case-checked only", () => {
   assert.equal(find(result, "missing", "img/pictures/Nope.png"), undefined, "code may build or guard names: no missing report");
 });
 
-test("paths: ambiguous spelling has no automatic fix", () => {
+test("paths: ambiguous spelling has no automatic fix", { skip: !caseSensitiveDisk && "needs a case-sensitive disk" }, () => {
   const dir = makeGame({
     "img/characters/Hero.png": "x",
     "img/characters/hero.PNG": "x",

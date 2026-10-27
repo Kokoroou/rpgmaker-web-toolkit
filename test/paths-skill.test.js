@@ -7,6 +7,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+// Windows and macOS disks ignore letter case: two files that differ only by case cannot exist there.
+const caseSensitiveDisk = (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-case-"));
+  fs.writeFileSync(path.join(dir, "a"), "");
+  return !fs.existsSync(path.join(dir, "A"));
+})();
+
 const SCRIPTS = path.resolve(".claude/skills/rwk-paths/scripts");
 const run = (script, ...args) => spawnSync(process.execPath, [path.join(SCRIPTS, script), ...args], { encoding: "utf8" });
 
@@ -94,7 +101,7 @@ test("fix.js: thorough fixes everything, the scan is clean, and --undo restores 
   assert.deepEqual(restored, original);
 });
 
-test("fix.js: a reference to a name that is only a guess is never rewritten", () => {
+test("fix.js: a reference to a name that is only a guess is never rewritten", { skip: !caseSensitiveDisk && "needs a case-sensitive disk" }, () => {
   const dir = makeGame();
   fs.writeFileSync(path.join(dir, "img", "characters", "hero.png"), "x");
   fs.writeFileSync(path.join(dir, "img", "characters", "Hero.PNG"), "x");
