@@ -28,7 +28,7 @@
   const GOD_KEY = "rwk.cheats.god." + RWK.config.gameId;
   const THROUGH_KEY = "rwk.cheats.through." + RWK.config.gameId;
   const PLACES_KEY = "rwk.cheats.places." + RWK.config.gameId;
-  const MAX_RESULTS = 40;
+  const PAGE = 40;
   const MAX_PLACES = 8;
 
   //---------------------------------------------------------------------------
@@ -73,19 +73,40 @@
     return `+${($gameParty.gold() - before).toLocaleString()} ${TextManager.currencyUnit}`;
   }
 
-  // Items, weapons and armors with a name, matching the search.
-  function findItems(query) {
+  // Database text without the message codes (\C[2], \I[5]) and line breaks.
+  const plain = (text) => String(text || "").replace(/\\[A-Za-z]+\[\d+\]/g, "").replace(/\\./g, "").replace(/\s+/g, " ").trim();
+
+  // q: the search, lower case. 0: the number or the name matches (or no search),
+  // 1: only the description does, -1: no match.
+  function rank(q, id, name, text = "") {
+    if (!q || String(id) === q.replace(/^0+/, "") || name.toLowerCase().includes(q)) return 0;
+    return text && plain(text).toLowerCase().includes(q) ? 1 : -1;
+  }
+
+  // Every match, name and number first, then the description: the panel shows
+  // them a page at a time.
+  function matches(entries, query, text) {
     const q = query.trim().toLowerCase();
-    const out = [];
-    for (const list of [$dataItems, $dataWeapons, $dataArmors]) {
+    const first = [];
+    const then = [];
+    for (const entry of entries) {
+      const r = rank(q, entry.id, plain(entry.name), text ? text(entry) : "");
+      if (r === 0) first.push(entry);
+      else if (r === 1) then.push(entry);
+    }
+    return first.concat(then);
+  }
+
+  // kind: "all", "item", "key" (key items), "weapon" or "armor".
+  function findItems(query, kind = "all") {
+    const entries = [];
+    for (const [k, list] of [["item", $dataItems], ["weapon", $dataWeapons], ["armor", $dataArmors]]) {
       for (const item of list || []) {
-        if (!item || !item.name || !item.name.trim()) continue;
-        if (q && !item.name.toLowerCase().includes(q)) continue;
-        out.push(item);
-        if (out.length >= MAX_RESULTS) return out;
+        if (!item || !plain(item.name)) continue;
+        if (kind === "all" || kind === (k === "item" && item.itypeId === 2 ? "key" : k)) entries.push(item);
       }
     }
-    return out;
+    return matches(entries, query, (item) => item.description);
   }
 
   function addItem(item, count) {
@@ -93,6 +114,39 @@
     if (room <= 0) return `${item.name}: you already hold the most the game allows`;
     $gameParty.gainItem(item, Math.min(count, room));
     return `${item.name} ×${$gameParty.numItems(item)}`;
+  }
+
+  // States with a name, matching the search (name or number).
+  function findStates(query) {
+    return matches(($dataStates || []).filter((state) => state && plain(state.name)), query);
+  }
+
+  // Puts a state on a party member or takes it off, whatever its resistances.
+  function setState(actor, stateId, on) {
+    const state = $dataStates[stateId];
+    if (on && stateId === actor.deathStateId() && god) return `God mode is on: ${actor.name()} cannot be knocked out`;
+    if (on && !actor.isStateAffected(stateId)) {
+      actor.addNewState(stateId);
+      actor.resetStateCounts(stateId);
+      actor.refresh();
+    } else if (!on) {
+      actor.removeState(stateId);
+    }
+    return `${actor.name()}: ${plain(state.name)} ${on ? "on" : "off"}`;
+  }
+
+  // Skills with a name, matching the search (name, number or description).
+  function findSkills(query) {
+    return matches(($dataSkills || []).filter((skill) => skill && plain(skill.name)), query, (skill) => skill.description);
+  }
+
+  // Teaches a skill to a party member or makes them forget it. Skills that
+  // come from the class or equipment are not learned ones and stay.
+  function setSkill(actor, skillId, on) {
+    const name = plain($dataSkills[skillId].name);
+    if (on) actor.learnSkill(skillId);
+    else actor.forgetSkill(skillId);
+    return `${actor.name()}: ${name} ${on ? "learned" : "forgotten"}`;
   }
 
   const inBattle = () => $gameParty.inBattle() && BattleManager._phase && BattleManager._phase !== "battleEnd";
@@ -110,16 +164,10 @@
   // Switches and variables, by id or by the name given in the editor.
   // names: $dataSystem.switches / .variables (index 0 is unused).
   function findNamed(names, query) {
-    const q = query.trim().toLowerCase();
-    const out = [];
-    for (let id = 1; id < (names || []).length; id++) {
-      const name = String(names[id] || "").trim();
-      const byId = q !== "" && String(id) === q.replace(/^0+/, "");
-      if (!byId && (!name || (q && !name.toLowerCase().includes(q)))) continue;
-      out.push({ id, name });
-      if (out.length >= MAX_RESULTS) break;
-    }
-    return out;
+    const entries = [];
+    for (let id = 1; id < (names || []).length; id++) entries.push({ id, name: String(names[id] || "").trim() });
+    const q = query.trim();
+    return matches(entries, query).filter((entry) => entry.name || q);
   }
   const findSwitches = (query) => findNamed($dataSystem.switches, query);
   const findVariables = (query) => findNamed($dataSystem.variables, query);
@@ -159,15 +207,10 @@
   };
 
   function findMaps(query) {
-    const q = query.trim().toLowerCase();
-    const out = [];
-    for (const info of $dataMapInfos || []) {
-      if (!info || !info.name) continue;
-      if (q && String(info.id) !== q && !info.name.toLowerCase().includes(q)) continue;
-      out.push({ id: info.id, name: info.name });
-      if (out.length >= MAX_RESULTS) break;
-    }
-    return out;
+    return matches(
+      ($dataMapInfos || []).filter((info) => info && info.name).map((info) => ({ id: info.id, name: info.name })),
+      query
+    );
   }
 
   // -> why the player cannot be moved now, or null
@@ -228,6 +271,7 @@
 
   let overlay = null;
   let restoreUpdate = null;
+  const chosen = {}; // the tab last picked in each row of tabs, kept while the game runs
 
   function injectStyle() {
     if (document.getElementById("rwk-cheats-style")) return;
@@ -236,21 +280,27 @@
     style.textContent = `
 .rwk-cheats{max-width:520px;display:flex;flex-direction:column;max-height:min(90vh,760px)}
 .rwk-cheats-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;margin:0 0 14px}
-.rwk-cheats h3{margin:14px 0 6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.6}
 .rwk-cheats-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .rwk-cheats button,.rwk-cheats input{font:inherit;min-height:40px;padding:6px 12px;border-radius:8px;border:1px solid #555;
   background:#2c2c33;color:#eee}
 .rwk-cheats button{cursor:pointer}
 .rwk-cheats button[aria-pressed="true"]{background:#3b6fd8;border-color:#3b6fd8;color:#fff}
+.rwk-cheats-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.rwk-cheats-tabs button{min-height:36px;padding:4px 12px;background:none;border-color:#444}
+.rwk-cheats-tabs button[aria-selected="true"]{background:#3b6fd8;border-color:#3b6fd8;color:#fff}
+.rwk-cheats-tabs.sub{margin:10px 0 0}
+.rwk-cheats-tabs.sub button{min-height:32px;padding:2px 10px;font-size:13px;border-radius:16px}
 .rwk-cheats input{flex:1;min-width:0;box-sizing:border-box;height:40px;background:#141418}
 .rwk-cheats input[type=number]{flex:0 1 9em}
 .rwk-cheats-items{display:flex;flex-direction:column;margin-top:6px;border-top:1px solid #333}
 .rwk-cheats-item{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #333}
 .rwk-cheats-item span{flex:1;min-width:0;overflow-wrap:anywhere}
 .rwk-cheats-item small{opacity:.65}
+.rwk-cheats-item small.desc{display:block}
 .rwk-cheats-item button,.rwk-cheats-item input{min-height:36px;padding:4px 10px}
 .rwk-cheats-item input[type=number]{flex:0 0 7em;height:36px}
 .rwk-cheats-note{margin:6px 0 0;font-size:13px;opacity:.7}
+.rwk-cheats-more{margin-top:8px;width:100%}
 `;
     document.head.appendChild(style);
   }
@@ -267,6 +317,63 @@
     return b;
   };
   const run = (fn) => () => RWK.toast(fn(), "info", 1800);
+  const note = (text) => el("p", { className: "rwk-cheats-note", textContent: text });
+
+  // Tabs over sections that build themselves when picked. defs: [{ label, build }],
+  // build() -> the nodes. One tab alone shows no bar. key: where the pick is kept.
+  function tabs(key, defs, sub = false) {
+    const panel = el("div");
+    if (defs.length === 1) {
+      panel.append(...defs[0].build());
+      return panel;
+    }
+    const bar = el("div", { className: "rwk-cheats-tabs" + (sub ? " sub" : "") });
+    bar.setAttribute("role", "tablist");
+    const buttons = defs.map((def, i) => {
+      const b = button(def.label, () => pick(i));
+      b.setAttribute("role", "tab");
+      return b;
+    });
+    const pick = (i) => {
+      chosen[key] = i;
+      buttons.forEach((b, j) => b.setAttribute("aria-selected", String(j === i)));
+      panel.textContent = "";
+      panel.append(...defs[i].build());
+    };
+    bar.append(...buttons);
+    const wrap = el("div", {}, [bar, panel]);
+    pick(chosen[key] < defs.length ? chosen[key] || 0 : 0);
+    return wrap;
+  }
+
+  // A search box over a list of every match, PAGE at a time.
+  // find(query) -> the entries; row(entry) -> a node.
+  function searchList(placeholder, find, row) {
+    const search = el("input", { type: "search", placeholder });
+    search.setAttribute("aria-label", placeholder);
+    const list = el("div", { className: "rwk-cheats-items" });
+    const count = note("");
+    let found = [];
+    let shown = 0;
+    const more = button("", () => showPage());
+    more.className = "rwk-cheats-more";
+    const showPage = () => {
+      for (const entry of found.slice(shown, shown + PAGE)) list.append(row(entry));
+      shown = Math.min(found.length, shown + PAGE);
+      count.textContent = found.length ? `${shown} of ${found.length}` : "Nothing found.";
+      more.hidden = shown >= found.length;
+      more.textContent = `Show ${Math.min(PAGE, found.length - shown)} more`;
+    };
+    const fill = () => {
+      list.textContent = "";
+      found = find(search.value);
+      shown = 0;
+      showPage();
+    };
+    search.addEventListener("input", fill);
+    fill();
+    return [el("div", { className: "rwk-cheats-row", style: "margin-top:8px" }, [search]), count, list, more];
+  }
 
   function partySection() {
     const godBtn = button("", () => {
@@ -278,48 +385,96 @@
       godBtn.setAttribute("aria-pressed", String(god));
     };
     draw();
-    return [
-      el("h3", { textContent: "Party" }),
+
+    const basics = () => [
       el("div", { className: "rwk-cheats-row" }, [button("Heal everyone", run(healAll)), godBtn, button("Level +1", run(levelUp))]),
-      el("p", { className: "rwk-cheats-note", textContent: "God mode: HP never goes down and no one is knocked out." }),
+      note("God mode: HP never goes down and no one is knocked out."),
     ];
+
+    // A party member to pick, then a searchable list of what to put on them.
+    let member = 0;
+    const perMember = (placeholder, find, isOn, set) => () => {
+      const members = $gameParty.members();
+      if (!members.length) return [note("No one in the party.")];
+      const holder = el("div");
+      const draw = () => {
+        holder.textContent = "";
+        const actor = members[Math.min(member, members.length - 1)];
+        const who = el("div", { className: "rwk-cheats-row" });
+        members.forEach((m, i) => {
+          const b = button(m.name(), () => {
+            member = i;
+            draw();
+          });
+          b.setAttribute("aria-pressed", String(m === actor));
+          who.append(b);
+        });
+        holder.append(
+          who,
+          ...searchList(placeholder, find, (entry) => {
+            const toggle = button("", () => {
+              RWK.toast(set(actor, entry.id, !isOn(actor, entry.id)), "info", 1500);
+              drawToggle();
+            });
+            const drawToggle = () => {
+              const on = isOn(actor, entry.id);
+              toggle.textContent = on ? "ON" : "OFF";
+              toggle.setAttribute("aria-pressed", String(on));
+            };
+            drawToggle();
+            toggle.setAttribute("aria-label", plain(entry.name));
+            const desc = plain(entry.description);
+            const name = el("span", { textContent: plain(entry.name) + " " }, [el("small", { textContent: `#${entry.id}` }), ...(desc ? [el("small", { className: "desc", textContent: desc })] : [])]);
+            return el("div", { className: "rwk-cheats-item" }, [name, toggle]);
+          })
+        );
+      };
+      draw();
+      return [holder];
+    };
+    const states = perMember("Search states by name or number", findStates, (a, id) => a.isStateAffected(id), setState);
+    const skills = perMember("Search skills by name, number or description", findSkills, (a, id) => a.isLearnedSkill(id), setSkill);
+
+    return [tabs("party", [{ label: "Party", build: basics }, { label: "States", build: states }, { label: "Skills", build: skills }], true)];
   }
+
+  const ITEM_KINDS = [
+    ["all", "All"],
+    ["item", "Items"],
+    ["key", "Key items"],
+    ["weapon", "Weapons"],
+    ["armor", "Armor"],
+  ];
 
   function itemsSection() {
     const gold = el("input", { type: "number", min: "1", value: "1000", inputMode: "numeric" });
     gold.setAttribute("aria-label", "Gold to add");
     const goldBtn = button("Add " + TextManager.currencyUnit, () => {
       const amount = Math.round(Number(gold.value));
-      if (amount > 0) RWK.toast(addGold(amount), "info", 1800);
+      if (amount > 0) RWK.toast(addGold(amount), "info", 1500);
     });
 
-    const search = el("input", { type: "search", placeholder: "Search items, weapons, armor" });
-    search.setAttribute("aria-label", "Search items");
-    const results = el("div", { className: "rwk-cheats-items" });
-    const fill = () => {
-      results.textContent = "";
-      const found = findItems(search.value);
-      if (!found.length) results.append(el("p", { className: "rwk-cheats-note", textContent: "Nothing found." }));
-      for (const item of found) {
-        const held = el("small");
-        const name = el("span", { textContent: item.name + " " }, [held]);
-        const update = () => (held.textContent = `×${$gameParty.numItems(item)}`);
-        update();
-        const add = (n) =>
-          button("+" + n, () => {
-            RWK.toast(addItem(item, n), "info", 1500);
-            update();
-          });
-        results.append(el("div", { className: "rwk-cheats-item" }, [name, add(1), add(10)]));
-      }
-    };
-    search.addEventListener("input", fill);
-    fill();
+    const items = (kind) => () =>
+      searchList(
+        kind === "all" ? "Search by name, number or description" : "Search this list by name, number or description",
+        (query) => findItems(query, kind),
+        (item) => {
+          const held = el("small");
+          const desc = plain(item.description);
+          const name = el("span", { textContent: plain(item.name) + " " }, [held, ...(desc ? [el("small", { className: "desc", textContent: desc })] : [])]);
+          const update = () => (held.textContent = `×${$gameParty.numItems(item)}`);
+          update();
+          const add = (n) =>
+            button("+" + n, () => {
+              RWK.toast(addItem(item, n), "info", 1500);
+              update();
+            });
+          return el("div", { className: "rwk-cheats-item" }, [name, add(1), add(10)]);
+        }
+      );
     return [
-      el("h3", { textContent: "Gold and items" }),
       el("div", { className: "rwk-cheats-row" }, [gold, goldBtn]),
-      el("div", { className: "rwk-cheats-row", style: "margin-top:8px" }, [search]),
-      results,
+      tabs("items", ITEM_KINDS.map(([kind, name]) => ({ label: name, build: items(kind) })), true),
     ];
   }
 
@@ -330,31 +485,14 @@
     });
     win.disabled = !inBattle();
     return [
-      el("h3", { textContent: "Battle" }),
       el("div", { className: "rwk-cheats-row" }, [win]),
-      el("p", { className: "rwk-cheats-note", textContent: inBattle() ? "Ends as a normal victory: EXP, gold and drops." : "Only during a battle." }),
+      note(inBattle() ? "Ends as a normal victory: EXP, gold and drops." : "Only during a battle."),
     ];
   }
 
-  // A search box over a list that fills itself again on each keystroke.
-  // render(query, list): adds the rows to list.
-  function searchList(placeholder, render) {
-    const search = el("input", { type: "search", placeholder });
-    search.setAttribute("aria-label", placeholder);
-    const list = el("div", { className: "rwk-cheats-items" });
-    const fill = () => {
-      list.textContent = "";
-      render(search.value, list);
-      if (!list.childNodes.length) list.append(el("p", { className: "rwk-cheats-note", textContent: "Nothing found." }));
-    };
-    search.addEventListener("input", fill);
-    fill();
-    return [el("div", { className: "rwk-cheats-row", style: "margin-top:8px" }, [search]), list];
-  }
-
   function switchesSection() {
-    const switches = searchList("Search switches by name or number", (query, list) => {
-      for (const entry of findSwitches(query)) {
+    const switches = () =>
+      searchList("Search switches by name or number", findSwitches, (entry) => {
         const toggle = button("", () => {
           toggleSwitch(entry.id);
           draw();
@@ -366,18 +504,16 @@
         };
         draw();
         toggle.setAttribute("aria-label", label(entry));
-        list.append(el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: label(entry) }), toggle]));
-      }
-    });
-    const variables = searchList("Search variables by name or number", (query, list) => {
-      for (const entry of findVariables(query)) {
+        return el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: label(entry) }), toggle]);
+      });
+    const variables = () =>
+      searchList("Search variables by name or number", findVariables, (entry) => {
         const current = $gameVariables.value(entry.id);
         const name = el("span", { textContent: label(entry) });
         // Only numbers can be typed in; a plugin may keep text or a list in a variable.
         if (typeof current !== "number") {
           const shown = JSON.stringify(current);
-          list.append(el("div", { className: "rwk-cheats-item" }, [name, el("small", { textContent: shown && shown.length > 24 ? shown.slice(0, 24) + "…" : shown })]));
-          continue;
+          return el("div", { className: "rwk-cheats-item" }, [name, el("small", { textContent: shown && shown.length > 24 ? shown.slice(0, 24) + "…" : shown })]);
         }
         const input = el("input", { type: "number", value: String(current), inputMode: "numeric" });
         input.setAttribute("aria-label", label(entry));
@@ -385,28 +521,15 @@
           if (setVariable(entry.id, input.value)) RWK.toast(`${label(entry)} = ${$gameVariables.value(entry.id)}`, "info", 1500);
           input.value = String($gameVariables.value(entry.id));
         });
-        list.append(el("div", { className: "rwk-cheats-item" }, [name, input]));
-      }
-    });
+        return el("div", { className: "rwk-cheats-item" }, [name, input]);
+      });
     return [
-      el("h3", { textContent: "Switches and variables" }),
-      el("p", { className: "rwk-cheats-note", textContent: "Events read these to decide what happens: a wrong value can block the story. Save first." }),
-      ...switches,
-      ...variables,
+      note("Events read these to decide what happens: a wrong value can block the story. Save first."),
+      tabs("switches", [{ label: "Switches", build: switches }, { label: "Variables", build: variables }], true),
     ];
   }
 
   function movementSection() {
-    const throughBtn = button("", () => {
-      setThrough(!through);
-      draw();
-    });
-    const draw = () => {
-      throughBtn.textContent = through ? "Walk through walls: on" : "Walk through walls: off";
-      throughBtn.setAttribute("aria-pressed", String(through));
-    };
-    draw();
-
     const blocked = teleportBlocked();
     const go = (mapId, x, y) => {
       const b = button("Go", async () => {
@@ -420,37 +543,49 @@
       return b;
     };
 
-    const placesList = el("div", { className: "rwk-cheats-items" });
-    const fillPlaces = () => {
-      placesList.textContent = "";
-      places().forEach((p, i) => {
-        const forget = button("Forget", () => {
-          forgetPlace(i);
-          fillPlaces();
-        });
-        placesList.append(el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: `${mapName(p.mapId)} (${p.x}, ${p.y})` }), go(p.mapId, p.x, p.y), forget]));
+    const walls = () => {
+      const throughBtn = button("", () => {
+        setThrough(!through);
+        draw();
       });
-    };
-    fillPlaces();
-    const remember = button("Remember this place", () => {
-      RWK.toast(rememberPlace(), "info", 1500);
+      const draw = () => {
+        throughBtn.textContent = through ? "Walk through walls: on" : "Walk through walls: off";
+        throughBtn.setAttribute("aria-pressed", String(through));
+      };
+      draw();
+
+      const placesList = el("div", { className: "rwk-cheats-items" });
+      const fillPlaces = () => {
+        placesList.textContent = "";
+        places().forEach((p, i) => {
+          const forget = button("Forget", () => {
+            forgetPlace(i);
+            fillPlaces();
+          });
+          placesList.append(el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: `${mapName(p.mapId)} (${p.x}, ${p.y})` }), go(p.mapId, p.x, p.y), forget]));
+        });
+      };
       fillPlaces();
-    });
-    remember.disabled = !(SceneManager._scene instanceof Scene_Map);
+      const remember = button("Remember this place", () => {
+        RWK.toast(rememberPlace(), "info", 1500);
+        fillPlaces();
+      });
+      remember.disabled = !(SceneManager._scene instanceof Scene_Map);
+      return [
+        el("div", { className: "rwk-cheats-row" }, [throughBtn, remember]),
+        note(blocked ? `Teleport: ${blocked}` : "Teleport: to a remembered place, or to the middle of a map (walk through walls if you land in one)."),
+        placesList,
+      ];
+    };
 
-    const maps = searchList("Search maps by name or number", (query, list) => {
-      for (const map of findMaps(query)) {
-        list.append(el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: `${map.name} ` }, [el("small", { textContent: `#${map.id}` })]), go(map.id, null, null)]));
-      }
-    });
-
-    return [
-      el("h3", { textContent: "Movement" }),
-      el("div", { className: "rwk-cheats-row" }, [throughBtn, remember]),
-      el("p", { className: "rwk-cheats-note", textContent: blocked ? `Teleport: ${blocked}` : "Teleport: to a remembered place, or to the middle of a map (walk through walls if you land in one)." }),
-      placesList,
-      ...maps,
+    const maps = () => [
+      note(blocked ? `Teleport: ${blocked}` : "Teleport to the middle of a map."),
+      ...searchList("Search maps by name or number", findMaps, (map) =>
+        el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: `${map.name} ` }, [el("small", { textContent: `#${map.id}` })]), go(map.id, null, null)])
+      ),
     ];
+
+    return [tabs("movement", [{ label: "Walls and places", build: walls }, { label: "Maps", build: maps }], true)];
   }
 
   function isReady() {
@@ -465,13 +600,14 @@
     const box = el("div", { className: "rwk-modal-box rwk-cheats" });
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-label", "Cheats");
-    const body = el("div", { className: "rwk-cheats-body" }, [
-      ...(groups.party ? partySection() : []),
-      ...(groups.items ? itemsSection() : []),
-      ...(groups.battle ? battleSection() : []),
-      ...(groups.switches ? switchesSection() : []),
-      ...(groups.movement ? movementSection() : []),
-    ]);
+    const sections = [
+      groups.party && { label: "Party", build: partySection },
+      groups.items && { label: "Gold and items", build: itemsSection },
+      groups.battle && { label: "Battle", build: battleSection },
+      groups.switches && { label: "Switches and variables", build: switchesSection },
+      groups.movement && { label: "Movement", build: movementSection },
+    ].filter(Boolean);
+    const body = el("div", { className: "rwk-cheats-body" }, [tabs("section", sections)]);
     const actions = el("div", { className: "rwk-modal-actions" }, [button("Close", close)]);
     box.append(el("h2", { textContent: "Cheats" }), body, actions);
     overlay.appendChild(box);
@@ -545,6 +681,10 @@
     addGold,
     addItem,
     findItems,
+    findStates,
+    setState,
+    findSkills,
+    setSkill,
     winBattle,
     setGod,
     isGod: () => god,
