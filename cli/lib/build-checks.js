@@ -2,6 +2,7 @@
 
 import path from "node:path";
 import { mobileOnlyMissing } from "./game.js";
+import { countByKind, pathWarnings, scanPaths } from "./paths.js";
 import { describeHosting } from "./policy.js";
 import { c, log } from "./ui.js";
 
@@ -15,6 +16,14 @@ export function warnMobileMedia(files) {
   const missing = mobileOnlyMissing(files);
   if (missing.audio) log.warn(`${missing.audio} audio file(s) have no .m4a version: phones whose browser cannot play Ogg (older iPhones) will have no sound for them.`);
   if (missing.movies) log.warn(`${missing.movies} movie(s) have no .mp4 version: phones whose browser cannot play WebM (older iPhones) will not show them.`);
+}
+
+// Warns about file names and references that work on Windows but not on the web (letter
+// case, upper-case extensions…). Returns { checked, ...count per kind } for the JSON result.
+export function warnPathProblems(files) {
+  const { checked, issues } = scanPaths(files);
+  for (const warning of pathWarnings(issues)) log.warn(warning);
+  return { checked, ...countByKind(issues) };
 }
 
 export function tooManyFiles(assets, count, max) {

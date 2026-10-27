@@ -90,6 +90,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 `analyze` (or `deploy --dry-run`) runs the same checks a deploy starts with, and stops there:
 
 - It reads the game folder and the creator's [hosting policy](/creators/policy), lists the warnings (MV phone audio and video, non-ASCII file names, feature settings) and counts the files against the [free plan limits](/reference/limits).
+- It checks the file paths (see [below](#file-paths-that-work-on-windows-only)): the names in the game against the references to them.
 - It never logs in to Cloudflare, never uses R2 and builds no staging folder: the game folder and the account stay as they are.
 - It uses the first-deploy defaults. A game already published with `exclude` patterns or other settings kept in R2 may therefore count more files than its real deploy.
 - It fails (exit code `1`) when the build is over the file limit or the creator does not allow publishing, so a CI job can use it as a check.
@@ -102,6 +103,19 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 ```
 
 With `--json` the result has `"dryRun": true`, the `build` report and `game: { title, engine }`, and no `site` or `url`.
+
+### File paths that work on Windows only
+
+Windows ignores letter case; the web host and the browser do not. A game can run on Windows with `"actor1"` in `Actors.json` for `img/characters/Actor1.png` and show nothing online. `analyze` and `deploy` warn about, one line per kind:
+
+- **Letter case or Unicode form**: a reference in `data/*.json`, the plugin list (`js/plugins.js`), `index.html`, a CSS file or a path written in a plugin differs from the file's name only by case (or accents saved in another Unicode form).
+- **Upper-case extension** (`Actor1.PNG`) and **engine folders** spelled differently (`img/Faces`, `audio/BGM`): the engine asks for lower case.
+- **Files that differ only by case**, and names with `#`, `?`, `\` or `%XX`, which break a web address.
+- **References to files that are not in the game**: often unused, so only a warning.
+
+With `--json` the result has `paths: { checked, case, unicode, missing, ext, folder, collision, unsafe }`. A name assembled by a plugin at run time cannot be checked.
+
+To fix them, open the toolkit folder in [Claude Code](https://claude.com/claude-code) and ask it to fix the game's file paths: the `rwk-paths` skills (`.claude/skills/`) scan at three depths (`quick`, `standard`, `deep`) and fix at three levels (`safe` rewrites references, `standard` also renames extensions and engine folders and rewrites path literals in plugins, `thorough` also renames unsafe names). Every run prints a plan first, backs up what it edits in `.rwk-paths-backup/` of the game, scans again and restores everything if the result is worse.
 
 ## What it prints
 
