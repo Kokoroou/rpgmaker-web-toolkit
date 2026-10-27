@@ -50,6 +50,7 @@ export default defineConfig({
           { text: "Update the game", link: "/setup/updating" },
           { text: "Publish from CI", link: "/setup/ci" },
           { text: "Customize the game", link: "/setup/configuration" },
+          { text: "Translations", link: "/setup/languages" },
           { text: "On-screen buttons", link: "/setup/controls" },
           { text: "Troubleshooting", link: "/setup/troubleshooting" },
         ],
@@ -69,6 +70,7 @@ export default defineConfig({
           { text: "Use several items at once", link: "/play/items" },
           { text: "Cheats", link: "/play/cheats" },
           { text: "Play offline", link: "/play/offline" },
+          { text: "Language", link: "/play/language" },
         ],
       },
       {

@@ -63,12 +63,13 @@ export function patchConfig(pluginsJs, patch) {
 }
 
 // What only the deployed build knows: whether MV's phone audio / movies are
-// missing (from the game files), and, for builds made before the toolkit kept
+// missing and which translations the game has (both from the game files), and, for builds made before the toolkit kept
 // the creator's policy, the features it turned off.
 export function mergeConfig(next, deployed, keepOff) {
   const out = { ...next };
   if (!deployed) return out;
   if (deployed.media && !out.media) out.media = deployed.media;
+  if (deployed.languages && !out.languages) out.languages = deployed.languages;
   if (keepOff) {
     for (const key of FEATURES) if (deployed[key] === false) out[key] = false;
     if (deployed.sync && deployed.sync.enabled === false) out.sync = { ...out.sync, enabled: false };

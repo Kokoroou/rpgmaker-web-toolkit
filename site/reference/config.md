@@ -37,6 +37,7 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `cheats` | Off unless set. `true` turns on ⚙ → [Cheats](/play/cheats); `{ "party": true, "items": true, "battle": false }` keeps only some sections (party: heal, god mode, level; items: gold and items; battle: win now; switches: switches and variables; movement: walk through walls, teleport). Best given to [one player](/setup/configuration#settings-for-one-player) | Same |
 | `offline` | `false` removes ⚙ → [Play offline](/play/offline) (downloading the whole game to the device). Needs `cache`, so `cache: false` turns it off too | Same |
 | `cache` | `false` stops the browser keeping the game's pictures, sounds and data between launches (files over 25 MiB are kept only when a player downloads the game for [offline play](/play/offline)) | Yes |
+| `languages` | Translations in `data-<code>/` folders ([Translations](/setup/languages)). `false` ignores them; `{ "default": "vi", "original": "ja", "lock": true }` sets the language players start in, names the original's language in ⚙ → [Language](/play/language), and keeps everyone on `default` | Yes, with a new publish |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
 ::: warning Changing `auth`

@@ -41,6 +41,7 @@ These pictures are drawn by `site/diagrams/build.mjs` (run `node site/diagrams/b
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
              RWK_Core            config, device id, toasts, dialogs, ⚙ menu, web build label
+             RWK_Language        ⚙ → Language: points data/ requests (XMLHttpRequest) at data-<code>/ files, file by file
              RWK_SaveSync        save sync (MZ: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SafeSaves       quick save / load and autosave in slots of their own, ☁ sync state, storage.persist()

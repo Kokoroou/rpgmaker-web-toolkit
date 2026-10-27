@@ -46,6 +46,7 @@ The menu's last entries are **Save and finish** and **Quit without saving**. For
 | Turn on [cheats](/play/cheats), or only gold and items | `"cheats": true`, `"cheats": { "party": false, "battle": false, "switches": false, "movement": false }` |
 | Cheats for you only | `"players": { "me@example.com": { "cheats": true } }` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
+| Start players in a translation (`data-vi/`), or only offer the original | `"languages": { "default": "vi" }`, `"languages": false` ([Translations](/setup/languages)) |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |
 | Keep files that are excluded by default | `"include": ["img/**/*.psd"]` |
