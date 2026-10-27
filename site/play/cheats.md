@@ -1,5 +1,5 @@
 ---
-description: "Cheats for an RPG Maker web game: god mode, states, skills, gold and items, win a battle, switches and variables, walk through walls, teleport. Off unless turned on."
+description: "Cheats for an RPG Maker web game: god mode, states, skills, gold and items, win a battle, switches and variables, teleport. Off unless turned on."
 lang: en
 ---
 
