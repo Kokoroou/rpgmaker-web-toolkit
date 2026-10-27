@@ -197,6 +197,17 @@ function cheatGlobals() {
     changeLevel(level) {
       this.level = level;
     }
+    isStateAffected(id) {
+      return this.states.includes(id);
+    }
+    addNewState(id) {
+      this.states.push(id);
+    }
+    resetStateCounts() {}
+    refresh() {}
+    removeState(id) {
+      this.states = this.states.filter((s) => s !== id);
+    }
   }
   const actors = [new Game_Actor("Eve", 40, 5), new Game_Actor("Max", 10, 99)];
   const held = new Map();
@@ -211,9 +222,16 @@ function cheatGlobals() {
     potion,
     enemies,
     TextManager: { currencyUnit: "G" },
-    $dataItems: [null, potion, { id: 2, name: "" }, { id: 3, name: "Hi-Potion" }],
+    $dataItems: [
+      null,
+      potion,
+      { id: 2, name: "" },
+      { id: 3, name: "Hi-Potion", description: "Restores \\C[2]500\\C[0] HP." },
+      { id: 4, name: "Old key", itypeId: 2, description: "Opens the cellar." },
+    ],
     $dataWeapons: [null, { id: 1, name: "Sword" }],
     $dataArmors: [],
+    $dataStates: [null, { id: 1, name: "Knocked out" }, { id: 2, name: "" }, { id: 3, name: "Poison" }],
     $gameParty: {
       _gold: 0,
       members: () => actors,
@@ -309,7 +327,7 @@ test("cheats: god mode, heal, level, gold, items, win a battle", () => {
   assert.equal(cheats.addGold(1000), "+1,000 G");
 
   assert.deepEqual([...cheats.findItems("potion").map((i) => i.name)], ["Potion", "Hi-Potion"]);
-  assert.deepEqual([...cheats.findItems("").map((i) => i.name)], ["Potion", "Hi-Potion", "Sword"], "items without a name are left out");
+  assert.deepEqual([...cheats.findItems("").map((i) => i.name)], ["Potion", "Hi-Potion", "Old key", "Sword"], "items without a name are left out");
   assert.equal(cheats.addItem(globals.potion, 10), "Potion ×10");
   assert.equal(cheats.addItem(globals.potion, 200), "Potion ×99", "capped at what the game allows");
   assert.match(cheats.addItem(globals.potion, 1), /already hold the most/);
@@ -317,6 +335,46 @@ test("cheats: god mode, heal, level, gold, items, win a battle", () => {
   cheats.winBattle();
   assert.deepEqual([...globals.enemies[0].states], [1]);
   assert.ok(globals.enemies[0].collapsed);
+});
+
+test("cheats: items found by number, description or list", () => {
+  const cheats = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals: cheatGlobals() }).context.window.RWK.cheats;
+  const names = (list) => [...list.map((i) => i.name)];
+  assert.deepEqual(names(cheats.findItems("", "item")), ["Potion", "Hi-Potion"]);
+  assert.deepEqual(names(cheats.findItems("", "key")), ["Old key"]);
+  assert.deepEqual(names(cheats.findItems("", "weapon")), ["Sword"]);
+  assert.deepEqual(names(cheats.findItems("", "armor")), []);
+  assert.deepEqual(names(cheats.findItems("500")), ["Hi-Potion"], "the description, without its message codes");
+  assert.deepEqual(names(cheats.findItems("cellar")), ["Old key"], "no need to know the name");
+  assert.deepEqual(names(cheats.findItems("3")), ["Hi-Potion"], "the number");
+  assert.deepEqual(names(cheats.findItems("hp", "weapon")), [], "inside one list only");
+  assert.deepEqual(names(cheats.findItems("potion")), ["Potion", "Hi-Potion"]);
+});
+
+test("cheats: more matches than a page are all found", () => {
+  const globals = cheatGlobals();
+  globals.$dataItems = [null, ...Array.from({ length: 120 }, (_, i) => ({ id: i + 1, name: "Herb " + (i + 1) }))];
+  globals.$dataSystem.variables = ["", ...Array.from({ length: 300 }, (_, i) => "Var " + (i + 1))];
+  const cheats = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals }).context.window.RWK.cheats;
+  assert.equal(cheats.findItems("herb").length, 120);
+  assert.equal(cheats.findVariables("").length, 300);
+});
+
+test("cheats: states on a party member", () => {
+  const globals = cheatGlobals();
+  const cheats = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals }).context.window.RWK.cheats;
+  const [eve] = globals.actors;
+  assert.deepEqual([...cheats.findStates("").map((s) => s.name)], ["Knocked out", "Poison"], "states without a name are left out");
+  assert.deepEqual([...cheats.findStates("3").map((s) => s.name)], ["Poison"]);
+  assert.equal(cheats.setState(eve, 3, true), "Eve: Poison on");
+  assert.equal(eve.isStateAffected(3), true);
+  assert.equal(cheats.setState(eve, 3, true), "Eve: Poison on");
+  assert.deepEqual([...eve.states], [3], "once");
+  assert.equal(cheats.setState(eve, 3, false), "Eve: Poison off");
+  assert.equal(eve.isStateAffected(3), false);
+  cheats.setGod(true);
+  assert.match(cheats.setState(eve, 1, true), /God mode is on/);
+  assert.equal(eve.isStateAffected(1), false);
 });
 
 test("cheats: god mode is per game and only with the party group", () => {
