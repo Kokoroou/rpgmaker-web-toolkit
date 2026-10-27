@@ -35,7 +35,8 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |
 | `saveHistory` | `false` keeps no [older saves](/play/saves#bring-back-an-older-save); `{ "keep": 5, "days": 14 }` changes how many copies each save keeps (1–50, default 10) and for how long (1–365 days, default 30). Enforced by the Worker | Yes |
 | `cheats` | Off unless set. `true` turns on ⚙ → [Cheats](/play/cheats); `{ "party": true, "items": true, "battle": false }` keeps only some sections (party: heal, god mode, level; items: gold and items; battle: win now; switches: switches and variables; movement: walk through walls, teleport). Best given to [one player](/setup/configuration#settings-for-one-player) | Same |
-| `cache` | `false` stops the browser keeping the game's pictures, sounds and data between launches (files over 25 MiB are never kept) | Yes |
+| `offline` | `false` removes ⚙ → [Play offline](/play/offline) (downloading the whole game to the device). Needs `cache`, so `cache: false` turns it off too | Same |
+| `cache` | `false` stops the browser keeping the game's pictures, sounds and data between launches (files over 25 MiB are kept only when a player downloads the game for [offline play](/play/offline)) | Yes |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
 
 ::: warning Changing `auth`

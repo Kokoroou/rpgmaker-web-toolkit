@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 664" role="img" aria-labelledby="t d">
 <title id="t">What a deployed game is made of</title>
-<desc id="d">Four layers from top to bottom. The player's device runs the game with the RWK plugins, a Service Worker with Cache Storage, and local saves. Requests pass Cloudflare Access, which checks the login. One Worker routes them: it verifies the login, serves settings and the toolkit's plugins, and runs the save API. The Worker reads Static Assets for game files under 25 MiB and one R2 bucket for large files, saves, save history, settings and the list of players.</desc>
+<desc id="d">Four layers from top to bottom. The player's device runs the game with the RWK plugins, a Service Worker with Cache Storage (filled as the player plays, or all at once by Play offline), and local saves. Requests pass Cloudflare Access, which checks the login. One Worker routes them: it verifies the login, serves settings and the toolkit's plugins, and runs the save API. The Worker reads Static Assets for game files under 25 MiB and one R2 bucket for large files, saves, save history, settings and the list of players.</desc>
 <defs>
 <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#8a8a92"/></marker>
 </defs>
@@ -12,9 +12,9 @@ text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Aria
 <rect width="440" height="664" fill="#1b1b1f"/>
 <rect x="8" y="8" width="424" height="214" rx="10" fill="#232327" stroke="#4a4a50" stroke-width="1.2"/><text class="z" x="20" y="27">Player's device (browser)</text>
 <rect x="22" y="36" width="192" height="70" rx="7" fill="#2b2e47" stroke="#a8b1ff" stroke-width="1.2"/><text class="b m" x="118" y="59">Game + RWK plugins</text><text class="s m" x="118" y="75">RWK_Core, SaveSync,</text><text class="s m" x="118" y="91">SafeSaves, MobileControls…</text>
-<rect x="226" y="36" width="192" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="322" y="59">Service Worker</text><text class="s m" x="322" y="75">rwk-sw.js: answers file</text><text class="s m" x="322" y="91">requests from the cache</text>
+<rect x="226" y="36" width="192" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="322" y="59">Service Worker</text><text class="s m" x="322" y="75">rwk-sw.js: answers from</text><text class="s m" x="322" y="91">the cache, also offline</text>
 <rect x="22" y="130" width="192" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="118" y="153">Local saves</text><text class="s m" x="118" y="169">MZ: localforage</text><text class="s m" x="118" y="185">MV: localStorage</text>
-<rect x="226" y="130" width="192" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="322" y="153">Cache Storage</text><text class="s m" x="322" y="169">pictures, sounds, data,</text><text class="s m" x="322" y="185">scripts (each &lt; 25 MiB)</text>
+<rect x="226" y="130" width="192" height="70" rx="7" fill="#2a2a2f" stroke="#8a8a92" stroke-width="1.2"/><text class="b m" x="322" y="153">Cache Storage</text><text class="s m" x="322" y="169">pictures, sounds, data,</text><text class="s m" x="322" y="185">scripts, the page itself</text>
 <path d="M118 106 L118 130" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)" marker-start="url(#ah)"/>
 <path d="M214 71 L226 71" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)"/>
 <path d="M322 106 L322 130" fill="none" stroke="#8a8a92" stroke-width="1.4" marker-end="url(#ah)" marker-start="url(#ah)"/>

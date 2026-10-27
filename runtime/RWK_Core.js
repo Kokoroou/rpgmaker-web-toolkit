@@ -416,6 +416,7 @@
       '<path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9h.01M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/>'
     ),
     timer: svg('<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>'),
+    download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'),
     database: svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>'),
     footprints: svg(
       '<path d="M4 16v-2.38C4 11.5 3 10.5 3 8c0-2.72 1.5-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0z"/>' +
@@ -436,7 +437,7 @@
   let menu = null; // the open menu's overlay
 
   // Menu sections, in this order. Tools with no known group go last, under "More".
-  const GROUPS = { play: "Play", save: "Saves", cheat: "Cheats", controls: "Controls", display: "Display", help: "Help" };
+  const GROUPS = { play: "Play", save: "Saves", cheat: "Cheats", controls: "Controls", display: "Display", offline: "Offline", help: "Help" };
   const value = (v) => (typeof v === "function" ? v() : v);
 
   function cornerEntry() {

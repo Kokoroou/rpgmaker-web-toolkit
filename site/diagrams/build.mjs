@@ -72,13 +72,13 @@ const architecture = {
   name: "architecture",
   w: 440, h: 664,
   title: "What a deployed game is made of",
-  desc: "Four layers from top to bottom. The player's device runs the game with the RWK plugins, a Service Worker with Cache Storage, and local saves. Requests pass Cloudflare Access, which checks the login. One Worker routes them: it verifies the login, serves settings and the toolkit's plugins, and runs the save API. The Worker reads Static Assets for game files under 25 MiB and one R2 bucket for large files, saves, save history, settings and the list of players.",
+  desc: "Four layers from top to bottom. The player's device runs the game with the RWK plugins, a Service Worker with Cache Storage (filled as the player plays, or all at once by Play offline), and local saves. Requests pass Cloudflare Access, which checks the login. One Worker routes them: it verifies the login, serves settings and the toolkit's plugins, and runs the save API. The Worker reads Static Assets for game files under 25 MiB and one R2 bucket for large files, saves, save history, settings and the list of players.",
   body: (t) => [
     zone(t, 8, 8, 424, 214, "Player's device (browser)"),
     box(t, 22, 36, 192, 70, "Game + RWK plugins", ["RWK_Core, SaveSync,", "SafeSaves, MobileControls…"], { accent: true }),
-    box(t, 226, 36, 192, 70, "Service Worker", ["rwk-sw.js: answers file", "requests from the cache"]),
+    box(t, 226, 36, 192, 70, "Service Worker", ["rwk-sw.js: answers from", "the cache, also offline"]),
     box(t, 22, 130, 192, 70, "Local saves", ["MZ: localforage", "MV: localStorage"]),
-    box(t, 226, 130, 192, 70, "Cache Storage", ["pictures, sounds, data,", "scripts (each < 25 MiB)"]),
+    box(t, 226, 130, 192, 70, "Cache Storage", ["pictures, sounds, data,", "scripts, the page itself"]),
     arrow(t, [[118, 106], [118, 130]], { both: true }),
     arrow(t, [[214, 71], [226, 71]]),
     arrow(t, [[322, 106], [322, 130]], { both: true }),
@@ -155,7 +155,7 @@ function sequence() {
     { from: "b", to: "w", text: "js/plugins.js" },
     { from: "w", to: "r", text: "settings (cached 30 s)" },
     { from: "w", to: "b", text: "plugins.js with this player's settings", dash: true },
-    { note: "Service Worker starts keeping files in the cache" },
+    { note: "Service Worker keeps files; Play offline fetches the rest" },
     { phase: "Save sync" },
     { from: "b", to: "w", text: "GET /api/saves" },
     { from: "w", to: "r", text: "list this player's saves" },
@@ -174,7 +174,7 @@ function sequence() {
     name: "sequence",
     w: 440, h,
     title: "First load and save sync",
-    desc: "Two phases between the browser, Cloudflare Access, the Worker and R2. First load: the browser opens the site, Access shows a login page and sets a signed cookie, then the browser fetches the page and game files through Access from the Worker, which serves large files from R2. The Worker reads js/plugins.js and adds the settings it reads from R2 for this player, and the Service Worker starts keeping files in the cache. Save sync: the browser lists saves, and the Worker reads R2 and returns names and ETags so the plugin keeps the newer copy or asks when both changed. Each save uploads about a second later with If-Match; the Worker copies the old save to history, writes the new one, and answers with a new ETag or a 412 conflict.",
+    desc: "Two phases between the browser, Cloudflare Access, the Worker and R2. First load: the browser opens the site, Access shows a login page and sets a signed cookie, then the browser fetches the page and game files through Access from the Worker, which serves large files from R2. The Worker reads js/plugins.js and adds the settings it reads from R2 for this player, and the Service Worker starts keeping files in the cache; if the player picks Play offline, the page then downloads the files still missing, in small batches, straight into that cache. Save sync: the browser lists saves, and the Worker reads R2 and returns names and ETags so the plugin keeps the newer copy or asks when both changed. Each save uploads about a second later with If-Match; the Worker copies the old save to history, writes the new one, and answers with a new ETag or a 412 conflict.",
     body: (t) => {
       let s = "";
       for (const [k, n] of names) {
