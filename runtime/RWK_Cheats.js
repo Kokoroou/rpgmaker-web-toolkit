@@ -135,6 +135,20 @@
     return `${actor.name()}: ${plain(state.name)} ${on ? "on" : "off"}`;
   }
 
+  // Skills with a name, matching the search (name, number or description).
+  function findSkills(query) {
+    return matches(($dataSkills || []).filter((skill) => skill && plain(skill.name)), query, (skill) => skill.description);
+  }
+
+  // Teaches a skill to a party member or makes them forget it. Skills that
+  // come from the class or equipment are not learned ones and stay.
+  function setSkill(actor, skillId, on) {
+    const name = plain($dataSkills[skillId].name);
+    if (on) actor.learnSkill(skillId);
+    else actor.forgetSkill(skillId);
+    return `${actor.name()}: ${name} ${on ? "learned" : "forgotten"}`;
+  }
+
   const inBattle = () => $gameParty.inBattle() && BattleManager._phase && BattleManager._phase !== "battleEnd";
 
   // The battle ends as a normal victory on the next frame: EXP, gold, drops.
@@ -377,9 +391,9 @@
       note("God mode: HP never goes down and no one is knocked out."),
     ];
 
-    // The member the states below are put on.
+    // A party member to pick, then a searchable list of what to put on them.
     let member = 0;
-    const states = () => {
+    const perMember = (placeholder, find, isOn, set) => () => {
       const members = $gameParty.members();
       if (!members.length) return [note("No one in the party.")];
       const holder = el("div");
@@ -397,27 +411,31 @@
         });
         holder.append(
           who,
-          ...searchList("Search states by name or number", findStates, (state) => {
+          ...searchList(placeholder, find, (entry) => {
             const toggle = button("", () => {
-              RWK.toast(setState(actor, state.id, !actor.isStateAffected(state.id)), "info", 1500);
+              RWK.toast(set(actor, entry.id, !isOn(actor, entry.id)), "info", 1500);
               drawToggle();
             });
             const drawToggle = () => {
-              const on = actor.isStateAffected(state.id);
+              const on = isOn(actor, entry.id);
               toggle.textContent = on ? "ON" : "OFF";
               toggle.setAttribute("aria-pressed", String(on));
             };
             drawToggle();
-            toggle.setAttribute("aria-label", plain(state.name));
-            return el("div", { className: "rwk-cheats-item" }, [el("span", { textContent: plain(state.name) + " " }, [el("small", { textContent: `#${state.id}` })]), toggle]);
+            toggle.setAttribute("aria-label", plain(entry.name));
+            const desc = plain(entry.description);
+            const name = el("span", { textContent: plain(entry.name) + " " }, [el("small", { textContent: `#${entry.id}` }), ...(desc ? [el("small", { className: "desc", textContent: desc })] : [])]);
+            return el("div", { className: "rwk-cheats-item" }, [name, toggle]);
           })
         );
       };
       draw();
       return [holder];
     };
+    const states = perMember("Search states by name or number", findStates, (a, id) => a.isStateAffected(id), setState);
+    const skills = perMember("Search skills by name, number or description", findSkills, (a, id) => a.isLearnedSkill(id), setSkill);
 
-    return [tabs("party", [{ label: "Party", build: basics }, { label: "States", build: states }], true)];
+    return [tabs("party", [{ label: "Party", build: basics }, { label: "States", build: states }, { label: "Skills", build: skills }], true)];
   }
 
   const ITEM_KINDS = [
@@ -665,6 +683,8 @@
     findItems,
     findStates,
     setState,
+    findSkills,
+    setSkill,
     winBattle,
     setGod,
     isGod: () => god,

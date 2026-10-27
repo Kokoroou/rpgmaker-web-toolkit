@@ -203,6 +203,15 @@ function cheatGlobals() {
     addNewState(id) {
       this.states.push(id);
     }
+    learnSkill(id) {
+      this.skills = [...(this.skills || []), id];
+    }
+    forgetSkill(id) {
+      this.skills = (this.skills || []).filter((s) => s !== id);
+    }
+    isLearnedSkill(id) {
+      return (this.skills || []).includes(id);
+    }
     resetStateCounts() {}
     refresh() {}
     removeState(id) {
@@ -231,6 +240,7 @@ function cheatGlobals() {
     ],
     $dataWeapons: [null, { id: 1, name: "Sword" }],
     $dataArmors: [],
+    $dataSkills: [null, { id: 1, name: "Attack" }, { id: 2, name: "" }, { id: 3, name: "Fire", description: "Burns one foe." }],
     $dataStates: [null, { id: 1, name: "Knocked out" }, { id: 2, name: "" }, { id: 3, name: "Poison" }],
     $gameParty: {
       _gold: 0,
@@ -375,6 +385,18 @@ test("cheats: states on a party member", () => {
   cheats.setGod(true);
   assert.match(cheats.setState(eve, 1, true), /God mode is on/);
   assert.equal(eve.isStateAffected(1), false);
+});
+
+test("cheats: skills learned or forgotten by a party member", () => {
+  const globals = cheatGlobals();
+  const cheats = load("RWK_Cheats", { cheats: ALL_CHEATS }, { globals }).context.window.RWK.cheats;
+  const [eve] = globals.actors;
+  assert.deepEqual([...cheats.findSkills("").map((s) => s.name)], ["Attack", "Fire"], "skills without a name are left out");
+  assert.deepEqual([...cheats.findSkills("burns").map((s) => s.name)], ["Fire"], "the description");
+  assert.equal(cheats.setSkill(eve, 3, true), "Eve: Fire learned");
+  assert.equal(eve.isLearnedSkill(3), true);
+  assert.equal(cheats.setSkill(eve, 3, false), "Eve: Fire forgotten");
+  assert.equal(eve.isLearnedSkill(3), false);
 });
 
 test("cheats: god mode is per game and only with the party group", () => {
