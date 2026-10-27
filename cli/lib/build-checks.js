@@ -2,6 +2,7 @@
 
 import path from "node:path";
 import { mobileOnlyMissing } from "./game.js";
+import { checkLanguagesConfig, detectLanguages } from "./languages.js";
 import { countByKind, pathWarnings, scanPaths } from "./paths.js";
 import { describeHosting } from "./policy.js";
 import { c, log } from "./ui.js";
@@ -24,6 +25,18 @@ export function warnPathProblems(files) {
   const { checked, issues } = scanPaths(files);
   for (const warning of pathWarnings(issues)) log.warn(warning);
   return { checked, ...countByKind(issues) };
+}
+
+// Lists the translations (data-<code>/) the web build will offer and warns about
+// a "languages" setting that matches none. -> [{ code, dir, files, missing }]
+export function warnLanguages(files, setting) {
+  const languages = detectLanguages(files);
+  for (const problem of checkLanguagesConfig(setting, languages)) log.warn(problem);
+  if (languages.length && setting !== false) {
+    const list = languages.map((l) => `${l.code} (${l.dir}${l.missing ? `, ${l.missing} file(s) fall back to data/` : ""})`);
+    log.info(`Translations players can pick: ${list.join(", ")}`);
+  }
+  return languages.map(({ code, dir, files: names, missing }) => ({ code, dir, files: names.length, missing }));
 }
 
 export function tooManyFiles(assets, count, max) {

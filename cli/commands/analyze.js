@@ -9,7 +9,7 @@ import { applyPolicy, readPolicy } from "../lib/policy.js";
 import { generatedFiles } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
 import { ask, c, formatBytes, log } from "../lib/ui.js";
-import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
+import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 
 export async function analyze(inputPath, { command = "analyze" } = {}) {
   const usage = command === "deploy" ? 'rwk deploy --dry-run "<game folder>"' : 'rwk analyze "<game folder>"';
@@ -45,6 +45,7 @@ export async function analyze(inputPath, { command = "analyze" } = {}) {
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
   log.ok(`${assetCount} of ${maxFiles} files the free plan allows`);
   if (game.engine === "MV") warnMobileMedia(files);
+  const languages = warnLanguages(files, cfg.languages);
   const oddNames = nonAsciiPaths(files);
   if (oddNames.length) {
     const shown = oddNames.slice(0, 3).join(", ") + (oddNames.length > 3 ? ", …" : "");
@@ -59,6 +60,7 @@ export async function analyze(inputPath, { command = "analyze" } = {}) {
     dryRun: true,
     game: { title: game.title, engine: game.engine },
     paths,
+    languages,
     build: { files: files.length, bytes: totalBytes, r2Files: overflow.length, r2Uploaded: 0 },
     facts: [["Game", `${game.engine} · ${game.title}`]],
     next: [`Nothing was published. To publish: rwk deploy "${inputPath}"`],

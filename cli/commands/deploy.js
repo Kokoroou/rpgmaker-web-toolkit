@@ -27,7 +27,7 @@ import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, baseConfig, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
-import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
+import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { connect, siteOf } from "../lib/session.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
@@ -116,6 +116,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} go to R2)`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
   if (game.engine === "MV") warnMobileMedia(files);
+  warnLanguages(files, cfg.languages);
   const oddNames = nonAsciiPaths(files);
   if (oddNames.length) {
     const shown = oddNames.slice(0, 3).join(", ") + (oddNames.length > 3 ? ", …" : "");

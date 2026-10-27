@@ -10,10 +10,11 @@ import { TOOLKIT_ROOT } from "./config.js";
 import { mobileOnlyMissing, resolveCI, storageIdOf } from "./game.js";
 import { userHash } from "./cloudflare.js";
 import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
+import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -227,7 +228,7 @@ export function playerOverrides(engine, cfg, policy) {
 }
 
 // What the build itself is made of: a settings change cannot touch these.
-const BUILD_KEYS = ["version", "gameId", "engine", "cache", "media"];
+const BUILD_KEYS = ["version", "gameId", "engine", "cache", "media", "languages"];
 // Config keys the Worker applies from R2 without a redeploy (liveSettingsOf).
 export const LIVE_KEYS = [...FEATURE_KEYS, "preset", "players", "controls", "sync"];
 
@@ -251,7 +252,7 @@ export function keysNeedingDeploy(before, after) {
 
 // Folders whose files the Service Worker keeps, and the biggest file it keeps
 // (iOS limits what a site may store).
-const CACHED_DIRS = /^(img|audio|effects|data|fonts|movies|js|css|icon)\//;
+const CACHED_DIRS = /^(img|audio|effects|data(?:[-_][^/]+)?|fonts|movies|js|css|icon)\//; // data-vi/… too: translations
 export const CACHE_MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 // rwk-sw.js with the list of cacheable files; a file's version changes
@@ -295,6 +296,10 @@ export function generatedFiles(game, gameConfig, files = []) {
     const missing = mobileOnlyMissing(files);
     runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
   }
+
+  // Translations (data-<code>/): which files each has, for RWK_Language.
+  const languages = languagesRuntime(gameConfig.languages, files);
+  if (languages) runtimeConfig.languages = languages;
 
   for (const [name, source] of Object.entries(runtimeSources())) out.set(`js/plugins/${name}.js`, source);
 
