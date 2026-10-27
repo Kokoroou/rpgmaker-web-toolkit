@@ -54,4 +54,5 @@ Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cl
 | `Offline: using this device's saves` | Keep playing; saves upload once back online |
 | Saves gone after clearing browser data | With sync on, reload: they come back. Without it they are lost, so [export](/play/save-files#export) important ones |
 | A key or button does nothing after changing it | ⚙ → [Keys and buttons](/play/keys) → **Reset to defaults**. An action shown as *No key* lost its key to another action |
+| A picture, sound or plugin is missing online but fine on Windows | Windows ignores letter case, the web does not (`"actor1"` for `Actor1.png`, `Actor1.PNG`, a folder `img/Faces`). `rwk analyze` lists them under **Checking file paths**. [Fix them](/reference/commands#file-paths-that-work-on-windows-only) with the `rwk-paths` skills in Claude Code |
 | Black screen or an error | Does the desktop version show it too? If not, it comes from the web copy: [report it here](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues) with the engine and the error, **not to the game's creator** |
