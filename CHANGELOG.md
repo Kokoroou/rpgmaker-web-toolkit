@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.4.0...v0.5.0) (2026-10-27)
+
+
+### Features
+
+* **cli:** add analyze, deploy --dry-run and doctor, and use the current folder as the default game ([#81](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/81)) ([1ccec5d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1ccec5dceca9d6b5b91c8f93889e5f06da6cd093))
+* **cli:** add status, saves export, logs, open, list and delete from a link or site name ([#77](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/77)) ([7bb3671](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/7bb3671ccd5aa1cab66a800faff6c5a13357752f))
+* **cli:** clear answered menus in rwk config ([#76](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/76)) ([e8330f6](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e8330f6f3e6143fb50e6f027bf648657577385ae))
+* **cli:** enable Cloudflare Access through the API on deploy ([#78](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/78)) ([1956437](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/19564373ed1414237b14a5068601f7b79c0acdf1))
+* **cli:** warn about file paths that work on Windows but not on the web ([#84](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/84)) ([83ea506](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/83ea5068db77db4563d5bcf6bb1863ba31659acf))
+* **controls:** hide L/R buttons by default and lower default opacity ([#74](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/74)) ([ba7b56f](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/ba7b56f2a4625d5c1077182a62e08fa62cd8d291))
+* **controls:** remap keyboard keys and gamepad buttons ([#82](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/82)) ([8b38126](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8b38126c82a3445256cb7c6b707c4c0df715aaee))
+* **runtime:** add play offline with a full download and install as an app ([#83](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/83)) ([f174f1e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f174f1e3b1c4949d17e0634e8e60ba36b1fc56b5))
+* **runtime:** pick a translation from data-xx folders ([#85](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/85)) ([777c4ac](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/777c4ac40335a2acac4025930f75cb59f55008a1))
+* **runtime:** split the cheats panel into tabs with search and browse ([#86](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/86)) ([9ce10bf](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/9ce10bf3e9f5c0167c2395f732480146b62f0cb2))
+
 ## [0.4.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.3.0...v0.4.0) (2026-10-26)
 
 
