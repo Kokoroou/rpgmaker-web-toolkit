@@ -1,5 +1,6 @@
 // rwk config: changes the game's settings (stored in R2) by questions and
-// answers, or in a text editor on request.
+// answers, or in a text editor on request; --get / --set read or change one
+// setting without questions, for scripts.
 // It works from the game folder, or from the deployed site's link or name
 // when the folder is not at hand: the settings do not need the game's files.
 
@@ -7,6 +8,7 @@ import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
 import { loadGameConfigs, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
 import { guidedEdit } from "../lib/config-wizard.js";
+import { IDENTITY_KEYS, getSetting, parseAssignment, setSetting, splitKey } from "../lib/config-keys.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { readPolicy } from "../lib/policy.js";
 import { keysNeedingDeploy, liveSettingsOf } from "../lib/stage.js";
@@ -15,9 +17,14 @@ import { CliError, NeedsAnswer, ask, c, isUnattended, log } from "../lib/ui.js";
 import { addNewKeys, editInEditor } from "./deploy.js";
 import { connect, siteOf } from "../lib/session.js";
 
-export async function editConfig(input) {
+export async function editConfig(input, { get, set } = {}) {
   const usage = 'rwk config <game folder | game link | site name>';
-  if (isUnattended()) throw new NeedsAnswer("config asks its questions in the terminal.", "Run it in a terminal.");
+  // Checked before logging in, so a typo costs nothing.
+  const assignments = (set || []).map(parseAssignment);
+  for (const [key] of assignments) setSetting({}, key, 0);
+  if (get !== undefined) splitKey(get);
+  const oneSetting = get !== undefined || assignments.length > 0;
+  if (isUnattended() && !oneSetting) throw new NeedsAnswer("config asks its questions in the terminal.", "Run it in a terminal, or change one setting with --set <key>=<value>.");
   if (!input) {
     input = await ask("Drag and drop or paste the game folder path (or the game's link or site name)", "", null, {
       hint: `Pass it after the command: ${usage}`,
@@ -55,14 +62,32 @@ export async function editConfig(input) {
   const policy = cfg.policy || null;
 
   const before = cfg;
-  // Questions and answers; the JSON stays one menu entry away.
-  const edited = await guidedEdit(cfg, { editJson: (current) => editInEditor(current) });
+  if (get !== undefined) {
+    const value = getSetting(cfg, get);
+    const text = value === undefined ? "not set (the default applies)" : JSON.stringify(value);
+    return { ...siteOf(cfg), key: get, value: value === undefined ? null : value, facts: [[get, text]], next: [] };
+  }
+  let edited;
+  if (oneSetting) {
+    edited = cfg;
+    for (const [key, value] of assignments) {
+      edited = setSetting(edited, key, value);
+      log.ok(`${key} = ${value === null ? "default" : JSON.stringify(value)}`);
+    }
+  } else {
+    // Questions and answers; the JSON stays one menu entry away.
+    edited = await guidedEdit(cfg, { editJson: (current) => editInEditor(current) });
+  }
   if (!edited) {
     log.info("Nothing saved.");
     return { ...siteOf(cfg), next: [] };
   }
   // Identity fields are not editable, whichever way the config was changed.
-  cfg = { ...edited, slug: before.slug, fingerprint: before.fingerprint, storageId: before.storageId, retiredWorkers: before.retiredWorkers, policy: before.policy, liveSettings: before.liveSettings, toolkitVersion: before.toolkitVersion };
+  cfg = { ...edited };
+  for (const key of IDENTITY_KEYS) {
+    if (before[key] === undefined) delete cfg[key];
+    else cfg[key] = before[key];
+  }
   configs[fingerprint] = cfg;
   await saveGameConfigs(bucket, configs);
   if (!cfg.liveSettings) {

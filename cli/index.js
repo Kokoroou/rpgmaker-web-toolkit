@@ -73,7 +73,7 @@ async function main() {
     case "saves import":
       return deploy(target, { importOnly: true });
     case "config":
-      return editConfig(target);
+      return editConfig(target, { get: flags.get, set: flags.set });
     case "rename":
       return deploy(target, { rename: true, to: flags.to });
     case "status":
