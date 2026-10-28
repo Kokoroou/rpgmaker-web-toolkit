@@ -28,6 +28,7 @@ import { POLICY_FILE, allowsPublic, applyPolicy, isIndexable, readPolicy } from 
 import { DEFAULT_PRESET, PRESETS, baseConfig, checkFeatureConfig, playerEmails } from "../lib/features.js";
 import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
+import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
@@ -115,7 +116,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} go to R2)`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
-  if (game.engine === "MV") warnMobileMedia(files);
+  if (engineOf(game.engine).mobileMedia) warnMobileMedia(files);
   warnLanguages(files, cfg.languages);
   const oddNames = nonAsciiPaths(files);
   if (oddNames.length) {

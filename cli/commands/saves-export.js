@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
 import { apiToken, userHash } from "../lib/cloudflare.js";
+import { engineOf } from "../lib/engines.js";
 import { storageIdOf } from "../lib/game.js";
 import { getObject, listObjects } from "../lib/r2-api.js";
 import { expectTarget } from "../lib/target.js";
@@ -15,7 +16,6 @@ import { connect, siteOf } from "../lib/session.js";
 import { findSite } from "./site.js";
 
 export const SAVE_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
-const EXTENSION = { MZ: ".rmmzsave", MV: ".rpgsave" };
 
 // Cloud blobs are one byte per char of the engine's string; the desktop files hold that string as UTF-8.
 export const toSaveFile = (blob) => Buffer.from(blob.toString("latin1"), "utf8");
@@ -56,7 +56,7 @@ export async function exportSaves(input, { email, out } = {}, deps = {}) {
     throw new CliError(`No cloud saves for ${email} on "${cfg.slug}".`, { hint: "Saves are kept per email: check the address, or play once with cloud sync on." });
   }
 
-  const extension = EXTENSION[cfg.engine] || EXTENSION.MZ;
+  const extension = engineOf(cfg.engine).saveExtension;
   fs.mkdirSync(folder, { recursive: true });
   let bytes = 0;
   for (const object of objects) {

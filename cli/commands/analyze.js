@@ -10,6 +10,7 @@ import { generatedFiles } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
 import { ask, c, formatBytes, log } from "../lib/ui.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
+import { engineOf } from "../lib/engines.js";
 
 export async function analyze(inputPath, { command = "analyze" } = {}) {
   const usage = command === "deploy" ? 'rwk deploy --dry-run "<game folder>"' : 'rwk analyze "<game folder>"';
@@ -44,7 +45,7 @@ export async function analyze(inputPath, { command = "analyze" } = {}) {
   log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} would go to R2)`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
   log.ok(`${assetCount} of ${maxFiles} files the free plan allows`);
-  if (game.engine === "MV") warnMobileMedia(files);
+  if (engineOf(game.engine).mobileMedia) warnMobileMedia(files);
   const languages = warnLanguages(files, cfg.languages);
   const oddNames = nonAsciiPaths(files);
   if (oddNames.length) {
