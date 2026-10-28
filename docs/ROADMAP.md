@@ -135,6 +135,66 @@ Shipped as #13. The "How it works" page has an architecture diagram, a deploy di
 
 The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0, pinned `81c6be8`, v3.2.0) and not used: it writes explorable standalone HTML with its own themes rather than a static SVG that follows the guide's light / dark switch, its `finalize` step needs a real browser, its update check calls a remote manifest and keeps a cache in the home folder, and its `SKILL.md` can add a line to the agent's global rules. Hand-drawn SVG avoids all of that. If a skill is tried again, vet it first: license, what `SKILL.md` asks the agent to do, scripts' network / file / environment access, dependencies and install hooks, and that its HTML loads nothing remote; run it in a throwaway folder, with no Cloudflare credentials.
 
+### Settings page redesign
+
+Planned 2026-10-28, decisions made the same day; **nothing built**. "Settings page" is the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option, and the guide pages that explain it.
+
+Why: the menu grew one feature at a time. Tools register with `RWK.addTool({ icon, label, detail, onSelect, keepOpen, group, quick })` and are listed under fixed `GROUPS` (Play, Saves, Cheats, Controls, Display, Offline, Help, then "More"). Counting `group:` in `runtime/` shows **9 of 17 tools sit in "Play"**, so that group is a long mixed list; every toggle, choice and action is the same kind of row; a sub-choice (speed, language, message mode) opens another dialog or cycles on tap.
+
+Decisions:
+
+- **Sub-pages first.** The first screen shows the quick tiles and one row per group, each with a one-line summary of its state (for example "Speed ×2 · Auto on"). A group row opens its own page with a back button (and Esc / the Back key go up one level, then close). No tabs.
+- **Search when the list is long.** A search box appears only when the menu has more rows than a limit (start with about 15 across all pages; decide the number after step 1). It searches labels and details across every page and shows matching rows with their group; hidden below the limit so small installs stay uncluttered. Matching uses the language handling that already translates the labels.
+- **Row types** so a choice does not need a dialog: switch for on/off, segmented control for 2–4 options (speed ×1–×4, message mode), slider for numbers, plain row with a chevron for actions and panels (Saves, Keys, Language).
+- **The guide follows the menu** (see below).
+
+Constraints (existing behaviour to keep):
+
+- The game pauses while the menu is open; music keeps playing. The phone layout is a bottom sheet, landscape is a side drawer; touch targets stay at least 44 px; safe-area insets stay.
+- Tools keep registering through `addTool`, so the other plugins and `RWK.removeTool` need no change; new fields (`type: "switch" | "choice" | "action"`, `options`) are optional and old tools render as they do now. A tool with no known group still lands under "More".
+- Features the creator's policy turns off (the `features` keys) stay out of the menu, and a group with no tool left disappears; per-player settings and presets are untouched.
+- Light and dark themes, keyboard use (arrows, Enter, Esc), `aria` roles and labels, and the page title announced when a sub-page opens; text comes from the existing language handling, not hard-coded in new places.
+
+Guide (`site/`):
+
+- `site/play/` has 13 pages in a flat sidebar list (`site/.vitepress/config.mjs`). Reorganise it to mirror the menu: a **Menu map** page (one screenshot of the first screen, one line per group, where each setting lives, how to search), then one section per group with its feature pages inside, instead of one long list. Split a page when it covers more than one menu entry (`controls.md` mixes touch buttons and the toolbar; `saves.md` mixes sync, history and conflicts) and merge tiny ones when they share a page in the menu (`dash.md`, `language.md` are 12 lines).
+- Keep old URLs working: when a page moves, leave the old path as a short page that points to the new one, or add a redirect, so links in the README, CHANGELOG, `llms.txt` and sitemap do not break.
+- Every feature page starts with "Menu → Group → Item" so the reader can find it in the game; update the screenshots (light and dark) and the `lang`/`description` front matter that the SEO work reads.
+- Check the sidebar on a phone width and run the docs build (`cd site && npm run build`) for dead links.
+
+Order, each its own PR:
+
+1. **Audit** (S): list every tool with its group, kind (toggle / choice / action / panel) and how often it is used (Ideas §2 gives the order), decide the new group names and the search limit, and sketch the first screen and one sub-page, light and dark, phone and desktop. Output: a short design note in `docs/`; `npm run perf` baseline for menu open time.
+2. **Regroup** (S): move the nine "Play" tools into clearer groups without touching the look (for example Speed and reading, Messages, Movement). Data-only change.
+3. **Sub-pages** (M): a page stack in `openTools` (first screen = tiles + group rows with summaries, back button, Esc, focus handling).
+4. **Row types** (M): switch / segmented / slider / chevron renderers; move the toggles and choices onto them one plugin at a time.
+5. **Search** (S–M): the box, shown above the row limit.
+6. **Guide** (M): the Menu map page, the regrouped `site/play/` sections, redirects, new screenshots. Can ship with step 3 if the menu changes first; the docs must never describe a menu that has not been released.
+
+Steps 3–5 change what players see (`feat(runtime)`); step 2 is a `refactor`, 1 and 6 are `docs`.
+
+Not tested: no mock-up exists yet; the group counts above are from a search of `runtime/`, and the page list from `site/play/`.
+
+### Other RPG Maker versions
+
+Evaluated 2026-10-28; **nothing built**. The toolkit only knows MZ and MV: `analyzeGame` (`cli/lib/game.js`) looks for `js/rmmz_core.js` or `js/rpg_core.js` and stops with "Unknown engine" otherwise, the save extensions (`.rmmzsave`, `.rpgsave`) are chosen in `game.js` and `cloudflare.js`, and every `runtime/RWK_*.js` plugin hooks classes of the JS engine (`Window_Message`, `Input`, `ConfigManager`, `Game_Actor`…). What does not depend on the engine and can be reused: `worker/` (assets, Access, save API with `If-Match`, history, players, settings), the deploy flow and R2 for large files, `cli/limits.json`, the Service Worker cache, Play offline and the web manifest.
+
+| Version | How it would run on the web | Verdict |
+|---|---|---|
+| Pixel Game Maker MV | Same JS core as MV (unverified) | Try first: one real game, no code if it already passes `analyze` |
+| RPG Maker 2000 / 2003 | [EasyRPG Player](https://easyrpg.org/player/guide/webplayer/) (Emscripten build, `?game=<folder>`, saves in IndexedDB) | Feasible, as its own item |
+| XP / VX / VX Ace (RGSS, Ruby) | Community ports only: [mkxp-web](https://github.com/pulsejet/mkxp) (last pushed over two years ago, per a third-party index), [mkxp-z libretro Emscripten](https://white-axe.github.io/mkxp-z-libretro-emscripten) (still a proposal; RTP must be copied into the game; no way to upload saves) | Not planned until a port is maintained |
+| RPG Maker Unite (Unity) | Unity WebGL export, a different pipeline (not researched) | Not planned |
+
+Order, each its own PR:
+
+1. **Engine table** (S–M, worth doing on its own): replace the `engine === "MZ" ? … : …` checks in `game.js`, `cloudflare.js` and `stage.js` with one per-engine description (marker files, web folders, save extension, runtime plugin set). No change in behaviour; `npm test` stays green.
+2. **Pixel Game Maker MV check** (S): run `analyze` and a deploy on one real game; if it works, allow it in the detection and the docs, otherwise record why.
+3. **EasyRPG adapter** (L): detect by `RPG_RT.ldb` / `RPG_RT.lmt`; stage the EasyRPG web player with the game's files and its asset index; a small wrapper script instead of the `RWK_*` plugins that mirrors the `Save*.lsd` files between IndexedDB and the save API (binary, no decoding), plus the Service Worker cache. Touch controls would send keyboard events to the player. Open points: letter-case of file names (the `rwk-paths` checks assume MZ/MV folders), RTP for 2000/2003 games, the player's licence (GPL; check how it is bundled and whether it fits the project's licence before copying anything), and a maintainer for a second runtime.
+4. **XP / VX / Ace**: revisit only if a maintained web port appears. Until then say in the README that these engines are not supported.
+
+Not tested: no EasyRPG or mkxp build was run; the verdicts come from their documentation.
+
 ### Ways to say thanks: GitHub Sponsors and Ko-fi
 
 The toolkit stays free to use under its [license](../LICENSE). Support is a thank-you, never a purchase: no feature, priority or support is tied to it, and nothing in the toolkit asks for money.
@@ -157,6 +217,8 @@ Plan:
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
+- Redesign of the in-game settings page (the ⚙ / F1 menu: sub-pages, search, guide reorganised): planned 2026-10-28, not started. See [Settings page redesign](#settings-page-redesign).
+- Other RPG Maker versions (2000/2003 through EasyRPG, Pixel Game Maker MV; XP/VX/Ace and Unite not planned): evaluated 2026-10-28, not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
 - Other deploy targets: build only (also needed by the CD integration's pull request builds), or a local folder / LAN server, for people who do not use Cloudflare. Reference: `--deploy-target local|custom|none` in [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 
 ## Not planned
