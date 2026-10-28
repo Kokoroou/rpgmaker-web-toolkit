@@ -141,7 +141,7 @@ The log always goes to stderr. With `--json`, stdout holds one JSON object:
 }
 ```
 
-A failed run has `"ok": false`, `error`, `hint` (what to try, or `null`) and `exitCode` instead: `1` for a failure (Cloudflare, wrangler, a file), `2` for a question only a person can answer, `64` for a wrong command line. `schema` changes only when a field is removed or changes meaning. In GitHub Actions the toolkit also writes `ok`, `site`, `url` and `warnings` as step outputs and the summary, with or without `--json`.
+A failed run has `"ok": false`, `error`, `hint` (what to try, or `null`) and `exitCode` instead: `1` for a failure (Cloudflare, wrangler, a file), `2` for a question only a person can answer, `64` for a wrong command line. `schema` changes only when a field is removed or changes meaning. In GitHub Actions the toolkit also writes `ok`, `site`, `url` and `warnings` as step outputs and the summary, with or without `--json`, and shows each warning (and the error of a failed run) as an annotation on the run's page and on the pull request.
 
 ## Good to know
 

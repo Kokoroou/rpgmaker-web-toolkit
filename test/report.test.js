@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { failedResult, githubOutputs, publishResult, renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
+import { annotations, failedResult, githubOutputs, publishResult, renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
 import { NeedsAnswer, log, print, setColor, setQuiet } from "../cli/lib/ui.js";
 
 const deployed = runResult(
@@ -41,6 +41,25 @@ test("GitHub Actions: step outputs, one line each, and a job summary", () => {
   assert.match(stuck, /^### ❌ rpgmaker-web-toolkit: deploy failed/);
   assert.match(stuck, /\| Exit code \| 2 \(a question needs a person/);
   assert.match(stuck, /\| Warnings \| none \|/);
+});
+
+test("GitHub Actions: a warning annotation per warning, an error one when the run failed", () => {
+  assert.equal(annotations(deployed), "::warning title=rwk deploy::3 file name(s) have | odd%0Acharacters\n", "a new line cannot end the command");
+  assert.equal(annotations(runResult("analyze", undefined, [])), "");
+  const failed = failedResult("saves import", new NeedsAnswer("50% done", "Run it in a terminal."), ["w"]);
+  assert.equal(annotations(failed), "::warning title=rwk saves import::w\n::error title=rwk saves import::50%25 done%0ARun it in a terminal.\n");
+});
+
+test("publishResult: annotations on stderr only inside GitHub Actions", () => {
+  let out = "";
+  let err = "";
+  const write = { out: (text) => (out += text), err: (text) => (err += text) };
+  publishResult(deployed, { json: true, env: { GITHUB_ACTIONS: "true" }, ...write });
+  assert.equal(err, annotations(deployed));
+  assert.deepEqual(JSON.parse(out), deployed, "stdout stays plain JSON");
+  err = "";
+  publishResult(deployed, { json: true, env: {}, ...write });
+  assert.equal(err, "");
 });
 
 test("publishResult: JSON on stdout only with --json; GitHub files when the runner sets them", (t) => {
