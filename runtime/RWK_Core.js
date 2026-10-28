@@ -438,7 +438,19 @@
   let menu = null; // the open menu's overlay
 
   // Menu sections, in this order. Tools with no known group go last, under "More".
-  const GROUPS = { play: "Play", save: "Saves", cheat: "Cheats", controls: "Controls", display: "Display", offline: "Offline", help: "Help" };
+  // In menu order. "play" is kept for tools of other plugins that still name it.
+  const GROUPS = {
+    speed: "Speed and movement",
+    messages: "Messages",
+    items: "Items",
+    play: "Play",
+    save: "Saves",
+    cheat: "Cheats",
+    controls: "Controls",
+    display: "Display",
+    offline: "Offline",
+    help: "Help",
+  };
   const value = (v) => (typeof v === "function" ? v() : v);
 
   function cornerEntry() {

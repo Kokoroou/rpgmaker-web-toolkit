@@ -190,7 +190,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.list,
-    group: "play",
+    group: "messages",
     label: "Messages log",
     detail: () => `Reread the last messages${RWK.controls ? "" : " · L key"}`,
     onSelect: open,

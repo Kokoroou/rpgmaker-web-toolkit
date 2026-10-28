@@ -51,7 +51,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.footprints,
-    group: "play",
+    group: "speed",
     label: "Always dash",
     detail: () =>
       (on() ? `On: you run, ${walkKey()} to walk` : `Off: ${walkKey()} to run`) +

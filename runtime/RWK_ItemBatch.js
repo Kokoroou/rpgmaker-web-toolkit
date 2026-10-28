@@ -508,7 +508,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.items,
-    group: "play",
+    group: "items",
     label: "Use several items at once",
     detail: () =>
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",
@@ -518,7 +518,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.items,
-    group: "play",
+    group: "items",
     label: "Use several items at once in battle",
     detail: () =>
       battleEnabled()
@@ -530,7 +530,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.items,
-    group: "play",
+    group: "items",
     label: "Give several items at once",
     detail: () =>
       eventEnabled()
