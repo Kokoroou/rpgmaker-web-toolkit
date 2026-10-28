@@ -89,6 +89,7 @@
     icon: RWK.icons.fastForward,
     group: "speed",
     label: "Fast forward",
+    summary: () => (toggled ? `Fast forward ×${speed}` : "Fast forward off"),
     detail: () =>
       (toggled ? `On at ×${speed}` : "Off") +
       (IN_BATTLE ? "" : " · not in battles") +

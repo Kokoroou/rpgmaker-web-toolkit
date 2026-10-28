@@ -343,6 +343,10 @@
 .rwk-tools-list svg{width:20px;height:20px}
 .rwk-tools-list span{flex:1;min-width:0}
 .rwk-tools-list small{display:block;opacity:.7;font-size:13px}
+.rwk-tools-list .rwk-group small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rwk-tools-list i{display:flex;opacity:.6}
+.rwk-menu-head .rwk-menu-back{margin-left:-12px}
+.rwk-menu-head .rwk-menu-back[hidden],.rwk-quick[hidden]{display:none}
 .rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:55;display:flex;align-items:center;justify-content:center;
   width:30px;height:30px;padding:0;border-radius:50%;
   border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
@@ -383,6 +387,8 @@
     keys: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
     pause: svg('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'),
     close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
+    back: svg('<path d="M15 18l-6-6 6-6"/>'),
+    chevron: svg('<path d="M9 18l6-6-6-6"/>'),
     fullscreen: svg('<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>'),
     rotate: svg('<rect x="9" y="7.5" width="6" height="9" rx="1"/><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),
     minimize: svg('<path d="M8 3v5H3M16 3v5h5M21 16h-5v5M3 16h5v5"/>'),
@@ -438,7 +444,7 @@
   let menu = null; // the open menu's overlay
 
   // Menu sections, in this order. Tools with no known group go last, under "More".
-  // In menu order. "play" is kept for tools of other plugins that still name it.
+  // "play" is kept for tools of other plugins that still name it.
   const GROUPS = {
     speed: "Speed and movement",
     messages: "Messages",
@@ -452,6 +458,15 @@
     help: "Help",
   };
   const value = (v) => (typeof v === "function" ? v() : v);
+  const groupOf = (tool) => (GROUPS[tool.group] ? tool.group : "more");
+  const groupName = (key) => GROUPS[key] || "More";
+
+  // The one line under a group on the menu's first screen: what its tools
+  // say about their state (summary), or their names when none says anything.
+  function groupSummary(tools) {
+    const states = tools.map((t) => value(t.summary)).filter(Boolean);
+    return (states.length ? states : tools.map((t) => value(t.label))).join(" · ");
+  }
 
   function cornerEntry() {
     const btn = document.createElement("button");
@@ -466,9 +481,10 @@
   }
 
   // tool: { icon (RWK.icons entry), label, detail: string | () => string, onSelect, keepOpen,
-  //         group: a GROUPS key, quick: a tile in the menu's top row (short label, no detail) }
-  // icon and label may be functions too. keepOpen redraws the menu after
-  // onSelect instead of closing it (toggles).
+  //         group: a GROUPS key, quick: a tile in the menu's top row (short label, no detail),
+  //         summary: its state in a few words, for its group's line on the first screen }
+  // icon, label and summary may be functions too. keepOpen redraws the menu
+  // after onSelect instead of closing it (toggles).
   function addTool(tool) {
     toolList.push(tool);
     if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
@@ -517,7 +533,14 @@
     if (!menu) return;
     menu.remove();
     menu = null;
+    menuBack = null;
     resume();
+  }
+
+  // Esc and the back button: up one level from a group's page, then close.
+  let menuBack = null;
+  function backOrClose() {
+    if (!(menuBack && menuBack())) closeTools();
   }
 
   function openTools() {
@@ -527,21 +550,28 @@
     const box = document.createElement("div");
     box.className = "rwk-modal-box rwk-menu";
     box.setAttribute("role", "dialog");
-    box.setAttribute("aria-label", "Settings");
+    box.setAttribute("aria-modal", "true");
     const head = document.createElement("div");
     head.className = "rwk-menu-head";
     const h = document.createElement("h2");
-    h.textContent = "Settings";
+    h.id = "rwk-menu-title";
+    h.setAttribute("aria-live", "polite"); // a group's page says its name as it opens
+    box.setAttribute("aria-labelledby", h.id);
+    const backBtn = document.createElement("button");
+    backBtn.className = "rwk-menu-back";
+    backBtn.innerHTML = icons.back;
+    backBtn.title = "Back (Esc)";
+    backBtn.setAttribute("aria-label", "Back");
     const closeBtn = document.createElement("button");
     closeBtn.innerHTML = icons.close;
     closeBtn.title = "Resume (Esc)";
     closeBtn.setAttribute("aria-label", "Resume");
     closeBtn.addEventListener("click", closeTools);
-    head.append(h, closeBtn);
+    head.append(backBtn, h, closeBtn);
     // Pull the sheet's header down to dismiss it, as on a phone's own sheets.
     let pullFrom = null;
     head.addEventListener("pointerdown", (e) => {
-      if (e.target !== closeBtn && !closeBtn.contains(e.target)) pullFrom = e.clientY;
+      if (!e.target.closest("button")) pullFrom = e.clientY;
     });
     head.addEventListener("pointerup", (e) => {
       if (pullFrom !== null && e.clientY - pullFrom > 60) closeTools();
@@ -581,7 +611,31 @@
       return b;
     };
 
+    // The first screen (page "") has the tiles and one row per group; a
+    // group with a single tool shows that tool instead. A group's row opens
+    // its own page.
+    let page = "";
+    const groupRow = (key, tools) => {
+      const b = document.createElement("button");
+      b.className = "rwk-group";
+      b.dataset.group = key;
+      const icon = document.createElement("b");
+      icon.innerHTML = value(tools[0].icon);
+      const label = document.createElement("span");
+      label.textContent = groupName(key);
+      const small = document.createElement("small");
+      small.textContent = groupSummary(tools);
+      label.appendChild(small);
+      const chevron = document.createElement("i");
+      chevron.innerHTML = icons.chevron;
+      b.append(icon, label, chevron);
+      b.addEventListener("click", () => show(key));
+      return b;
+    };
+
     const fill = () => {
+      const buttons = [...list.querySelectorAll("button")];
+      const focused = buttons.indexOf(document.activeElement);
       quick.textContent = list.textContent = "";
       const groups = new Map();
       for (const tool of toolList) {
@@ -589,19 +643,38 @@
           quick.appendChild(button(tool));
           continue;
         }
-        const key = GROUPS[tool.group] ? tool.group : "";
+        const key = groupOf(tool);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(tool);
       }
-      quick.hidden = !quick.childElementCount;
-      for (const key of [...Object.keys(GROUPS), ""]) {
-        if (!groups.has(key)) continue;
-        const title = document.createElement("h3");
-        title.textContent = GROUPS[key] || "More";
-        list.appendChild(title);
-        for (const tool of groups.get(key)) list.appendChild(button(tool));
+      if (page && !groups.has(page)) page = ""; // its last tool went away
+      h.textContent = page ? groupName(page) : "Settings";
+      backBtn.hidden = !page;
+      quick.hidden = !!page || !quick.childElementCount;
+      if (page) {
+        for (const tool of groups.get(page)) list.appendChild(button(tool));
+      } else {
+        for (const key of [...Object.keys(GROUPS), "more"]) {
+          const tools = groups.get(key);
+          if (tools) list.appendChild(tools.length > 1 ? groupRow(key, tools) : button(tools[0]));
+        }
       }
+      // A switch redraws the list: keep the focus on the row that was used.
+      const again = list.querySelectorAll("button")[focused];
+      if (focused >= 0 && again) again.focus();
     };
+
+    const show = (key) => {
+      const from = page;
+      page = key;
+      fill();
+      body.scrollTop = 0;
+      const target = key ? list.querySelector("button") : list.querySelector(`[data-group="${from}"]`);
+      (target || closeBtn).focus();
+    };
+    backBtn.addEventListener("click", () => show(""));
+    menuBack = () => !!page && (show(""), true);
+
     fill();
     // The cache's size is read as the menu opens; show it once it is known.
     if (caching && window.caches) refreshCache().then(() => menu === overlay && fill());
@@ -621,7 +694,10 @@
     (e) => {
       if (menu) {
         e.stopPropagation();
-        if (e.key === "Escape" || e.key === "F1") {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          backOrClose();
+        } else if (e.key === "F1") {
           e.preventDefault();
           closeTools();
         }
