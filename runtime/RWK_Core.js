@@ -345,8 +345,19 @@
 .rwk-tools-list small{display:block;opacity:.7;font-size:13px}
 .rwk-tools-list .rwk-group small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rwk-tools-list i{display:flex;opacity:.6}
+.rwk-tools-list i.rwk-switch{display:block;opacity:1}
 .rwk-menu-head .rwk-menu-back{margin-left:-12px}
 .rwk-menu-head .rwk-menu-back[hidden],.rwk-quick[hidden]{display:none}
+.rwk-switch{position:relative;flex:none;width:42px;height:26px;border-radius:13px;background:#55555f;transition:background .15s}
+.rwk-switch::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#eee;transition:transform .15s}
+[aria-checked="true"]>.rwk-switch{background:#3b82f6}
+[aria-checked="true"]>.rwk-switch::after{transform:translateX(16px)}
+.rwk-tools-list .rwk-choice{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:10px 14px;
+  border-radius:10px;border:1px solid #444;background:#2c2c33}
+.rwk-seg{display:flex;flex-basis:100%;gap:4px;padding:3px;border-radius:9px;background:#1f1f25}
+.rwk-tools-list .rwk-seg button{flex:1;justify-content:center;min-height:44px;padding:6px 8px;border:0;border-radius:7px;
+  background:none;text-align:center}
+.rwk-tools-list .rwk-seg button[aria-checked="true"]{background:#3b82f6;color:#fff}
 .rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:55;display:flex;align-items:center;justify-content:center;
   width:30px;height:30px;padding:0;border-radius:50%;
   border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
@@ -482,9 +493,12 @@
 
   // tool: { icon (RWK.icons entry), label, detail: string | () => string, onSelect, keepOpen,
   //         group: a GROUPS key, quick: a tile in the menu's top row (short label, no detail),
-  //         summary: its state in a few words, for its group's line on the first screen }
-  // icon, label and summary may be functions too. keepOpen redraws the menu
-  // after onSelect instead of closing it (toggles).
+  //         summary: its state in a few words, for its group's line on the first screen,
+  //         type: "switch" (+ checked: () => bool; onSelect turns it over) or
+  //         "choice" (+ options: [{ value, label }], selected: () => value, onChoose(value)) }
+  // icon, label, summary and options may be functions too. keepOpen redraws
+  // the menu after onSelect instead of closing it (toggles); switches and
+  // choices always do. Other rows that close the menu get a chevron.
   function addTool(tool) {
     toolList.push(tool);
     if (!entry) entry = mountEntry ? mountEntry(icons.gear, openTools) : cornerEntry();
@@ -586,10 +600,7 @@
     list.className = "rwk-tools-list";
     body.append(quick, list);
 
-    const button = (tool) => {
-      const b = document.createElement("button");
-      const icon = document.createElement("b");
-      icon.innerHTML = value(tool.icon);
+    const rowLabel = (tool) => {
       const label = document.createElement("span");
       label.textContent = value(tool.label);
       const detail = !tool.quick && value(tool.detail);
@@ -598,9 +609,58 @@
         small.textContent = detail;
         label.appendChild(small);
       }
-      b.append(icon, label);
+      return label;
+    };
+    const iconOf = (tool) => {
+      const icon = document.createElement("b");
+      icon.innerHTML = value(tool.icon);
+      return icon;
+    };
+
+    // A segmented control: the options side by side, the selected one lit.
+    const choiceRow = (tool) => {
+      const row = document.createElement("div");
+      row.className = "rwk-choice";
+      const label = rowLabel(tool);
+      label.id = `rwk-choice-${toolList.indexOf(tool)}`;
+      const seg = document.createElement("div");
+      seg.className = "rwk-seg";
+      seg.setAttribute("role", "radiogroup");
+      seg.setAttribute("aria-labelledby", label.id);
+      const selected = value(tool.selected);
+      for (const option of value(tool.options)) {
+        const b = document.createElement("button");
+        b.textContent = option.label;
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", String(option.value === selected));
+        b.addEventListener("click", () => {
+          if (option.value !== value(tool.selected)) tool.onChoose(option.value);
+          fill();
+        });
+        seg.appendChild(b);
+      }
+      row.append(iconOf(tool), label, seg);
+      return row;
+    };
+
+    const button = (tool) => {
+      if (tool.type === "choice" && !tool.quick) return choiceRow(tool);
+      const b = document.createElement("button");
+      b.append(iconOf(tool), rowLabel(tool));
+      const stays = tool.keepOpen || tool.type === "switch";
+      if (tool.type === "switch") {
+        b.setAttribute("role", "switch");
+        b.setAttribute("aria-checked", String(!!value(tool.checked)));
+        const track = document.createElement("i");
+        track.className = "rwk-switch";
+        b.appendChild(track);
+      } else if (!stays && !tool.quick) {
+        const chevron = document.createElement("i");
+        chevron.innerHTML = icons.chevron;
+        b.appendChild(chevron);
+      }
       b.addEventListener("click", () => {
-        if (tool.keepOpen) {
+        if (stays) {
           tool.onSelect();
           fill();
         } else {
@@ -694,9 +754,21 @@
     (e) => {
       if (menu) {
         e.stopPropagation();
+        const seg = document.activeElement && document.activeElement.closest(".rwk-seg");
         if (e.key === "Escape") {
           e.preventDefault();
           backOrClose();
+        } else if (seg && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+          // Arrows pick the option next to the focused one, as in a radio group.
+          e.preventDefault();
+          const options = [...seg.children];
+          const i = options.indexOf(document.activeElement) + (e.key === "ArrowLeft" ? -1 : 1);
+          if (options[i]) {
+            options[i].click();
+            // The click redrew the menu; keep the focus on the option just picked.
+            const redrawn = document.activeElement && document.activeElement.closest(".rwk-seg");
+            if (redrawn && redrawn.children[i]) redrawn.children[i].focus();
+          }
         } else if (e.key === "F1") {
           e.preventDefault();
           closeTools();

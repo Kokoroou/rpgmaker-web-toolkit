@@ -510,6 +510,8 @@
     icon: RWK.icons.items,
     group: "items",
     label: "Use several items at once",
+    type: "switch",
+    checked: enabled,
     summary: () => (enabled() ? "Several at once" : "One at a time"),
     detail: () =>
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",
@@ -521,6 +523,8 @@
     icon: RWK.icons.items,
     group: "items",
     label: "Use several items at once in battle",
+    type: "switch",
+    checked: battleEnabled,
     summary: () => (battleEnabled() ? "in battle too" : ""),
     detail: () =>
       battleEnabled()
@@ -534,6 +538,8 @@
     icon: RWK.icons.items,
     group: "items",
     label: "Give several items at once",
+    type: "switch",
+    checked: eventEnabled,
     detail: () =>
       eventEnabled()
         ? "On: asks how many when an event asks for an item (gifts...)"

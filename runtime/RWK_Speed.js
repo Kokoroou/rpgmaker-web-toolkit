@@ -89,6 +89,8 @@
     icon: RWK.icons.fastForward,
     group: "speed",
     label: "Fast forward",
+    type: "switch",
+    checked: () => toggled,
     summary: () => (toggled ? `Fast forward ×${speed}` : "Fast forward off"),
     detail: () =>
       (toggled ? `On at ×${speed}` : "Off") +
@@ -101,8 +103,11 @@
     RWK.tools.add({
       icon: RWK.icons.gauge,
       group: "speed",
-      label: () => `Fast-forward speed: ×${speed}`,
-      detail: () => `Tap for ×${SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]}`,
+      label: "Fast-forward speed",
+      type: "choice",
+      options: SPEEDS.map((s) => ({ value: s, label: `×${s}` })),
+      selected: () => speed,
+      onChoose: setSpeed,
       keepOpen: true,
       onSelect: () => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]),
     });

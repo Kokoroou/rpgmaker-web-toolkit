@@ -111,7 +111,7 @@ test("paths: upper-case extension, engine folder spelled differently, name that 
 test("paths: the plugin list, index.html and CSS", () => {
   const dir = makeGame({
     "js/plugins/MyPlugin.js": "",
-    "js/plugins.js": 'var $plugins = [\n{"name":"myplugin","status":true,"description":"","parameters":{"name":"x"}},\n{"name":"Off","status":false,"parameters":{}}];',
+    "js/plugins.js": 'var $plugins = [\n{"name":"myplugin","status":true,"description":"","parameters":{"name":"x"}},\n{"name":"Off","status":false,"parameters":{}},\n{"name":"Gone","status":true,"parameters":{}}];',
     "css/Game.css": "@font-face { src: url(../fonts/Gamefont.woff); } body { background: url('../img/system/Back.png') }",
     "fonts/gamefont.woff": "x",
     "img/system/Back.png": "x",
@@ -123,11 +123,14 @@ test("paths: the plugin list, index.html and CSS", () => {
   const text = fs.readFileSync(path.join(dir, "js", "plugins.js"), "utf8");
   assert.equal(text.slice(plugin.sites[0].at.start, plugin.sites[0].at.end), "myplugin");
   assert.equal(find(result, "case", "Off"), undefined, "a disabled plugin is not loaded");
+  const gone = find(result, "missing", "Gone");
+  assert.equal(gone.expected, "js/plugins/Gone.js", "a plugin in the list with no file");
+  assert.equal(text.slice(gone.sites[0].at.start, gone.sites[0].at.end), "Gone");
   const html = find(result, "case", "css/game.css");
   assert.deepEqual([html.to, html.fix], ["css/Game.css", "reference"]);
   const font = find(result, "case", "../fonts/Gamefont.woff");
   assert.equal(font.to, "../fonts/gamefont.woff");
-  assert.equal(find(result, "missing"), undefined, "external links and anchors are not paths");
+  assert.deepEqual(result.issues.filter((i) => i.kind === "missing").map((i) => i.ref), ["Gone"], "external links and anchors are not paths");
 });
 
 test("paths: path literals in plugin scripts are case-checked only", () => {
