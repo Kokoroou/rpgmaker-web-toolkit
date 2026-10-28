@@ -95,7 +95,7 @@ const answers = (routes) => async (url) => {
   const route = url.replace("https://api.cloudflare.com/client/v4", "");
   const key = Object.keys(routes).find((k) => route.startsWith(k));
   const status = key ? routes[key] : 404;
-  const result = route.startsWith("/accounts?") ? [{ id: "acc1", name: "Alice" }] : [];
+  const result = route.startsWith("/accounts?") ? [{ id: "acc1", name: "Alice" }] : route.endsWith("/workers/subdomain") ? { subdomain: "alice" } : [];
   return Response.json({ success: status === 200, result, errors: [] }, { status });
 };
 const by = (checks, label) => checks.find((x) => x.label === label);
@@ -140,6 +140,53 @@ test("doctor: the browser login is not asked about Access, and an unreachable AP
 
   const offline = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", fetchImpl: async () => { throw new Error("getaddrinfo ENOTFOUND"); } });
   assert.equal(by(offline, "Cloudflare API").status, "fail");
+});
+
+test("doctor: the workers.dev subdomain and the R2 bucket are looked at where the login may", async () => {
+  const fetchImpl = answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 200 });
+  const ready = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", accountId: "acc1", fetchImpl });
+  assert.equal(by(ready, "workers.dev subdomain").detail, "alice.workers.dev");
+  assert.equal(by(ready, "R2 bucket").detail, "rpgmaker-web-toolkit found");
+
+  const urls = [];
+  const fresh = await runChecks({
+    nodeVersion: "22.1.0",
+    wranglerVersion: "4.1.0",
+    getToken: async () => "tok",
+    accountId: "acc1",
+    fetchImpl: async (url) => {
+      urls.push(url);
+      if (url.endsWith("/workers/subdomain")) return Response.json({ success: false, result: null, errors: [{ code: 10007, message: "no subdomain" }] }, { status: 404 });
+      if (url.endsWith("/r2/buckets/rpgmaker-web-toolkit")) return Response.json({ success: false, result: null, errors: [{ code: 10006, message: "The specified bucket does not exist." }] }, { status: 404 });
+      return answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 200 })(url);
+    },
+  });
+  const subdomain = by(fresh, "workers.dev subdomain");
+  assert.equal(subdomain.status, "fail");
+  assert.match(subdomain.hint, /Workers & Pages/);
+  const bucket = by(fresh, "R2 bucket");
+  assert.equal(bucket.status, "ok", "a missing bucket is made by the first deploy");
+  assert.match(bucket.detail, /first deploy creates it/);
+  assert.ok(urls.every((u) => !/\/r2\/buckets\/.+\/objects/.test(u)), "reads only the bucket, not its contents");
+
+  const denied = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", accountId: "acc1", fetchImpl: answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 403, "/accounts/acc1/r2": 403 }) });
+  assert.ok(!by(denied, "workers.dev subdomain") && !by(denied, "R2 bucket"), "nothing asked of a denied permission");
+});
+
+test("doctor: R2 not enabled on the account is a failure that says where to switch it on", async () => {
+  const off = Response.json.bind(Response, { success: false, result: null, errors: [{ code: 10042, message: "Please enable R2 through the Cloudflare Dashboard." }] }, { status: 403 });
+  const checks = await runChecks({
+    nodeVersion: "22.1.0",
+    wranglerVersion: "4.1.0",
+    getToken: async () => "tok",
+    accountId: "acc1",
+    fetchImpl: async (url) => (url.endsWith("/r2/buckets") ? off() : answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200 })(url)),
+  });
+  const r2 = by(checks, "R2 storage");
+  assert.equal(r2.status, "fail");
+  assert.match(r2.detail, /not enabled/);
+  assert.match(r2.hint, /dash\.cloudflare\.com\/acc1\/r2\/overview/);
+  assert.ok(!by(checks, "R2 bucket"));
 });
 
 test("doctor: a token set but not read is pointed out", async () => {

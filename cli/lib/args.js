@@ -93,7 +93,7 @@ export const COMMANDS = [
   },
   {
     name: "doctor",
-    summary: "Check this PC: Node.js, wrangler, the Cloudflare login and the token's permissions",
+    summary: "Check this PC and the account: Node.js, wrangler, the login, the token's permissions, R2 and the workers.dev subdomain",
     targets: [],
     examples: ["rwk doctor", "rwk doctor --json"],
   },
