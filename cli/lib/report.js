@@ -2,7 +2,8 @@
 // same way: a summary on stderr (renderSummary), and the result on stdout:
 // --json prints it as one JSON object; otherwise the link, when stdout is
 // piped or --quiet. In GitHub Actions it also becomes the step's outputs
-// ($GITHUB_OUTPUT) and a job summary ($GITHUB_STEP_SUMMARY), --json or not.
+// ($GITHUB_OUTPUT) and a job summary ($GITHUB_STEP_SUMMARY), --json or not,
+// and each warning (and the error) an annotation on the run's page.
 //
 //   (deploy --dry-run and analyze: dryRun: true, game: { title, engine }, no site / url)
 //   { schema: 1, ok: true, command, site, url, locked, build: { files, bytes, r2Files, r2Uploaded }, next, warnings }
@@ -85,13 +86,24 @@ export function stepSummary(result) {
   return lines.join("\n").trimEnd() + "\n";
 }
 
+// GitHub Actions workflow commands: one ::warning:: per warning, ::error:: when
+// the run failed. They go to stderr, so stdout keeps only the result.
+export function annotations(result) {
+  const data = (v) => String(v ?? "").replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  const title = `title=rwk ${(result.command || "rwk").replace(/[%:,\r\n]/g, " ")}`;
+  const lines = result.warnings.map((w) => `::warning ${title}::${data(w)}\n`);
+  if (!result.ok) lines.push(`::error ${title}::${data(result.hint ? `${result.error}\n${result.hint}` : result.error)}\n`);
+  return lines.join("");
+}
+
 // Prints and writes the result where it was asked for. stdout holds the
 // result and nothing else: JSON with --json, else the link when something
 // reads stdout (piped) or with --quiet. A CI file that cannot be written
 // never changes the run's outcome.
-export function publishResult(result, { json = false, quiet = false, tty = !!process.stdout.isTTY, env = process.env, out = (text) => process.stdout.write(text) } = {}) {
+export function publishResult(result, { json = false, quiet = false, tty = !!process.stdout.isTTY, env = process.env, out = (text) => process.stdout.write(text), err = (text) => process.stderr.write(text) } = {}) {
   if (json) out(JSON.stringify(result, null, 2) + "\n");
   else if (result.ok && result.url && (quiet || !tty)) out(result.url + "\n");
+  if (env.GITHUB_ACTIONS === "true") err(annotations(result));
   const files = [
     [env.GITHUB_OUTPUT, githubOutputs],
     [env.GITHUB_STEP_SUMMARY, stepSummary],
