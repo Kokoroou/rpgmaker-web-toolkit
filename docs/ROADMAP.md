@@ -135,6 +135,36 @@ Shipped as #13. The "How it works" page has an architecture diagram, a deploy di
 
 The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0, pinned `81c6be8`, v3.2.0) and not used: it writes explorable standalone HTML with its own themes rather than a static SVG that follows the guide's light / dark switch, its `finalize` step needs a real browser, its update check calls a remote manifest and keeps a cache in the home folder, and its `SKILL.md` can add a line to the agent's global rules. Hand-drawn SVG avoids all of that. If a skill is tried again, vet it first: license, what `SKILL.md` asks the agent to do, scripts' network / file / environment access, dependencies and install hooks, and that its HTML loads nothing remote; run it in a throwaway folder, with no Cloudflare credentials.
 
+### Settings page redesign
+
+Planned 2026-10-28; **nothing built**. "Settings page" here means the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option. If the guide's setup pages in `site/setup/` were meant instead, say so and this item changes.
+
+Why: the menu grew one feature at a time. Tools register with `RWK.addTool({ icon, label, detail, onSelect, keepOpen, group, quick })` and are listed under fixed `GROUPS` (Play, Saves, Cheats, Controls, Display, Offline, Help, then "More"). Counting `group:` in `runtime/` shows **9 of 17 tools sit in "Play"**, so that group is a long mixed list; every toggle, choice and action is the same kind of row; a sub-choice (speed, language, message mode) opens another dialog or cycles on tap.
+
+To decide before building (needs the maintainer; none is settled):
+
+- Which page: the in-game menu only, or also the guide's setup section.
+- Keep one scrollable sheet with better groups, or tabs / a two-level list (a group row opens its own page with a back button).
+- Controls built into the rows, so a choice does not need a dialog: switch for on/off, segmented control for 2–4 options (speed ×1–×4, message mode), slider for numbers, plain row with a chevron for actions that open a panel (Saves, Keys, Language).
+- Search box once the list passes about 15 rows (Ideas §4 "Menu nhanh" already has the quick-tile row; check what is still unbuilt there before adding more).
+
+Constraints (existing behaviour to keep):
+
+- The game pauses while the menu is open; music keeps playing. The phone layout is a bottom sheet, landscape is a side drawer; touch targets stay at least 44 px; safe-area insets stay.
+- Tools keep registering through `addTool`, so the other plugins and `RWK.removeTool` need no change; new fields (`type: "switch" | "choice" | "action"`, `options`) are optional and old tools render as they do now.
+- Features the creator's policy turns off (the `features` keys) stay out of the menu; per-player settings and presets are untouched.
+- Light and dark themes, keyboard use (arrows, Enter, Esc), `aria` roles and labels; text comes from the existing language handling, not hard-coded in new places.
+
+Order, each its own PR:
+
+1. **Audit** (S): list every tool with its group, kind (toggle / choice / action / panel) and how often it is used (Ideas §2 gives the order), and sketch the new layout, light and dark, phone and desktop. Output: a short design note in `docs/` and screenshots; `npm run perf` baseline for menu open time.
+2. **Regroup** (S): move the nine "Play" tools into clearer groups without touching the look (for example Speed and reading, Messages, Movement). Data-only change.
+3. **Row types** (M): add the switch / segmented / action row renderers in `RWK_Core` and move the toggles and choices onto them one plugin at a time; screenshots with `tools/perf/` or the Playwright setup used by `site/screenshots`.
+4. **Navigation** (M): sub-pages or tabs and the optional search, after 1–3 show whether the list is still too long.
+5. **Docs** (S): update the screenshots and the "Play" guide pages in `site/play/`.
+
+Not tested: no mock-up exists yet; the group counts above are from a search of `runtime/`.
+
 ### Other RPG Maker versions
 
 Evaluated 2026-10-28; **nothing built**. The toolkit only knows MZ and MV: `analyzeGame` (`cli/lib/game.js`) looks for `js/rmmz_core.js` or `js/rpg_core.js` and stops with "Unknown engine" otherwise, the save extensions (`.rmmzsave`, `.rpgsave`) are chosen in `game.js` and `cloudflare.js`, and every `runtime/RWK_*.js` plugin hooks classes of the JS engine (`Window_Message`, `Input`, `ConfigManager`, `Game_Actor`…). What does not depend on the engine and can be reused: `worker/` (assets, Access, save API with `If-Match`, history, players, settings), the deploy flow and R2 for large files, `cli/limits.json`, the Service Worker cache, Play offline and the web manifest.
@@ -177,6 +207,7 @@ Plan:
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
+- Redesign of the in-game settings page (the ⚙ / F1 menu): planned 2026-10-28, not started. See [Settings page redesign](#settings-page-redesign).
 - Other RPG Maker versions (2000/2003 through EasyRPG, Pixel Game Maker MV; XP/VX/Ace and Unite not planned): evaluated 2026-10-28, not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
 - Other deploy targets: build only (also needed by the CD integration's pull request builds), or a local folder / LAN server, for people who do not use Cloudflare. Reference: `--deploy-target local|custom|none` in [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 
