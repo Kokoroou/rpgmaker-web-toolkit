@@ -92,5 +92,5 @@ test("backlog: adds one entry to the menu", () => {
   const { added } = load();
   assert.equal(added.length, 1);
   assert.equal(added[0].label, "Messages log");
-  assert.equal(added[0].group, "play");
+  assert.equal(added[0].group, "messages");
 });

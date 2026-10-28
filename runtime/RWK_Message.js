@@ -110,7 +110,7 @@
   if (!LOCKED && MODES.length > 1) {
     RWK.tools.add({
       icon: RWK.icons.message,
-      group: "play",
+      group: "messages",
       label: () => `Messages: ${MODE_NAMES[mode]}`,
       detail: () => `Tap for ${MODE_NAMES[next(MODES, mode)]}` + (RWK.controls || !canSkip ? "" : " · hold Ctrl to skip"),
       keepOpen: true,
@@ -120,7 +120,7 @@
   if (!LOCKED && hasAuto) {
     RWK.tools.add({
       icon: RWK.icons.timer,
-      group: "play",
+      group: "messages",
       label: () => `Auto speed: ${AUTO_NAMES[autoSpeed]}`,
       detail: () => `Tap for ${AUTO_NAMES[next(speeds, autoSpeed)]}`,
       keepOpen: true,

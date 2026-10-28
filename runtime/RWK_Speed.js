@@ -87,7 +87,7 @@
 
   RWK.tools.add({
     icon: RWK.icons.fastForward,
-    group: "play",
+    group: "speed",
     label: "Fast forward",
     detail: () =>
       (toggled ? `On at ×${speed}` : "Off") +
@@ -99,7 +99,7 @@
   if (!LOCKED) {
     RWK.tools.add({
       icon: RWK.icons.gauge,
-      group: "play",
+      group: "speed",
       label: () => `Fast-forward speed: ×${speed}`,
       detail: () => `Tap for ×${SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]}`,
       keepOpen: true,

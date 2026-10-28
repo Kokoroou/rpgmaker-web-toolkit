@@ -165,7 +165,7 @@ Guide (`site/`):
 Order, each its own PR:
 
 1. **Audit** (S): list every tool with its group, kind (toggle / choice / action / panel) and how often it is used (Ideas §2 gives the order), decide the new group names and the search limit, and sketch the first screen and one sub-page, light and dark, phone and desktop. Output: a short design note in `docs/`; `npm run perf` baseline for menu open time.
-2. **Regroup** (S): move the nine "Play" tools into clearer groups without touching the look (for example Speed and reading, Messages, Movement). Data-only change.
+2. **Regroup** (S): move the nine "Play" tools into clearer groups without touching the look (for example Speed and reading, Messages, Movement). Data-only change. **Shipped**: Speed and movement (fast forward, its speed, always dash), Messages (mode, auto speed, log), Items (the three "several at once" switches); `play` stays a known group for other plugins.
 3. **Sub-pages** (M): a page stack in `openTools` (first screen = tiles + group rows with summaries, back button, Esc, focus handling).
 4. **Row types** (M): switch / segmented / slider / chevron renderers; move the toggles and choices onto them one plugin at a time.
 5. **Search** (S–M): the box, shown above the row limit.
