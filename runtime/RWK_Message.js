@@ -112,6 +112,7 @@
       icon: RWK.icons.message,
       group: "messages",
       label: () => `Messages: ${MODE_NAMES[mode]}`,
+      summary: () => MODE_NAMES[mode],
       detail: () => `Tap for ${MODE_NAMES[next(MODES, mode)]}` + (RWK.controls || !canSkip ? "" : " · hold Ctrl to skip"),
       keepOpen: true,
       onSelect: () => setMode(next(MODES, mode)),
@@ -122,6 +123,7 @@
       icon: RWK.icons.timer,
       group: "messages",
       label: () => `Auto speed: ${AUTO_NAMES[autoSpeed]}`,
+      summary: () => (mode === "auto" ? `${AUTO_NAMES[autoSpeed]} auto` : ""),
       detail: () => `Tap for ${AUTO_NAMES[next(speeds, autoSpeed)]}`,
       keepOpen: true,
       onSelect: () => {

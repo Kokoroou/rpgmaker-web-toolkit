@@ -510,6 +510,7 @@
     icon: RWK.icons.items,
     group: "items",
     label: "Use several items at once",
+    summary: () => (enabled() ? "Several at once" : "One at a time"),
     detail: () =>
       enabled() ? "On: asks how many when you use an item you hold several of" : "Off: items are used one at a time",
     keepOpen: true,
@@ -520,6 +521,7 @@
     icon: RWK.icons.items,
     group: "items",
     label: "Use several items at once in battle",
+    summary: () => (battleEnabled() ? "in battle too" : ""),
     detail: () =>
       battleEnabled()
         ? "On: one action can use several of an item (cheat)"

@@ -53,6 +53,7 @@
     icon: RWK.icons.footprints,
     group: "speed",
     label: "Always dash",
+    summary: () => (on() ? "Always dash" : ""),
     detail: () =>
       (on() ? `On: you run, ${walkKey()} to walk` : `Off: ${walkKey()} to run`) +
       (mapForbids() ? " · this map does not allow running" : ""),

@@ -45,6 +45,9 @@ test("fast forward: top speed, starting speed, lock", () => {
   assert.equal(value(speed.label), "Fast-forward speed: ×4");
   speed.onSelect();
   assert.equal(value(speed.label), "Fast-forward speed: ×2", "wraps around");
+  assert.equal(value(free.tools[0].summary), "Fast forward off");
+  free.tools[0].onSelect();
+  assert.equal(value(free.tools[0].summary), "Fast forward ×2");
 
   const capped = load("RWK_Speed", { fastForward: { maxSpeed: 3 } }, { stored: { "rwk.speed.g": 4 } });
   assert.equal(value(capped.tools[1].label), "Fast-forward speed: ×2", "a remembered speed over the limit is dropped");
@@ -105,6 +108,8 @@ test("message modes: which modes, the starting one, lock", () => {
   all.tools[0].onSelect();
   all.tools[0].onSelect();
   assert.equal(value(all.tools[0].label), "Messages: Skip");
+  assert.equal(value(all.tools[0].summary), "Skip", "the mode on the menu's first screen");
+  assert.equal(value(all.tools[1].summary), "", "the auto speed only matters in Auto");
 
   const noSkip = load("RWK_Message", { messageMode: { skip: false } }, { globals: messageGlobals() });
   noSkip.tools[0].onSelect();
