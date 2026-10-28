@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
+import { engineOf } from "./engines.js";
 import { mobileOnlyMissing, resolveCI, storageIdOf } from "./game.js";
 import { userHash } from "./cloudflare.js";
 import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
@@ -186,7 +187,7 @@ export function saveToolsConfig(value) {
   return out.export || out.import || out.delete ? out : false;
 }
 
-// RWK_Core's config. engine: "MZ" | "MV"; gameConfig: after applyPolicy().
+// RWK_Core's config. engine: a key of ENGINES (engines.js); gameConfig: after applyPolicy().
 // Without the game's files (upgrade) MV's `media` is left out: the
 // Worker keeps the deployed build's. Never holds the players' emails.
 export function runtimeConfigOf(engine, gameConfig) {
@@ -292,7 +293,7 @@ export function runtimeSources() {
 export function generatedFiles(game, gameConfig, files = []) {
   const out = new Map();
   const runtimeConfig = runtimeConfigOf(game.engine, gameConfig);
-  if (game.engine === "MV") {
+  if (engineOf(game.engine).mobileMedia) {
     const missing = mobileOnlyMissing(files);
     runtimeConfig.media = { oggOnly: missing.audio > 0, webmOnly: missing.movies > 0 };
   }

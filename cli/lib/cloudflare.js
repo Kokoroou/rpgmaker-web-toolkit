@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import LZString from "lz-string";
+import { engineOf } from "./engines.js";
 import { NeedsAnswer, choose, isUnattended, log } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
@@ -381,7 +382,7 @@ export function userHash(email) {
 }
 
 export function listSaveFiles(saveDir, engine) {
-  const ext = engine === "MZ" ? ".rmmzsave" : ".rpgsave";
+  const ext = engineOf(engine).saveExtension;
   return fs
     .readdirSync(saveDir)
     .filter((f) => f.endsWith(ext))
@@ -421,7 +422,7 @@ export async function importSaves({ bucket, slug, email, saves, engine, gameTitl
   let count = 0;
   for (const save of saves) {
     let text = fs.readFileSync(save.file, "utf8");
-    if (engine === "MV" && save.name === "global") {
+    if (engineOf(engine).retitlesGlobal && save.name === "global") {
       const result = retitleMvGlobal(text, gameTitle);
       if (result.fixed) log.info(`global: ${result.fixed} save(s) made under an older game title now show "${gameTitle}"`);
       text = result.text;

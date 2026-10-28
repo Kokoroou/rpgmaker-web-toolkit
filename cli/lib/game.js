@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { detectEngine, engineOf, markerList } from "./engines.js";
 
 // Top-level folders a browser build needs.
 const WEB_DIRS = new Set(["audio", "css", "data", "effects", "fonts", "icon", "img", "js", "movies"]);
@@ -47,15 +48,13 @@ export function analyzeGame(inputPath) {
   );
   if (!root) throw new Error(`No index.html + js/ in ${given} (or ${path.join(given, "www")}). Is this an RPG Maker MZ/MV game?`);
 
-  let engine;
-  if (fs.existsSync(resolveCI(root, "js", "rmmz_core.js"))) engine = "MZ";
-  else if (fs.existsSync(resolveCI(root, "js", "rpg_core.js"))) engine = "MV";
-  else throw new Error("Unknown engine (neither js/rmmz_core.js nor js/rpg_core.js found).");
+  const engine = detectEngine((...segments) => fs.existsSync(resolveCI(root, ...segments)));
+  if (!engine) throw new Error(`Unknown engine (${markerList()} found).`);
 
   const system = readJson(resolveCI(root, "data", "System.json"));
   const title = system.gameTitle || path.basename(given);
   const gameId = system.advanced && system.advanced.gameId;
-  const fingerprint = engine === "MZ" && gameId ? `mz:${gameId}` : `${engine.toLowerCase()}:${title}`;
+  const fingerprint = engineOf(engine).usesGameId && gameId ? `${engine.toLowerCase()}:${gameId}` : `${engine.toLowerCase()}:${title}`;
 
   const unknownDirs = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -82,7 +81,7 @@ function isWebDir(name) {
 }
 
 function findSaveDir(folder, root, engine) {
-  const ext = engine === "MZ" ? ".rmmzsave" : ".rpgsave";
+  const ext = engineOf(engine).saveExtension;
   for (const dir of [resolveCI(root, "save"), resolveCI(folder, "save")]) {
     if (fs.existsSync(dir) && fs.readdirSync(dir).some((f) => f.endsWith(ext))) return dir;
   }
