@@ -564,7 +564,50 @@
     menu = null;
     menuBack = null;
     resume();
+    dropMenuEntry();
   }
+
+  // The phone's Back key (and the browser's): a history entry while the menu
+  // is open, so Back goes up one level, then closes the menu, instead of
+  // leaving the game. Same URL, so a reload is not affected.
+  let menuEntry = false;
+  let skipPops = 0; // our own history.back() calls, not the player's
+  let pushLater = false; // reopened before such a call went through
+  function pushMenuEntry() {
+    // history.back() is asynchronous: an entry pushed before it lands would be the one it takes.
+    if (skipPops) {
+      pushLater = true;
+      return;
+    }
+    try {
+      history.pushState({ rwkMenu: true }, "");
+      menuEntry = true;
+    } catch {
+      menuEntry = false;
+    }
+  }
+  function dropMenuEntry() {
+    pushLater = false;
+    if (!menuEntry) return;
+    menuEntry = false;
+    if (!(history.state && history.state.rwkMenu)) return; // already gone
+    skipPops++;
+    history.back();
+  }
+  window.addEventListener("popstate", () => {
+    if (skipPops) {
+      skipPops--;
+      if (!skipPops && pushLater && menu) {
+        pushLater = false;
+        pushMenuEntry();
+      }
+      return;
+    }
+    if (!menu || !menuEntry) return;
+    menuEntry = false; // the browser took it
+    backOrClose();
+    if (menu) pushMenuEntry();
+  });
 
   // Esc and the back button: up one level from a group's page, then close.
   let menuBack = null;
@@ -795,6 +838,7 @@
     shield(overlay);
     pause();
     document.body.appendChild(overlay);
+    pushMenuEntry();
   }
 
   // F1 opens the menu (unless one of the game's plugins uses that key). While
