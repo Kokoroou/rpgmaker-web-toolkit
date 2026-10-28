@@ -107,13 +107,21 @@
   const speeds = Object.keys(AUTO_SPEEDS);
 
   const canSkip = !LOCKED && MODES.includes("skip");
+  const setAutoSpeed = (value) => {
+    autoSpeed = value;
+    RWK.storage.set(AUTO_KEY, value);
+  };
   if (!LOCKED && MODES.length > 1) {
     RWK.tools.add({
       icon: RWK.icons.message,
       group: "messages",
-      label: () => `Messages: ${MODE_NAMES[mode]}`,
+      label: "Messages",
+      type: "choice",
+      options: MODES.map((m) => ({ value: m, label: MODE_NAMES[m] })),
+      selected: () => mode,
+      onChoose: (m) => setMode(m),
       summary: () => MODE_NAMES[mode],
-      detail: () => `Tap for ${MODE_NAMES[next(MODES, mode)]}` + (RWK.controls || !canSkip ? "" : " · hold Ctrl to skip"),
+      detail: RWK.controls || !canSkip ? "" : "Hold Ctrl to skip only while held",
       keepOpen: true,
       onSelect: () => setMode(next(MODES, mode)),
     });
@@ -122,14 +130,15 @@
     RWK.tools.add({
       icon: RWK.icons.timer,
       group: "messages",
-      label: () => `Auto speed: ${AUTO_NAMES[autoSpeed]}`,
+      label: "Auto speed",
+      type: "choice",
+      options: speeds.map((s) => ({ value: s, label: AUTO_NAMES[s] })),
+      selected: () => autoSpeed,
+      onChoose: setAutoSpeed,
       summary: () => (mode === "auto" ? `${AUTO_NAMES[autoSpeed]} auto` : ""),
-      detail: () => `Tap for ${AUTO_NAMES[next(speeds, autoSpeed)]}`,
+      detail: () => (mode === "auto" ? "" : "Used in the Auto mode"),
       keepOpen: true,
-      onSelect: () => {
-        autoSpeed = next(speeds, autoSpeed);
-        RWK.storage.set(AUTO_KEY, autoSpeed);
-      },
+      onSelect: () => setAutoSpeed(next(speeds, autoSpeed)),
     });
   }
 

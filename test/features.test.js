@@ -39,18 +39,25 @@ const value = (v) => (typeof v === "function" ? v() : v);
 
 test("fast forward: top speed, starting speed, lock", () => {
   const free = load("RWK_Speed", { fastForward: { maxSpeed: 4, speed: 3, inBattle: true, lock: false } });
-  assert.deepEqual(free.labels(), ["Fast forward", "Fast-forward speed: ×3"]);
+  assert.deepEqual(free.labels(), ["Fast forward", "Fast-forward speed"]);
+  assert.equal(free.tools[0].type, "switch");
+  assert.deepEqual(Array.from(free.tools[1].options.map((o) => o.label)), ["×2", "×3", "×4"]);
+  assert.equal(free.tools[1].selected(), 3);
   const speed = free.tools[1];
   speed.onSelect();
-  assert.equal(value(speed.label), "Fast-forward speed: ×4");
+  assert.equal(speed.selected(), 4);
   speed.onSelect();
-  assert.equal(value(speed.label), "Fast-forward speed: ×2", "wraps around");
+  assert.equal(speed.selected(), 2, "wraps around");
+  speed.onChoose(3);
+  assert.equal(speed.selected(), 3, "picked from the segmented control");
   assert.equal(value(free.tools[0].summary), "Fast forward off");
   free.tools[0].onSelect();
-  assert.equal(value(free.tools[0].summary), "Fast forward ×2");
+  assert.equal(value(free.tools[0].summary), "Fast forward ×3");
+  assert.equal(free.tools[0].checked(), true);
 
   const capped = load("RWK_Speed", { fastForward: { maxSpeed: 3 } }, { stored: { "rwk.speed.g": 4 } });
-  assert.equal(value(capped.tools[1].label), "Fast-forward speed: ×2", "a remembered speed over the limit is dropped");
+  assert.equal(capped.tools[1].selected(), 2, "a remembered speed over the limit is dropped");
+  assert.deepEqual(Array.from(capped.tools[1].options.map((o) => o.value)), [2, 3]);
 
   const locked = load("RWK_Speed", { fastForward: { maxSpeed: 4, speed: 3, lock: true } }, { stored: { "rwk.speed.g": 2 } });
   assert.deepEqual(locked.labels(), ["Fast forward"], "no speed to pick");
@@ -104,22 +111,27 @@ function messageGlobals() {
 
 test("message modes: which modes, the starting one, lock", () => {
   const all = load("RWK_Message", { messageMode: { auto: true, skip: true, mode: "normal", autoSpeed: "normal" } }, { globals: messageGlobals() });
-  assert.deepEqual(all.labels(), ["Messages: Normal", "Auto speed: Normal"]);
+  assert.deepEqual(all.labels(), ["Messages", "Auto speed"]);
+  assert.deepEqual(Array.from(all.tools[0].options.map((o) => o.label)), ["Normal", "Auto", "Skip"]);
+  assert.equal(all.tools[0].selected(), "normal");
   all.tools[0].onSelect();
   all.tools[0].onSelect();
-  assert.equal(value(all.tools[0].label), "Messages: Skip");
+  assert.equal(all.tools[0].selected(), "skip");
   assert.equal(value(all.tools[0].summary), "Skip", "the mode on the menu's first screen");
   assert.equal(value(all.tools[1].summary), "", "the auto speed only matters in Auto");
 
   const noSkip = load("RWK_Message", { messageMode: { skip: false } }, { globals: messageGlobals() });
   noSkip.tools[0].onSelect();
   noSkip.tools[0].onSelect();
-  assert.equal(value(noSkip.tools[0].label), "Messages: Normal", "Normal → Auto → Normal, never Skip");
+  assert.equal(noSkip.tools[0].selected(), "normal", "Normal → Auto → Normal, never Skip");
+  assert.deepEqual(Array.from(noSkip.tools[0].options.map((o) => o.value)), ["normal", "auto"]);
 
   const starts = load("RWK_Message", { messageMode: { mode: "auto", autoSpeed: "slow" } }, { globals: messageGlobals() });
-  assert.deepEqual(starts.labels(), ["Messages: Auto", "Auto speed: Slow"]);
+  assert.deepEqual([starts.tools[0].selected(), starts.tools[1].selected()], ["auto", "slow"]);
+  starts.tools[1].onChoose("fast");
+  assert.equal(starts.stored["rwk.autoSpeed.g"], "fast", "remembered");
   const chose = load("RWK_Message", { messageMode: { mode: "auto" } }, { globals: messageGlobals(), stored: { "rwk.messageMode.g": "normal" } });
-  assert.equal(chose.labels()[0], "Messages: Normal", "the player's own choice wins over the starting mode");
+  assert.equal(chose.tools[0].selected(), "normal", "the player's own choice wins over the starting mode");
 
   const locked = load("RWK_Message", { messageMode: { mode: "auto", autoSpeed: "fast", lock: true } }, { globals: messageGlobals(), stored: { "rwk.messageMode.g": "normal" } });
   assert.deepEqual(locked.labels(), [], "nothing to change");
