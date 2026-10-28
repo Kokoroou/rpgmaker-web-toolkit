@@ -137,33 +137,43 @@ The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0
 
 ### Settings page redesign
 
-Planned 2026-10-28; **nothing built**. "Settings page" here means the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option. If the guide's setup pages in `site/setup/` were meant instead, say so and this item changes.
+Planned 2026-10-28, decisions made the same day; **nothing built**. "Settings page" is the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option, and the guide pages that explain it.
 
 Why: the menu grew one feature at a time. Tools register with `RWK.addTool({ icon, label, detail, onSelect, keepOpen, group, quick })` and are listed under fixed `GROUPS` (Play, Saves, Cheats, Controls, Display, Offline, Help, then "More"). Counting `group:` in `runtime/` shows **9 of 17 tools sit in "Play"**, so that group is a long mixed list; every toggle, choice and action is the same kind of row; a sub-choice (speed, language, message mode) opens another dialog or cycles on tap.
 
-To decide before building (needs the maintainer; none is settled):
+Decisions:
 
-- Which page: the in-game menu only, or also the guide's setup section.
-- Keep one scrollable sheet with better groups, or tabs / a two-level list (a group row opens its own page with a back button).
-- Controls built into the rows, so a choice does not need a dialog: switch for on/off, segmented control for 2–4 options (speed ×1–×4, message mode), slider for numbers, plain row with a chevron for actions that open a panel (Saves, Keys, Language).
-- Search box once the list passes about 15 rows (Ideas §4 "Menu nhanh" already has the quick-tile row; check what is still unbuilt there before adding more).
+- **Sub-pages first.** The first screen shows the quick tiles and one row per group, each with a one-line summary of its state (for example "Speed ×2 · Auto on"). A group row opens its own page with a back button (and Esc / the Back key go up one level, then close). No tabs.
+- **Search when the list is long.** A search box appears only when the menu has more rows than a limit (start with about 15 across all pages; decide the number after step 1). It searches labels and details across every page and shows matching rows with their group; hidden below the limit so small installs stay uncluttered. Matching uses the language handling that already translates the labels.
+- **Row types** so a choice does not need a dialog: switch for on/off, segmented control for 2–4 options (speed ×1–×4, message mode), slider for numbers, plain row with a chevron for actions and panels (Saves, Keys, Language).
+- **The guide follows the menu** (see below).
 
 Constraints (existing behaviour to keep):
 
 - The game pauses while the menu is open; music keeps playing. The phone layout is a bottom sheet, landscape is a side drawer; touch targets stay at least 44 px; safe-area insets stay.
-- Tools keep registering through `addTool`, so the other plugins and `RWK.removeTool` need no change; new fields (`type: "switch" | "choice" | "action"`, `options`) are optional and old tools render as they do now.
-- Features the creator's policy turns off (the `features` keys) stay out of the menu; per-player settings and presets are untouched.
-- Light and dark themes, keyboard use (arrows, Enter, Esc), `aria` roles and labels; text comes from the existing language handling, not hard-coded in new places.
+- Tools keep registering through `addTool`, so the other plugins and `RWK.removeTool` need no change; new fields (`type: "switch" | "choice" | "action"`, `options`) are optional and old tools render as they do now. A tool with no known group still lands under "More".
+- Features the creator's policy turns off (the `features` keys) stay out of the menu, and a group with no tool left disappears; per-player settings and presets are untouched.
+- Light and dark themes, keyboard use (arrows, Enter, Esc), `aria` roles and labels, and the page title announced when a sub-page opens; text comes from the existing language handling, not hard-coded in new places.
+
+Guide (`site/`):
+
+- `site/play/` has 13 pages in a flat sidebar list (`site/.vitepress/config.mjs`). Reorganise it to mirror the menu: a **Menu map** page (one screenshot of the first screen, one line per group, where each setting lives, how to search), then one section per group with its feature pages inside, instead of one long list. Split a page when it covers more than one menu entry (`controls.md` mixes touch buttons and the toolbar; `saves.md` mixes sync, history and conflicts) and merge tiny ones when they share a page in the menu (`dash.md`, `language.md` are 12 lines).
+- Keep old URLs working: when a page moves, leave the old path as a short page that points to the new one, or add a redirect, so links in the README, CHANGELOG, `llms.txt` and sitemap do not break.
+- Every feature page starts with "Menu → Group → Item" so the reader can find it in the game; update the screenshots (light and dark) and the `lang`/`description` front matter that the SEO work reads.
+- Check the sidebar on a phone width and run the docs build (`cd site && npm run build`) for dead links.
 
 Order, each its own PR:
 
-1. **Audit** (S): list every tool with its group, kind (toggle / choice / action / panel) and how often it is used (Ideas §2 gives the order), and sketch the new layout, light and dark, phone and desktop. Output: a short design note in `docs/` and screenshots; `npm run perf` baseline for menu open time.
+1. **Audit** (S): list every tool with its group, kind (toggle / choice / action / panel) and how often it is used (Ideas §2 gives the order), decide the new group names and the search limit, and sketch the first screen and one sub-page, light and dark, phone and desktop. Output: a short design note in `docs/`; `npm run perf` baseline for menu open time.
 2. **Regroup** (S): move the nine "Play" tools into clearer groups without touching the look (for example Speed and reading, Messages, Movement). Data-only change.
-3. **Row types** (M): add the switch / segmented / action row renderers in `RWK_Core` and move the toggles and choices onto them one plugin at a time; screenshots with `tools/perf/` or the Playwright setup used by `site/screenshots`.
-4. **Navigation** (M): sub-pages or tabs and the optional search, after 1–3 show whether the list is still too long.
-5. **Docs** (S): update the screenshots and the "Play" guide pages in `site/play/`.
+3. **Sub-pages** (M): a page stack in `openTools` (first screen = tiles + group rows with summaries, back button, Esc, focus handling).
+4. **Row types** (M): switch / segmented / slider / chevron renderers; move the toggles and choices onto them one plugin at a time.
+5. **Search** (S–M): the box, shown above the row limit.
+6. **Guide** (M): the Menu map page, the regrouped `site/play/` sections, redirects, new screenshots. Can ship with step 3 if the menu changes first; the docs must never describe a menu that has not been released.
 
-Not tested: no mock-up exists yet; the group counts above are from a search of `runtime/`.
+Steps 3–5 change what players see (`feat(runtime)`); step 2 is a `refactor`, 1 and 6 are `docs`.
+
+Not tested: no mock-up exists yet; the group counts above are from a search of `runtime/`, and the page list from `site/play/`.
 
 ### Other RPG Maker versions
 
@@ -207,7 +217,7 @@ Plan:
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
-- Redesign of the in-game settings page (the ⚙ / F1 menu): planned 2026-10-28, not started. See [Settings page redesign](#settings-page-redesign).
+- Redesign of the in-game settings page (the ⚙ / F1 menu: sub-pages, search, guide reorganised): planned 2026-10-28, not started. See [Settings page redesign](#settings-page-redesign).
 - Other RPG Maker versions (2000/2003 through EasyRPG, Pixel Game Maker MV; XP/VX/Ace and Unite not planned): evaluated 2026-10-28, not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
 - Other deploy targets: build only (also needed by the CD integration's pull request builds), or a local folder / LAN server, for people who do not use Cloudflare. Reference: `--deploy-target local|custom|none` in [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 
