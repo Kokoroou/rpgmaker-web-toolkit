@@ -62,7 +62,7 @@ export async function editConfig(input) {
     return { ...siteOf(cfg), next: [] };
   }
   // Identity fields are not editable, whichever way the config was changed.
-  cfg = { ...edited, slug: before.slug, fingerprint: before.fingerprint, storageId: before.storageId, retiredWorkers: before.retiredWorkers, policy: before.policy, liveSettings: before.liveSettings };
+  cfg = { ...edited, slug: before.slug, fingerprint: before.fingerprint, storageId: before.storageId, retiredWorkers: before.retiredWorkers, policy: before.policy, liveSettings: before.liveSettings, toolkitVersion: before.toolkitVersion };
   configs[fingerprint] = cfg;
   await saveGameConfigs(bucket, configs);
   if (!cfg.liveSettings) {

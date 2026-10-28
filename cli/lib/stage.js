@@ -246,7 +246,7 @@ export function liveSettingsOf(engine, cfg, policy) {
 
 // Top-level keys that differ between two configs and only a deploy applies.
 export function keysNeedingDeploy(before, after) {
-  const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "url", "savesImportedAt"]);
+  const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion", "url", "savesImportedAt"]);
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   return [...keys].filter((key) => !skip.has(key) && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
 }

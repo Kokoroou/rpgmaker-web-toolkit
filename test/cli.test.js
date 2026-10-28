@@ -706,7 +706,7 @@ test("settings without a redeploy: what the Worker reads from R2, and what still
   assert.equal(locked.config.sync.enabled, false);
 
   for (const key of ["fastForward", "cheats", "players", "preset", "controls", "sync"]) assert.ok(LIVE_KEYS.includes(key), key);
-  const after = { ...cfg, backlog: false, players: {}, exclude: ["*.txt"], cache: false, liveSettings: true, url: "https://x" };
+  const after = { ...cfg, backlog: false, players: {}, exclude: ["*.txt"], cache: false, liveSettings: true, toolkitVersion: "9.9.9", url: "https://x" };
   assert.deepEqual(keysNeedingDeploy(cfg, after), ["exclude", "cache"]);
   assert.deepEqual(keysNeedingDeploy(cfg, { ...cfg }), []);
 });
