@@ -19,14 +19,15 @@ export function splitKey(key) {
 
 // -> the value at key, or undefined when nothing is set there.
 export function getSetting(cfg, key) {
-  let node = cfg;
-  for (const part of splitKey(key)) {
-    // A list is read by position ("controls.buttons.0"), an object by name.
-    if (Array.isArray(node) ? !/^\d+$/.test(part) : !isObject(node)) return undefined;
-    if (!Object.hasOwn(node, part)) return undefined;
-    node = node[part];
-  }
-  return node;
+  return valueAt(cfg, splitKey(key));
+}
+
+function valueAt(node, [part, ...rest]) {
+  if (part === undefined) return node;
+  // A list is read by position ("controls.buttons.0"), an object by name.
+  if (Array.isArray(node) ? !/^\d+$/.test(part) : !isObject(node)) return undefined;
+  if (!Object.hasOwn(node, part)) return undefined;
+  return valueAt(node[part], rest);
 }
 
 export function parseValue(text) {
@@ -50,22 +51,30 @@ export function setSetting(cfg, key, value) {
   if (IDENTITY_KEYS.includes(parts[0])) {
     throw new UsageError(`"${parts[0]}" is written by the toolkit and cannot be set.`, { hint: parts[0] === "slug" ? 'To change the site name: rwk rename "<game folder>" --to <new name>' : undefined });
   }
-  const out = structuredClone(cfg);
-  let node = out;
-  for (const [i, part] of parts.slice(0, -1).entries()) {
-    if (node[part] === undefined || node[part] === null || node[part] === true) {
-      // true means "on with the defaults": an object of limits keeps it on.
-      if (value === null) return out;
-      node[part] = {};
-    } else if (!isObject(node[part])) {
-      throw new UsageError(`"${parts.slice(0, i + 1).join(".")}" is ${JSON.stringify(node[part])}, not an object, so "${key}" cannot be set.`, {
-        hint: `Set "${parts.slice(0, i + 1).join(".")}" itself, e.g. --set ${parts.slice(0, i + 1).join(".")}='{"${parts[i + 1]}":…}'`,
-      });
-    }
-    node = node[part];
+  return withValue(structuredClone(cfg), parts, 0, key, value);
+}
+
+// node with value at parts[at…], copied along the way. Recursive rather than a
+// loop that walks node = node[part], so no step can reach a prototype.
+function withValue(node, parts, at, key, value) {
+  const part = parts[at];
+  const out = { ...node };
+  if (at === parts.length - 1) {
+    if (value === null) delete out[part];
+    else out[part] = value;
+    return out;
   }
-  const last = parts[parts.length - 1];
-  if (value === null) delete node[last];
-  else node[last] = value;
+  let child = Object.hasOwn(node, part) ? node[part] : undefined;
+  if (child === undefined || child === null || child === true) {
+    // true means "on with the defaults": an object of limits keeps it on.
+    if (value === null) return node;
+    child = {};
+  } else if (!isObject(child)) {
+    const path = parts.slice(0, at + 1).join(".");
+    throw new UsageError(`"${path}" is ${JSON.stringify(child)}, not an object, so "${key}" cannot be set.`, {
+      hint: `Set "${path}" itself, e.g. --set ${path}='{"${parts[at + 1]}":…}'`,
+    });
+  }
+  out[part] = withValue(child, parts, at + 1, key, value);
   return out;
 }
