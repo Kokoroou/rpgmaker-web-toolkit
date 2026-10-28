@@ -82,8 +82,10 @@ export async function upgrade(input) {
   if (known) await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(cfg.engine, cfg, policy));
   await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch });
   log.ok(`Worker "${cfg.slug}" updated`);
-  if (known && !cfg.liveSettings) {
-    configs[fingerprint] = { ...cfg, liveSettings: true };
+  // liveSettings only once the policy is known; the version in any case, for rwk status.
+  const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION };
+  if (JSON.stringify(updated) !== JSON.stringify(cfg)) {
+    configs[fingerprint] = updated;
     await saveGameConfigs(bucket, configs);
   }
 

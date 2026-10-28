@@ -63,8 +63,27 @@ export async function describeSite(cfg, { probe = probeAccess, players = loadPla
     // Only information.
   }
   facts.push(["Cloud sync", cfg.sync && cfg.sync.enabled === false ? "off" : "on"]);
-  facts.push(["Toolkit", `this CLI is ${TOOLKIT_VERSION}; rwk upgrade brings the site to it`]);
+  facts.push(["Toolkit", toolkitFact(cfg.toolkitVersion)]);
   return { facts, up };
+}
+
+// "1.2.3" -> -1, 0, 1 against another version; pre-release tags are ignored.
+function compareVersions(a, b) {
+  const parts = (v) => String(v).split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
+  const [x, y] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
+  }
+  return 0;
+}
+
+// The site's toolkit (recorded by deploy and upgrade) against this CLI's.
+export function toolkitFact(siteVersion, cliVersion = TOOLKIT_VERSION) {
+  if (!siteVersion) return `not recorded (deployed before it was); this CLI is ${cliVersion}, rwk upgrade brings the site to it`;
+  const order = compareVersions(siteVersion, cliVersion);
+  if (order === 0) return `${siteVersion}, the same as this CLI`;
+  if (order < 0) return c.yellow(`${siteVersion}; this CLI is ${cliVersion}: rwk upgrade brings the site to it`);
+  return `${siteVersion}, newer than this CLI (${cliVersion}): update the toolkit before rwk upgrade`;
 }
 
 export async function status(input, deps = {}) {
@@ -72,7 +91,7 @@ export async function status(input, deps = {}) {
   const cfg = await findSite(target, deps);
   log.step("Checking the site");
   const { facts, up } = await describeSite(cfg, deps);
-  return { ...siteOf(cfg), engine: cfg.engine, title: cfg.title, up, facts, next: [] };
+  return { ...siteOf(cfg), engine: cfg.engine, title: cfg.title, toolkitVersion: cfg.toolkitVersion || null, up, facts, next: [] };
 }
 
 export async function list(deps = {}) {

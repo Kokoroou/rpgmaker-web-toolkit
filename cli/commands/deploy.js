@@ -26,7 +26,7 @@ import { loadLimits } from "../lib/limits.js";
 import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, baseConfig, checkFeatureConfig, playerEmails } from "../lib/features.js";
-import { generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
+import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
@@ -161,6 +161,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
   cfg.liveSettings = true; // config applies without a redeploy from now on
+  cfg.toolkitVersion = TOOLKIT_VERSION; // for rwk status
   await saveGameConfig();
 
   if (!authReady) {
@@ -240,8 +241,8 @@ export function editInEditor(cfg) {
         const next = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
         // Identity fields are not editable: they tie the config to the game and Worker.
         // rwk rename changes the site name. The policy is the game creator's.
-        // liveSettings says what the deployed Worker can do.
-        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy, liveSettings: cfg.liveSettings };
+        // liveSettings and toolkitVersion say what the deployed Worker can do.
+        return { ...next, slug: cfg.slug, fingerprint: cfg.fingerprint, storageId: cfg.storageId, retiredWorkers: cfg.retiredWorkers, policy: cfg.policy, liveSettings: cfg.liveSettings, toolkitVersion: cfg.toolkitVersion };
       } catch (err) {
         log.warn(`Invalid JSON (${err.message}); reopening so you can fix it.`);
       }

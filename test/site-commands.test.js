@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { exportSaves, saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
-import { deleteSite, describeSite, list, logs, open, status } from "../cli/commands/site.js";
+import { deleteSite, describeSite, list, logs, open, status, toolkitFact } from "../cli/commands/site.js";
 import { userHash as userHashOf } from "../cli/lib/cloudflare.js";
 import { getObject, listObjects } from "../cli/lib/r2-api.js";
 import { renderSummary, runResult } from "../cli/lib/report.js";
@@ -81,6 +81,13 @@ test("status: what the site is, and a warning when Access is not in front", asyn
   assert.doesNotMatch(text(down), /Players/);
 });
 
+test("status: the site's toolkit version against this CLI's", () => {
+  assert.match(toolkitFact(undefined, "0.6.0"), /^not recorded .*this CLI is 0\.6\.0, rwk upgrade/);
+  assert.equal(toolkitFact("0.6.0", "0.6.0"), "0.6.0, the same as this CLI");
+  assert.match(toolkitFact("0.5.0", "0.10.0"), /0\.5\.0; this CLI is 0\.10\.0: rwk upgrade brings the site to it/, "compared as numbers, not text");
+  assert.match(toolkitFact("0.7.0", "0.6.1"), /^0\.7\.0, newer than this CLI \(0\.6\.1\): update the toolkit/);
+});
+
 test("report: facts become rows of the closing summary", () => {
   const result = runResult("status", { site: "my-game", url: "https://my-game.a.workers.dev", facts: [["Players", "2 email(s)"]] }, []);
   const out = renderSummary(result);
@@ -105,7 +112,9 @@ test("status, list and open: work from a name, with no folder", async (t) => {
   quiet(t);
   const deps = { ...baseDeps(), probe: async () => ({ protected: true }), players: async () => ({ h: 1 }) };
   const result = await status("my-game", deps);
-  assert.deepEqual([result.title, result.up], ["Game", true]);
+  assert.deepEqual([result.title, result.up, result.toolkitVersion], ["Game", true, null]);
+  const recorded = await status("my-game", { ...deps, loadGameConfigs: async () => ({ fp1: { ...CFG, toolkitVersion: "0.5.0" } }) });
+  assert.equal(recorded.toolkitVersion, "0.5.0");
   assert.ok(result.facts.some(([k]) => k === "Players"));
 
   const listed = await list(deps);
