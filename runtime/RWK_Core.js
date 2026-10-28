@@ -348,6 +348,10 @@
 .rwk-tools-list i.rwk-switch{display:block;opacity:1}
 .rwk-menu-head .rwk-menu-back{margin-left:-12px}
 .rwk-menu-head .rwk-menu-back[hidden],.rwk-quick[hidden]{display:none}
+.rwk-menu-search{display:block;width:100%;box-sizing:border-box;min-height:44px;margin:12px 0 2px;padding:8px 12px;
+  font:inherit;font-size:16px;border-radius:10px;border:1px solid #444;background:#1f1f25;color:#eee}
+.rwk-menu-search[hidden]{display:none}
+.rwk-menu-empty{margin:8px 2px;opacity:.7}
 .rwk-switch{position:relative;flex:none;width:42px;height:26px;border-radius:13px;background:#55555f;transition:background .15s}
 .rwk-switch::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#eee;transition:transform .15s}
 [aria-checked="true"]>.rwk-switch{background:#3b82f6}
@@ -471,6 +475,17 @@
   const value = (v) => (typeof v === "function" ? v() : v);
   const groupOf = (tool) => (GROUPS[tool.group] ? tool.group : "more");
   const groupName = (key) => GROUPS[key] || "More";
+
+  // Above this many rows the first screen gets a search box; below it the
+  // groups are quick enough to scan.
+  const SEARCH_MIN_ROWS = 15;
+  // Lower case without accents, so "eté" finds "Été" and "auto" finds "Auto".
+  const fold = (text) => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  // Every word of the query in the tool's label, detail or group name.
+  function matches(tool, query) {
+    const text = fold([value(tool.label), value(tool.detail), groupName(groupOf(tool))].join(" "));
+    return fold(query).split(/\s+/).filter(Boolean).every((word) => text.includes(word));
+  }
 
   // The one line under a group on the menu's first screen: what its tools
   // say about their state (summary), or their names when none says anything.
@@ -596,9 +611,16 @@
     body.className = "rwk-menu-body";
     const quick = document.createElement("div");
     quick.className = "rwk-quick";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "rwk-menu-search";
+    search.placeholder = "Search settings";
+    search.setAttribute("aria-label", "Search settings");
+    search.autocomplete = "off";
+    search.addEventListener("input", () => fill());
     const list = document.createElement("div");
     list.className = "rwk-tools-list";
-    body.append(quick, list);
+    body.append(quick, search, list);
 
     const rowLabel = (tool) => {
       const label = document.createElement("span");
@@ -708,11 +730,30 @@
         groups.get(key).push(tool);
       }
       if (page && !groups.has(page)) page = ""; // its last tool went away
+      const rows = [...groups.values()].reduce((n, tools) => n + tools.length, 0);
+      search.hidden = !!page || rows <= SEARCH_MIN_ROWS;
+      const query = search.hidden ? "" : search.value.trim();
       h.textContent = page ? groupName(page) : "Settings";
       backBtn.hidden = !page;
-      quick.hidden = !!page || !quick.childElementCount;
+      quick.hidden = !!page || !!query || !quick.childElementCount;
       if (page) {
         for (const tool of groups.get(page)) list.appendChild(button(tool));
+      } else if (query) {
+        // The matching rows of every page, under their group's name.
+        for (const key of [...Object.keys(GROUPS), "more"]) {
+          const found = (groups.get(key) || []).filter((tool) => matches(tool, query));
+          if (!found.length) continue;
+          const title = document.createElement("h3");
+          title.textContent = groupName(key);
+          list.appendChild(title);
+          for (const tool of found) list.appendChild(button(tool));
+        }
+        if (!list.childElementCount) {
+          const empty = document.createElement("p");
+          empty.className = "rwk-menu-empty";
+          empty.textContent = "No setting matches.";
+          list.appendChild(empty);
+        }
       } else {
         for (const key of [...Object.keys(GROUPS), "more"]) {
           const tools = groups.get(key);
@@ -733,7 +774,16 @@
       (target || closeBtn).focus();
     };
     backBtn.addEventListener("click", () => show(""));
-    menuBack = () => !!page && (show(""), true);
+    // Esc clears the search first, then leaves a group's page.
+    menuBack = () => {
+      if (!search.hidden && search.value) {
+        search.value = "";
+        fill();
+        search.focus();
+        return true;
+      }
+      return !!page && (show(""), true);
+    };
 
     fill();
     // The cache's size is read as the menu opens; show it once it is known.
