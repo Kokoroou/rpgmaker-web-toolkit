@@ -135,6 +135,26 @@ Shipped as #13. The "How it works" page has an architecture diagram, a deploy di
 
 The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0, pinned `81c6be8`, v3.2.0) and not used: it writes explorable standalone HTML with its own themes rather than a static SVG that follows the guide's light / dark switch, its `finalize` step needs a real browser, its update check calls a remote manifest and keeps a cache in the home folder, and its `SKILL.md` can add a line to the agent's global rules. Hand-drawn SVG avoids all of that. If a skill is tried again, vet it first: license, what `SKILL.md` asks the agent to do, scripts' network / file / environment access, dependencies and install hooks, and that its HTML loads nothing remote; run it in a throwaway folder, with no Cloudflare credentials.
 
+### Other RPG Maker versions
+
+Evaluated 2026-10-28; **nothing built**. The toolkit only knows MZ and MV: `analyzeGame` (`cli/lib/game.js`) looks for `js/rmmz_core.js` or `js/rpg_core.js` and stops with "Unknown engine" otherwise, the save extensions (`.rmmzsave`, `.rpgsave`) are chosen in `game.js` and `cloudflare.js`, and every `runtime/RWK_*.js` plugin hooks classes of the JS engine (`Window_Message`, `Input`, `ConfigManager`, `Game_Actor`…). What does not depend on the engine and can be reused: `worker/` (assets, Access, save API with `If-Match`, history, players, settings), the deploy flow and R2 for large files, `cli/limits.json`, the Service Worker cache, Play offline and the web manifest.
+
+| Version | How it would run on the web | Verdict |
+|---|---|---|
+| Pixel Game Maker MV | Same JS core as MV (unverified) | Try first: one real game, no code if it already passes `analyze` |
+| RPG Maker 2000 / 2003 | [EasyRPG Player](https://easyrpg.org/player/guide/webplayer/) (Emscripten build, `?game=<folder>`, saves in IndexedDB) | Feasible, as its own item |
+| XP / VX / VX Ace (RGSS, Ruby) | Community ports only: [mkxp-web](https://github.com/pulsejet/mkxp) (last pushed over two years ago, per a third-party index), [mkxp-z libretro Emscripten](https://white-axe.github.io/mkxp-z-libretro-emscripten) (still a proposal; RTP must be copied into the game; no way to upload saves) | Not planned until a port is maintained |
+| RPG Maker Unite (Unity) | Unity WebGL export, a different pipeline (not researched) | Not planned |
+
+Order, each its own PR:
+
+1. **Engine table** (S–M, worth doing on its own): replace the `engine === "MZ" ? … : …` checks in `game.js`, `cloudflare.js` and `stage.js` with one per-engine description (marker files, web folders, save extension, runtime plugin set). No change in behaviour; `npm test` stays green.
+2. **Pixel Game Maker MV check** (S): run `analyze` and a deploy on one real game; if it works, allow it in the detection and the docs, otherwise record why.
+3. **EasyRPG adapter** (L): detect by `RPG_RT.ldb` / `RPG_RT.lmt`; stage the EasyRPG web player with the game's files and its asset index; a small wrapper script instead of the `RWK_*` plugins that mirrors the `Save*.lsd` files between IndexedDB and the save API (binary, no decoding), plus the Service Worker cache. Touch controls would send keyboard events to the player. Open points: letter-case of file names (the `rwk-paths` checks assume MZ/MV folders), RTP for 2000/2003 games, the player's licence (GPL; check how it is bundled and whether it fits the project's licence before copying anything), and a maintainer for a second runtime.
+4. **XP / VX / Ace**: revisit only if a maintained web port appears. Until then say in the README that these engines are not supported.
+
+Not tested: no EasyRPG or mkxp build was run; the verdicts come from their documentation.
+
 ### Ways to say thanks: GitHub Sponsors and Ko-fi
 
 The toolkit stays free to use under its [license](../LICENSE). Support is a thank-you, never a purchase: no feature, priority or support is tied to it, and nothing in the toolkit asks for money.
@@ -157,6 +177,7 @@ Plan:
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
+- Other RPG Maker versions (2000/2003 through EasyRPG, Pixel Game Maker MV; XP/VX/Ace and Unite not planned): evaluated 2026-10-28, not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
 - Other deploy targets: build only (also needed by the CD integration's pull request builds), or a local folder / LAN server, for people who do not use Cloudflare. Reference: `--deploy-target local|custom|none` in [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 
 ## Not planned
