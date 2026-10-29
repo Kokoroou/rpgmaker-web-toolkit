@@ -7,6 +7,7 @@
 //
 //   (deploy --dry-run and analyze: dryRun: true, game: { title, engine }, no site / url)
 //   { schema: 1, ok: true, command, site, url, locked, build: { files, bytes, r2Files, r2Uploaded }, next, warnings }
+//   (config --get: key and value, null when the setting is not set)
 //   { schema: 1, ok: false, command, error, hint, exitCode, warnings }
 //
 // command is the name `rwk --help` lists ("deploy", "saves import"…).
@@ -43,7 +44,7 @@ const DONE = {
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.
-const doneOf = (result) => (result.dryRun ? "checked, nothing published" : DONE[result.command] || "done");
+const doneOf = (result) => (result.dryRun ? "checked, nothing published" : result.key !== undefined ? "setting read" : DONE[result.command] || "done");
 
 export function renderSummary(result) {
   const name = result.site || "rpgmaker-web-toolkit";
@@ -97,11 +98,12 @@ export function annotations(result) {
 }
 
 // Prints and writes the result where it was asked for. stdout holds the
-// result and nothing else: JSON with --json, else the link when something
-// reads stdout (piped) or with --quiet. A CI file that cannot be written
-// never changes the run's outcome.
+// result and nothing else: JSON with --json, else the setting config --get
+// read (always), or the link when something reads stdout (piped) or with
+// --quiet. A CI file that cannot be written never changes the run's outcome.
 export function publishResult(result, { json = false, quiet = false, tty = !!process.stdout.isTTY, env = process.env, out = (text) => process.stdout.write(text), err = (text) => process.stderr.write(text) } = {}) {
   if (json) out(JSON.stringify(result, null, 2) + "\n");
+  else if (result.ok && result.key !== undefined) out((typeof result.value === "string" ? result.value : JSON.stringify(result.value)) + "\n");
   else if (result.ok && result.url && (quiet || !tty)) out(result.url + "\n");
   if (env.GITHUB_ACTIONS === "true") err(annotations(result));
   const files = [

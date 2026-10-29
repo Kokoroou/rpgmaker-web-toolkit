@@ -1,9 +1,10 @@
-// doctor: is this PC ready to publish? Node.js, wrangler, the Cloudflare login and what the token may do.
+// doctor: is this PC ready to publish? Node.js, wrangler, the Cloudflare login, what the token may do,
+// and what the account needs before a first deploy (R2 switched on, a workers.dev subdomain).
 // Reads only: nothing is created or changed in the Cloudflare account.
 
 import fs from "node:fs";
 import path from "node:path";
-import { TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
+import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken } from "../lib/cloudflare.js";
 import { CliError, log } from "../lib/ui.js";
 import { envApiToken } from "../lib/wrangler.js";
@@ -21,6 +22,8 @@ export const PROBES = [
 ];
 
 const check = (status, label, detail, hint) => ({ status, label, detail, hint: hint || null });
+// Cloudflare's error codes: 10042 R2 not switched on for the account, 10006 no such bucket, 10007 no workers.dev subdomain.
+const hasCode = (res, code) => (res.body?.errors || []).some((e) => e.code === code);
 
 // -> [{ status: "ok" | "warn" | "fail", label, detail, hint }]. Everything the checks read comes in as arguments.
 export async function runChecks({
@@ -89,12 +92,17 @@ export async function runChecks({
   const used = account || list[0];
   checks.push(check("ok", "Account", `${used.name} (${used.id})`));
 
+  const allowed = new Set();
+  const enableR2 = `Open https://dash.cloudflare.com/${used.id}/r2/overview and enable R2 (the free plan asks for a payment method, nothing is charged within it)`;
   for (const probe of PROBES) {
     // The browser login cannot reach Access (the dashboard does that step): not a gap to report.
     if (probe.access && !usingEnvToken) continue;
     const res = await call(probe.route(used.id));
     if (res.ok) {
+      allowed.add(probe.id);
       checks.push(check("ok", probe.label, "allowed"));
+    } else if (probe.id === "r2" && hasCode(res, 10042)) {
+      checks.push(check("fail", probe.label, "R2 is not enabled on this account", enableR2));
     } else if (res.status === 401 || res.status === 403) {
       checks.push(check(probe.level, probe.label, `denied: ${probe.why}`, usingEnvToken ? `Add the token permission ${probe.permission}` : "Log in again to renew the toolkit's permissions"));
     } else if (probe.access && res.status === 400) {
@@ -103,6 +111,22 @@ export async function runChecks({
     } else {
       checks.push(check("warn", probe.label, `could not tell (${res.error || `HTTP ${res.status}`})`));
     }
+  }
+
+  // What the account itself needs, asked only where the token may look.
+  if (allowed.has("workers")) {
+    const res = await call(`/accounts/${used.id}/workers/subdomain`);
+    if (res.ok && res.body.result?.subdomain) checks.push(check("ok", "workers.dev subdomain", `${res.body.result.subdomain}.workers.dev`));
+    else if (res.status === 404 || hasCode(res, 10007)) {
+      checks.push(check("fail", "workers.dev subdomain", "none registered yet: deploy cannot publish the site", "Go to https://dash.cloudflare.com → Workers & Pages and register a subdomain (e.g. your username)"));
+    } else checks.push(check("warn", "workers.dev subdomain", `could not tell (${res.error || `HTTP ${res.status}`})`));
+  }
+  if (allowed.has("r2")) {
+    const res = await call(`/accounts/${used.id}/r2/buckets/${DEFAULT_BUCKET}`);
+    if (res.ok) checks.push(check("ok", "R2 bucket", `${DEFAULT_BUCKET} found`));
+    else if (res.status === 404 || hasCode(res, 10006)) checks.push(check("ok", "R2 bucket", `${DEFAULT_BUCKET} not created yet: the first deploy creates it`));
+    else if (hasCode(res, 10042)) checks.push(check("fail", "R2 bucket", "R2 is not enabled on this account", enableR2));
+    else checks.push(check("warn", "R2 bucket", `could not tell (${res.error || `HTTP ${res.status}`})`));
   }
   return checks;
 }
