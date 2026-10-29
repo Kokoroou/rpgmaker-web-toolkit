@@ -15,7 +15,7 @@ import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
@@ -130,6 +130,45 @@ export function cheatsConfig(value) {
 export function offlineConfig(value, cacheOn = true) {
   return cacheOn && value !== false;
 }
+
+// Languages players may translate into when the deployer lists none.
+export const TRANSLATE_TARGETS = ["en", "vi", "zh", "ko", "ja", "fr", "de", "es", "pt", "ru", "id", "th"];
+const LANG_CODE = /^[a-z]{2,3}(-[a-z0-9]{2,4})?$/;
+const langCode = (v) => (typeof v === "string" && LANG_CODE.test(v.trim().toLowerCase()) ? v.trim().toLowerCase() : null);
+
+// translate: false (default) | true | { to: [codes], default, from, font }
+// -> false | { to: the languages offered; default: the first one shown; from: the game's language or "auto";
+//    font: "auto" (a font with every Vietnamese mark for vi) | "game" (keep the game's font) }
+// languages: the "languages" key, whose `original` names the game's language.
+export function translateConfig(value, languages) {
+  if (!value) return false;
+  const v = typeof value === "object" ? value : {};
+  const listed = Array.isArray(v.to) ? [...new Set(v.to.map(langCode).filter(Boolean))] : [];
+  const to = listed.length ? listed : TRANSLATE_TARGETS;
+  const def = langCode(v.default);
+  const original = languages && typeof languages === "object" ? langCode(languages.original) : null;
+  return {
+    to,
+    default: def && to.includes(def) ? def : to[0],
+    from: langCode(v.from) || original || "auto",
+    font: v.font === "game" ? "game" : "auto",
+  };
+}
+
+// Whether a deploy needs the Workers AI binding: translation on for everyone
+// or for one player (cfg as stored, before the policy).
+export function translateWanted(cfg) {
+  if (cfg.translate) return true;
+  return !!(cfg.players && typeof cfg.players === "object" && Object.values(cfg.players).some((p) => p && p.translate));
+}
+
+// RWK_TRANSLATE for the Worker (workerVars in cloudflare.js), or null for a
+// Worker without Workers AI. cfg: as stored; policy: readPolicy()'s; limits: loadLimits()'s.
+export function translateWorker(cfg, policy, limits) {
+  if ((policy && policy.features.translate === false) || !translateWanted(cfg)) return null;
+  return { ...limits.translate, on: !!cfg.translate };
+}
+
 const clampInt = (v, min, max, fallback) => {
   const n = Math.round(Number(v));
   return n >= min ? Math.min(max, n) : fallback;
@@ -210,6 +249,7 @@ export function runtimeConfigOf(engine, gameConfig) {
     saveHistory: saveHistoryConfig(gameConfig.saveHistory),
     cheats: cheatsConfig(gameConfig.cheats),
     offline: offlineConfig(gameConfig.offline, gameConfig.cache !== false),
+    translate: translateConfig(gameConfig.translate, gameConfig.languages),
     cache: gameConfig.cache !== false,
   };
 }
@@ -248,7 +288,10 @@ export function liveSettingsOf(engine, cfg, policy) {
 export function keysNeedingDeploy(before, after) {
   const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion", "url", "savesImportedAt"]);
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
-  return [...keys].filter((key) => !skip.has(key) && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+  const out = [...keys].filter((key) => !skip.has(key) && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+  // Translation is a live key, but the Worker only gets the Workers AI binding at a deploy.
+  if (translateWanted(after) && !translateWanted(before)) out.push("translate");
+  return out;
 }
 
 // Folders whose files the Service Worker keeps, and the biggest file it keeps

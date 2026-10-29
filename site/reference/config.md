@@ -14,8 +14,8 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `retiredWorkers` | Set by `rename`: old Workers to delete once the new site works | No |
 | `fingerprint` | Identifies the game. MZ: `mz:<advanced.gameId>`; MV: `mv:<game title>` | No |
 | `title`, `engine`, `url` | For reference, filled in by the toolkit | No effect |
-| `include` | Extra top-level folders / files to publish, or patterns of files to keep | Yes |
-| `exclude` | Patterns of files to leave out | Yes |
+| `include` | Extra top-level folders / files to publish, or patterns of files to keep. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |
+| `exclude` | Patterns of files to leave out. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |
 | `sync.enabled` | Cloud save sync | Yes |
 | `auth` | `{ "mode": "access", "teamDomain", "aud" }`, or public: `{ "mode": "none", "basis", "since" }`. Filled in by the [Access setup](/setup/access) | With care |
 | `auth.basis` | Why a public site may be public: `"author"`, `"permission"` or `"creator-policy"` | Through the deploy |
@@ -30,12 +30,13 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `messageMode` | `false` turns off the [message modes](/play/messages) (Auto, Skip); `{ "auto": true, "skip": false, "mode": "auto", "autoSpeed": "slow", "lock": true }` picks the modes offered, the mode and Auto speed to start in, and whether players may change them | Same |
 | `backlog` | `false` removes ⚙ → [Messages log](/play/messages#messages-log); a number (10–500, default 100) sets how many messages it keeps | Same |
 | `remap` | `false` removes ⚙ → [Keys and buttons](/play/keys); `{ "keyboard": true, "gamepad": false }` lets players remap only the keyboard (or only the gamepad) | Same |
-| `alwaysDash` | `false` removes ⚙ → [Always dash](/play/dash); `{ "on": true }` makes players who never chose run; `{ "on": true, "lock": true }` keeps it on (no switch) | Same |
+| `alwaysDash` | `false` removes ⚙ → [Always dash](/play/speed#always-dash); `{ "on": true }` makes players who never chose run; `{ "on": true, "lock": true }` keeps it on (no switch) | Same |
 | `quickSave` | `false` turns off [quick save / load](/play/quick-save); `{ "ignoreSaveLock": false }` keeps it off where the game disallows saving | Same |
 | `autoSave` | `false` turns off the [autosave](/play/quick-save#autosave); `{ "minutes": 10 }` changes how often (1–60, default 5) | Same |
-| `saveHistory` | `false` keeps no [older saves](/play/saves#bring-back-an-older-save); `{ "keep": 5, "days": 14 }` changes how many copies each save keeps (1–50, default 10) and for how long (1–365 days, default 30). Enforced by the Worker | Yes |
+| `saveHistory` | `false` keeps no [older saves](/play/older-saves); `{ "keep": 5, "days": 14 }` changes how many copies each save keeps (1–50, default 10) and for how long (1–365 days, default 30). Enforced by the Worker | Yes |
 | `cheats` | Off unless set. `true` turns on ⚙ → [Cheats](/play/cheats); `{ "party": true, "items": true, "battle": false }` keeps only some sections (party: heal, god mode, level; items: gold and items; battle: win now; switches: switches and variables; movement: walk through walls, teleport). Best given to [one player](/setup/configuration#settings-for-one-player) | Same |
 | `offline` | `false` removes ⚙ → [Play offline](/play/offline) (downloading the whole game to the device). Needs `cache`, so `cache: false` turns it off too | Same |
+| `translate` | Off unless set. `true` turns on ⚙ → [Translate the game](/play/translate) (machine translation through Workers AI); `{ "to": ["en", "vi"], "default": "vi", "from": "ja", "font": "game" }` sets the languages players may pick (default: en, vi, zh, ko, ja, fr, de, es, pt, ru, id, th), the one shown first, the game's language (else `languages.original`, else a guess per line) and whether to keep the game's font for Vietnamese. Needs R2. The first time it is on (for everyone or for [one player](/setup/configuration#settings-for-one-player)) needs a deploy, which gives the Worker its Workers AI binding; after that it changes live | Same |
 | `cache` | `false` stops the browser keeping the game's pictures, sounds and data between launches (files over 25 MiB are kept only when a player downloads the game for [offline play](/play/offline)) | Yes |
 | `languages` | Translations in `data-<code>/` folders ([Translations](/setup/languages)). `false` ignores them; `{ "default": "vi", "original": "ja", "lock": true }` sets the language players start in, names the original's language in ⚙ → [Language](/play/language), and keeps everyone on `default` | Yes, with a new publish |
 | `savesImportedAt` | When desktop saves were last uploaded | No need |
@@ -45,3 +46,25 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 :::
 
 All games' settings live in `rwk/games.json` in the R2 bucket `rpgmaker-web-toolkit`, keyed by `fingerprint` ([storage](/reference/how-it-works#storage)).
+
+## rwk.json in the game folder
+
+The settings above live in your Cloudflare account. A few can also travel with the game itself, in an optional `rwk.json` next to `index.html` (or in the folder you pass, when the game is in its `www/`), so a [repository that publishes itself](/setup/ci) carries them and [`analyze`](/reference/commands#check-without-publishing) counts the same files as the real deploy:
+
+```json
+{
+  "name": "my-game",
+  "include": ["Fonts2"],
+  "exclude": ["data-tw/**", "movies/*.webm"]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `name` | The site name of the first deploy, so neither the question nor `--name` is needed. A published game keeps its name: when they differ, the toolkit warns and uses the published one ([`rename`](/setup/updating#change-the-site-address) moves the site) |
+| `include` | Added to the `include` above: extra top-level folders / files to publish, or patterns of files to keep. A folder listed here is not asked about on the first deploy |
+| `exclude` | Added to the `exclude` above: patterns of files to leave out |
+
+Every key is optional. Which value wins: a command-line flag (`--name`), then `rwk.json`, then the settings kept in your account, then the defaults. The file's patterns apply to each run that reads them and are not copied into your account, so removing one takes effect at the next deploy.
+
+The toolkit only reads `rwk.json`, never writes it, and does not publish it. An unknown key is a warning; a file that is not valid JSON, a `name` that is not a site name, or `include` / `exclude` that are not lists of text stop the run (exit code `1`) and say what to fix.

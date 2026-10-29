@@ -83,7 +83,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
-| `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from the folder's name by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
+| `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
 | `--to <name>` | Only `rename`: the new site name |
 | `--purge` | Only `delete`: also deletes what the game keeps in R2 |
 | `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
@@ -95,7 +95,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 - It reads the game folder and the creator's [hosting policy](/creators/policy), lists the warnings (MV phone audio and video, non-ASCII file names, feature settings) and counts the files against the [free plan limits](/reference/limits).
 - It checks the file paths (see [below](#file-paths-that-work-on-windows-only)): the names in the game against the references to them.
 - It never logs in to Cloudflare, never uses R2 and builds no staging folder: the game folder and the account stay as they are.
-- It uses the first-deploy defaults. A game already published with `exclude` patterns or other settings kept in R2 may therefore count more files than its real deploy.
+- It uses the first-deploy defaults, plus the game's [`rwk.json`](/reference/config#rwk-json-in-the-game-folder) (site name, `include` and `exclude`) when it has one. A game whose `exclude` patterns are kept only in R2 may therefore count more files than its real deploy: put them in `rwk.json` to count the same.
 - It fails (exit code `1`) when the build is over the file limit or the creator does not allow publishing, so a CI job can use it as a check.
 
 ```

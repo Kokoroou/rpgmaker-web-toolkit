@@ -1,9 +1,14 @@
 {
-  "$comment": "Cloudflare free plan limits the CLI enforces. Each deploy reads this file from the main branch, so older copies of the toolkit follow a change once it is merged. Bump `updated` with every change.",
-  "updated": "2026-10-24",
+  "$comment": "Cloudflare free plan limits the CLI enforces. Each deploy reads this file from the main branch, so older copies of the toolkit follow a change once it is merged. Bump `updated` with every change. translate.dailyChars: characters a day sent to Workers AI for live translation, for the whole account; m2m100-1.2b costs 31,050 Neurons per million input tokens and as many per million output tokens, and the free allocation is 10,000 Neurons a day, so 100,000 characters (about 200,000 tokens in and out, even at one token per character) stays near 6,200.",
+  "updated": "2026-10-29",
   "source": "https://developers.cloudflare.com/workers/static-assets/#limits",
   "assets": {
     "maxFiles": 20000,
     "maxFileBytes": 26214400
+  },
+  "translate": {
+    "source": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+    "model": "@cf/meta/m2m100-1.2b",
+    "dailyChars": 100000
   }
 }

@@ -60,3 +60,14 @@ Over the free plan's file limit? Each translation adds one file per `data/` file
 ## For translators
 
 If you ship a translation of someone else's game, check the [creator's policy](/creators/policy) first: it says whether the game may be published at all, and by whom. The folder convention above is the same whether you publish with the toolkit or give friends a patch: copy `data/` to `data-<code>`, translate the copy, and leave `data/` untouched, so the original can always be restored. A patch is only the `data-<code>` folder.
+
+## No translation yet: machine translation
+
+A game nobody translated can still be read through ⚙ → [Translate the game](/play/translate), a machine translation through Cloudflare's Workers AI. It is off unless you turn it on:
+
+```sh
+rwk config "D:\Games\My Game" --set translate=true
+rwk deploy "D:\Games\My Game"
+```
+
+The first time, a deploy is needed: it gives the Worker its Workers AI binding (`config` says so). Then `translate` changes like any other setting, and `{ "to": ["vi", "en"], "from": "ja" }` narrows the languages offered and names the game's own. It needs R2, where each translated line is kept, and stays within the [free plan](/reference/limits) with a daily character cap shared by all your games. Written translations in `data-<code>/` read better; machine translation is for games that have none.

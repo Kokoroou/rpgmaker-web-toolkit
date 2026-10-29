@@ -42,6 +42,8 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
              RWK_Core            config, device id, toasts, dialogs, ⚙ menu, web build label
              RWK_Language        ⚙ → Language: points data/ requests (XMLHttpRequest) at data-<code>/ files, file by file
+             RWK_Translate       live translation, off by default: messages wait in Window_Message.canStart for /api/translate,
+                                 control codes kept; item / skill names in $data*; a full Vietnamese font
              RWK_SaveSync        save sync (MZ: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SafeSaves       quick save / load and autosave in slots of their own, ☁ sync state, storage.persist()
@@ -64,6 +66,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              players.js          counts the emails that save, for the deploy's reminder
              toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
+             translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
 ```
 
 ## The build
@@ -73,7 +76,7 @@ The game folder is never written to. Each run:
 1. Picks the files: the standard RPG Maker folders, plus `include`, minus `exclude`.
 2. **Hard-links** them into `<game drive>:\.rwk-build\` (no extra disk space; copies on another drive).
 3. Adds the plugins to the build's copy of `js/plugins.js` and marks `index.html` with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
-   Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Game files on this device**. Turn it off with [`cache`](/reference/config).
+   Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Help** → **Game files on this device**. Turn it off with [`cache`](/reference/config).
 
    The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
@@ -110,6 +113,9 @@ saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
 history/<sha256(email)>/<slug>/<name>/<time>
                                      older copies of those saves (not config and global)
 rwk/players/<slug>.json              hashes of the emails that saved, with the first save time
+rwk/translate/<model>/<from>-<to>/<sha256(text)>.txt
+                                     live translations, shared by every game (one per line of text)
+rwk/translate/usage/<day>.json       characters sent to Workers AI that day (UTC), for the daily cap
 ```
 
 `<slug>` is the site name the game was first deployed under (`storageId` after a [rename](/setup/updating#change-the-site-address)), so a rename moves nothing.
@@ -118,7 +124,7 @@ Saves are stored under a hash of the email, never the email itself.
 
 ## Save sync
 
-At boot, before the engine reads a save, the plugin keeps the newer of each local / cloud pair and asks when both changed. Each save uploads about a second later with `If-Match`, so it never silently overwrites another device. What players see: [Saves on several devices](/play/saves).
+At boot, before the engine reads a save, the plugin keeps the newer of each local / cloud pair and asks when both changed. Each save uploads about a second later with `If-Match`, so it never silently overwrites another device. What players see: [Cloud saves](/play/saves).
 
 Before the Worker overwrites or deletes a save, it copies the old one to `history/`: at most once per 15 minutes per save, unless another device or a delete replaces it. It then drops copies past `saveHistory` (`keep` per save, `days` old). Restoring copies one back over the save, after keeping the save it replaces.
 
