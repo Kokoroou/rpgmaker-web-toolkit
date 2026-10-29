@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
-import { isQuiet } from "./ui.js";
+import { isQuiet, progressLine } from "./ui.js";
 
 const WRANGLER_BIN = path.join(TOOLKIT_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 
@@ -43,11 +43,47 @@ export function wranglerRun(args, base = process.env) {
   return { env, args: [...args, ...extra] };
 }
 
+// wrangler deploy prints "Uploaded 12 of 340 assets" after each batch. On a terminal
+// those lines become one line that updates in place, and any other line ends it and
+// prints as usual. Elsewhere (CI, a pipe) the output passes through unchanged.
+const UPLOADED = /^\s*Uploaded (\d+) of (\d+) assets?\s*$/;
+export function assetProgress(write, bar = progressLine()) {
+  if (!bar.live) return { push: write, raw: write, end: () => {} };
+  let rest = "";
+  const line = (text) => {
+    const m = UPLOADED.exec(text.replace(/\x1b\[[0-9;]*m/g, ""));
+    if (!m) {
+      bar.end();
+      return write(text + "\n");
+    }
+    const [done, total] = [Number(m[1]), Number(m[2])];
+    bar.update(`Uploaded ${done} of ${total} assets (${total ? Math.floor((done * 100) / total) : 100}%)`);
+  };
+  return {
+    // wrangler's stderr (warnings) ends the progress line too.
+    raw(chunk) {
+      bar.end();
+      write(chunk);
+    },
+    push(chunk) {
+      const lines = (rest + chunk).split("\n");
+      rest = lines.pop();
+      lines.forEach(line);
+    },
+    end() {
+      if (rest) line(rest);
+      rest = "";
+      bar.end();
+    },
+  };
+}
+
 // Runs the toolkit's pinned wrangler (no shell, so paths with spaces are safe).
 // Every command runs under PROFILE; `auth` commands name it themselves.
 // interactive: hand the terminal to wrangler (login prompts).
 // quiet: capture output without echoing it.
-export function wrangler(args, { interactive = false, quiet = false, cwd = TOOLKIT_ROOT } = {}) {
+// progress: wrangler deploy's asset upload counts as one line (assetProgress).
+export function wrangler(args, { interactive = false, quiet = false, progress = false, cwd = TOOLKIT_ROOT } = {}) {
   return new Promise((resolve, reject) => {
     const run = wranglerRun(args);
     const child = spawn(process.execPath, [WRANGLER_BIN, ...run.args], {
@@ -57,19 +93,24 @@ export function wrangler(args, { interactive = false, quiet = false, cwd = TOOLK
     });
     let stdout = "";
     let stderr = "";
+    const write = (d) => process.stderr.write(d);
+    const echo = progress ? assetProgress(write) : { push: write, raw: write, end: () => {} };
     if (!interactive) {
       child.stdout.on("data", (d) => {
         stdout += d;
         // stdout is for the run's result: wrangler's output goes to stderr with the rest.
-        if (!quiet && !isQuiet()) process.stderr.write(d);
+        if (!quiet && !isQuiet()) echo.push(String(d));
       });
       child.stderr.on("data", (d) => {
         stderr += d;
-        if (!quiet && !isQuiet()) process.stderr.write(d);
+        if (!quiet && !isQuiet()) echo.raw(d);
       });
     }
     child.on("error", reject);
-    child.on("close", (code) => resolve({ code, stdout, stderr, output: stdout + stderr }));
+    child.on("close", (code) => {
+      echo.end();
+      resolve({ code, stdout, stderr, output: stdout + stderr });
+    });
   });
 }
 

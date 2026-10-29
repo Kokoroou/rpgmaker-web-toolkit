@@ -10,7 +10,7 @@ import { upgrade } from "./commands/upgrade.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
 import { TOOLKIT_VERSION } from "./lib/stage.js";
 import { classifyTarget, currentGameFolder } from "./lib/target.js";
-import { UsageError, ask, c, isUnattended, log, print, setColor, setQuiet, setUnattended, warnings } from "./lib/ui.js";
+import { UsageError, ask, c, isUnattended, log, print, setColor, setLive, setQuiet, setUnattended, warnings } from "./lib/ui.js";
 import { useEnvToken } from "./lib/wrangler.js";
 
 const argv = process.argv.slice(2);
@@ -99,6 +99,8 @@ process.on("SIGINT", () => {
 });
 
 if (argv.includes("--no-color")) setColor(false);
+// --json is read by a program: no line that rewrites itself in the log either.
+if (json) setLive(false);
 
 // Exit codes: 0 done, 1 failed, 2 a question needs a person (non-interactive run),
 // 64 wrong usage, 130 cancelled.
