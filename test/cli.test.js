@@ -6,7 +6,7 @@ import { test } from "node:test";
 import LZString from "lz-string";
 import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
 import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
-import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
+import { compileGlobs, findGameBySite, mobileOnlyMissing, publishedEntry, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, gamepadKeys, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
@@ -386,6 +386,15 @@ test("upgrade: which game a link names", () => {
   assert.throws(() => findGameBySite(configs, "old-name"), /old name of "new-name".*https:\/\/new-name/);
   assert.throws(() => findGameBySite(configs, "zzz"), /Games in this account: b, new-name/);
   assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
+});
+
+test("upgrade: which game a folder names", () => {
+  const configs = { "mz:1": { slug: "my-game" }, "mv:B": { slug: "b" } };
+  assert.deepEqual(publishedEntry(configs, { fingerprint: "mz:1" }, "D:\\Games\\G"), ["mz:1", { slug: "my-game" }]);
+  assert.throws(
+    () => publishedEntry(configs, { fingerprint: "mz:2" }, "D:\\Games\\G"),
+    (err) => /not published yet/.test(err.message) && err.hint === 'Publish it first: rwk deploy "D:\\Games\\G"'
+  );
 });
 
 test("upgrade: the Worker patch keeps the deployed files", async () => {
