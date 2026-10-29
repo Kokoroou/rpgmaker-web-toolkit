@@ -1,12 +1,14 @@
-// rwk upgrade: brings a deployed game to this toolkit version from its link or site name alone, for
-// when its folder is gone: the game files already uploaded stay as they are,
-// and the new Worker serves the new runtime plugins over them
-// (worker/toolkit.js). Settings come from R2, as for a normal deploy.
+// rwk upgrade: brings a deployed game to this toolkit version without uploading
+// it again: the game files already uploaded stay as they are, and the new Worker
+// serves the new runtime plugins over them (worker/toolkit.js). Settings come
+// from R2, as for a normal deploy. The game is named by its link or site name
+// (its folder may be gone), or by its folder, which gives the site name and the
+// creator's current policy and is otherwise not read.
 
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
-import { findGameBySite, storageIdOf } from "../lib/game.js";
-import { applyPolicy, isIndexable } from "../lib/policy.js";
+import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
+import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
@@ -16,22 +18,36 @@ import { checkPlayers, isAuthReady, perPlayerSettings } from "./deploy.js";
 import { connect, siteOf } from "../lib/session.js";
 
 export async function upgrade(input) {
-  const usage = "rwk upgrade <game link | site name>";
+  const usage = "rwk upgrade <game folder | game link | site name>";
   if (!input) {
-    input = await ask("Paste the game's link (https://<site name>.<username>.workers.dev) or its site name", "", null, {
+    input = await ask("Paste the game's link (https://<site name>.<username>.workers.dev), its site name or its folder", "", null, {
       hint: `Pass it after the command: ${usage}`,
     });
   }
-  const name = siteNameOf(expectTarget(input, ["link", "name"], usage));
+  const target = expectTarget(input, ["folder", "link", "name"], usage);
+
+  let game = null;
+  if (target.kind === "folder") {
+    log.step("Analyzing the game");
+    game = analyzeGame(target.value);
+    log.ok(`${game.engine} · ${game.title}`);
+    log.info(c.dim(game.root));
+  }
 
   const { account } = await connect(loadSettings());
   const bucket = DEFAULT_BUCKET;
 
   log.step("Finding the game");
   const configs = await loadGameConfigs(bucket);
-  const [fingerprint, cfg] = findGameBySite(configs, name);
-  log.ok(`${cfg.engine} · ${cfg.title}`);
+  const [fingerprint, cfg] = game ? publishedEntry(configs, game, target.value) : findGameBySite(configs, siteNameOf(target));
+  log.ok(`${cfg.engine} · ${cfg.title}${game ? ` (site name: ${cfg.slug})` : ""}`);
   if (cfg.url) log.info(c.dim(cfg.url));
+  const stored = JSON.stringify(cfg);
+  // From the folder, the creator's policy as it is now; it is recorded for the next upgrade.
+  if (game) {
+    const read = readPolicy(game);
+    cfg.policy = read ? { hosting: read.hosting, features: read.features } : null;
+  }
 
   // Recorded at each deploy from the game folder; older configs have none,
   // and the Worker then keeps every feature the deployed build turned off.
@@ -46,8 +62,9 @@ export async function upgrade(input) {
   log.info(`What happens next (toolkit ${TOOLKIT_VERSION}):`);
   log.info("  1. The Worker and the toolkit's in-game plugins are updated, with the settings stored in R2 (rwk config).");
   log.info("  2. The game files already uploaded stay as they are: nothing is downloaded or uploaded from this PC.");
+  if (game) log.info(c.dim("     Changed the game's files? rwk deploy uploads the changes and updates the toolkit too."));
   log.info("  3. Saves and older saves are not touched.");
-  log.info(c.dim("  To change the game itself (a patch, a translation), run rwk deploy from the game folder."));
+  if (!game) log.info(c.dim("  To change the game itself (a patch, a translation), run rwk deploy from the game folder."));
   if (!(await confirm(`Update "${cfg.slug}"?`, true))) return siteOf(cfg);
 
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
@@ -84,7 +101,7 @@ export async function upgrade(input) {
   log.ok(`Worker "${cfg.slug}" updated`);
   // liveSettings only once the policy is known; the version in any case, for rwk status.
   const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION };
-  if (JSON.stringify(updated) !== JSON.stringify(cfg)) {
+  if (JSON.stringify(updated) !== stored) {
     configs[fingerprint] = updated;
     await saveGameConfigs(bucket, configs);
   }
@@ -97,4 +114,11 @@ export async function upgrade(input) {
   }
 
   return { ...siteOf(cfg), next: ["Players get the new version on their next reload. In game: ⚙ → Report a problem shows the toolkit version."] };
+}
+
+// The stored config of the game in a folder -> [fingerprint, cfg]
+export function publishedEntry(configs, game, folder) {
+  const cfg = configs[game.fingerprint];
+  if (!cfg) throw new CliError("This game is not published yet, so there is nothing to upgrade.", { hint: `Publish it first: rwk deploy "${folder}"` });
+  return [game.fingerprint, cfg];
 }

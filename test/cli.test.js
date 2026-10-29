@@ -15,6 +15,7 @@ import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, 
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
 import { splitToolkit } from "../worker/toolkit.js";
+import { publishedEntry } from "../cli/commands/upgrade.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -386,6 +387,15 @@ test("upgrade: which game a link names", () => {
   assert.throws(() => findGameBySite(configs, "old-name"), /old name of "new-name".*https:\/\/new-name/);
   assert.throws(() => findGameBySite(configs, "zzz"), /Games in this account: b, new-name/);
   assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
+});
+
+test("upgrade: which game a folder names", () => {
+  const configs = { "mz:1": { slug: "my-game" }, "mv:B": { slug: "b" } };
+  assert.deepEqual(publishedEntry(configs, { fingerprint: "mz:1" }, "D:\\Games\\G"), ["mz:1", { slug: "my-game" }]);
+  assert.throws(
+    () => publishedEntry(configs, { fingerprint: "mz:2" }, "D:\\Games\\G"),
+    (err) => /not published yet/.test(err.message) && err.hint === 'Publish it first: rwk deploy "D:\\Games\\G"'
+  );
 });
 
 test("upgrade: the Worker patch keeps the deployed files", async () => {
