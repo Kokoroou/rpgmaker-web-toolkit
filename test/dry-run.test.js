@@ -1,4 +1,4 @@
-// analyze, deploy --dry-run, doctor and the current folder as the default target: all without Cloudflare.
+// analyze, deploy --dry-run, rename / saves import --dry-run, doctor and the current folder as the default target: all without Cloudflare.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -9,6 +9,8 @@ import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { analyze } from "../cli/commands/analyze.js";
 import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "../cli/lib/build-checks.js";
 import { doctor, runChecks } from "../cli/commands/doctor.js";
+import { preview } from "../cli/commands/preview.js";
+import { analyzeGame } from "../cli/lib/game.js";
 import { renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
 import { currentGameFolder } from "../cli/lib/target.js";
 import { warnings } from "../cli/lib/ui.js";
@@ -38,7 +40,9 @@ test("args: analyze, doctor and deploy --dry-run", () => {
   assert.equal(parse(["deploy", "g"]).flags.dryRun, false);
   assert.match(commandHelp(dry.spec), /Usage:\n  rwk deploy <game folder> \[--dry-run\] \[flags\]/);
   assert.match(commandHelp(dry.spec), /--dry-run\s+Only check the game/);
-  assert.throws(() => parse(["rename", "g", "--dry-run"]), (err) => err.exitCode === 64 && /Unknown option --dry-run/.test(err.message));
+  assert.equal(parse(["rename", "g", "--to", "n", "--dry-run"]).flags.dryRun, true);
+  assert.equal(parse(["saves", "import", "g", "--dry-run"]).flags.dryRun, true);
+  assert.throws(() => parse(["upgrade", "g", "--dry-run"]), (err) => err.exitCode === 64 && /Unknown option --dry-run/.test(err.message));
   assert.throws(() => parse(["status", "g", "--dry-run"]), (err) => err.exitCode === 64);
 });
 
@@ -85,6 +89,55 @@ test("analyze: the summary says nothing was published", () => {
   assert.match(renderSummary(result), /checked, nothing published/);
   assert.match(stepSummary(result), /checked, nothing published/);
   assert.doesNotMatch(renderSummary(runResult("deploy", {}, [])), /nothing published/);
+});
+
+//---------------------------------------------------------------------------
+// rename --dry-run and saves import --dry-run (after reading the configs in R2)
+//---------------------------------------------------------------------------
+
+function publishedGame(t, saves = []) {
+  const dir = makeGame();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  if (saves.length) {
+    fs.mkdirSync(path.join(dir, "save"));
+    for (const name of saves) fs.writeFileSync(path.join(dir, "save", name), "x");
+  }
+  const game = analyzeGame(dir);
+  const cfg = { slug: "demo", url: "https://demo.alice.workers.dev", fingerprint: game.fingerprint, sync: { enabled: true }, auth: { mode: "access" } };
+  return { dir, game, configs: { [game.fingerprint]: cfg, other: { slug: "taken", fingerprint: "other" } } };
+}
+
+test("rename --dry-run: checks the new name against the other games and changes nothing", async (t) => {
+  const { dir, game, configs } = publishedGame(t);
+  const before = JSON.stringify(configs);
+  const result = await preview(game, null, configs, { inputPath: dir, rename: true, to: "new-demo" });
+  assert.equal(result.dryRun, true);
+  assert.equal(result.site, "demo", "still the old name");
+  assert.deepEqual(result.facts, [["New name", "new-demo"]]);
+  assert.match(result.next[0], /Nothing was changed\. To do it: rwk rename ".+" --to new-demo/);
+  assert.equal(JSON.stringify(configs), before, "the config is not touched");
+  assert.match(renderSummary(runResult("rename", result, [])), /demo: checked, nothing published/);
+
+  await assert.rejects(preview(game, null, configs, { inputPath: dir, rename: true, to: "taken" }), /already used by another game/);
+  await assert.rejects(preview(game, null, configs, { inputPath: dir, rename: true, to: "demo" }), /current name/);
+  await assert.rejects(preview(game, null, {}, { inputPath: dir, rename: true, to: "x" }), (err) => /not published yet/.test(err.message) && /deploy --dry-run/.test(err.hint));
+});
+
+test("saves import --dry-run: the saves that would go up, or why none would", async (t) => {
+  const { dir, game, configs } = publishedGame(t, ["file1.rmmzsave", "global.rmmzsave", "notes.txt"]);
+  const files = snapshot(dir);
+  const result = await preview(game, null, configs, { inputPath: dir });
+  assert.deepEqual(result.facts, [["Saves", "2 would be uploaded"]]);
+  assert.match(result.next[0], /To do it: rwk saves import ".+"$/);
+  assert.deepEqual(snapshot(dir), files, "the game folder stays untouched");
+
+  const off = await preview(game, null, { [game.fingerprint]: { ...configs[game.fingerprint], sync: { enabled: false } } }, { inputPath: dir });
+  assert.deepEqual(off.facts, [["Saves", "none would be uploaded"]]);
+  assert.equal(off.next[0], "Nothing was changed.");
+
+  const empty = publishedGame(t);
+  const none = await preview(empty.game, null, empty.configs, { inputPath: empty.dir });
+  assert.deepEqual(none.facts, [["Saves", "none would be uploaded"]]);
 });
 
 //---------------------------------------------------------------------------

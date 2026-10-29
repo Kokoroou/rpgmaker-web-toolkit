@@ -30,11 +30,14 @@ import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, pla
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
+import { askNewName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
-export async function deploy(inputPath, { importOnly = false, rename = false, to } = {}) {
+// dryRun (rename and saves import only; deploy --dry-run is analyze): reads R2, then says what would
+// happen and stops; nothing in the account is created or changed.
+export async function deploy(inputPath, { importOnly = false, rename = false, to, dryRun = false } = {}) {
   const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
   if (!inputPath) {
     inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command: ${usage}` });
@@ -52,6 +55,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   const settings = loadSettings();
   const { email, account } = await connect(settings);
   const bucket = DEFAULT_BUCKET;
+  if (dryRun) return preview(game, policy, await loadConfigsIfAny(bucket), { inputPath, rename, to });
   await ensureBucket(bucket, account.id);
 
   const configs = await loadGameConfigs(bucket);
@@ -344,29 +348,8 @@ export async function addNewKeys(game, cfg) {
 //---------------------------------------------------------------------------
 
 async function renameSite(cfg, taken, to) {
-  log.step("New site name");
-  log.info(`Now: ${cfg.url || cfg.slug}`);
-  const check = (v) => {
-    if (v === cfg.slug) return "That is the current name.";
-    const problem = validateSlug(v);
-    if (problem) return problem;
-    return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
-  };
-  if (to !== undefined && check(to)) throw new CliError(`Cannot rename to "${to}": ${check(to)}`, { hint: "Give another name with --to." });
-  const slug =
-    to !== undefined
-      ? to
-      : await ask("New site name (becomes <name>.<username>.workers.dev)", "", check, {
-          hint: "Pass the new name: rwk rename \"<game folder>\" --to <new name>",
-        });
+  const slug = await askNewName(cfg, taken, to);
   const access = cfg.auth.mode === "access";
-  log.info("What happens next:");
-  log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
-  if (access) {
-    log.info("  2. Cloudflare Access is set up again for the new address (the steps open in the browser).");
-    log.info("     Emails you allowed on the old site must be allowed again in the new Access policy.");
-  }
-  log.info(`  ${access ? 3 : 2}. The old Worker "${cfg.slug}" is deleted: its link stops working.`);
   if (!(await confirm(`Rename "${cfg.slug}" to "${slug}"?`, true))) return false;
 
   cfg.storageId = storageIdOf(cfg);
@@ -572,6 +555,20 @@ function openBrowser(url) {
     spawn(cmd, args, { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
   } catch {
     // The URL is printed anyway.
+  }
+}
+
+//---------------------------------------------------------------------------
+// --dry-run for rename and saves import
+//---------------------------------------------------------------------------
+
+// The saved configs, or none when the toolkit's bucket does not exist yet (a dry run does not create it).
+async function loadConfigsIfAny(bucket) {
+  try {
+    return await loadGameConfigs(bucket);
+  } catch (err) {
+    if (/bucket does not exist|NoSuchBucket|10006/i.test(err.message)) return {};
+    throw err;
   }
 }
 

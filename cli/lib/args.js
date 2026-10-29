@@ -39,6 +39,7 @@ export const COMMANDS = [
     name: "saves import",
     summary: "Upload the game's save/ folder to the cloud (overwrites same-name cloud saves)",
     targets: ["folder"],
+    switches: { "dry-run": "List the saves that would be uploaded and where, and upload nothing" },
     examples: ['rwk saves import "D:\\Games\\My Game"'],
   },
   {
@@ -56,6 +57,7 @@ export const COMMANDS = [
     summary: "Move the site to a new name (address); saves carry over",
     targets: ["folder"],
     options: { to: "The new site name; without it the command asks" },
+    switches: { "dry-run": "Check the new name and say what the rename would do; changes nothing" },
     examples: ['rwk rename "D:\\Games\\My Game" --to new-name'],
   },
   {

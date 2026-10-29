@@ -43,9 +43,9 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game whose folder is gone; the game files stay as uploaded | link, name | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
-| `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves | folder | [Update](/setup/updating#upload-desktop-saves-again) |
+| `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
 | `& $rwk config "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). `--get <key>` prints one setting; `--set <key>=<value>` (repeatable) changes one without questions, also unattended. Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
-| `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks | folder | [Update](/setup/updating#change-the-site-address) |
+| `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks. `--dry-run` checks the name and changes nothing | folder | [Update](/setup/updating#change-the-site-address) |
 | `& $rwk status my-game` | Whether the site is up, whether Access is in front of it, how many emails have saves, and which toolkit version it runs (recorded from this version on) | link, name | |
 | `& $rwk saves export my-game --email me@example.com` | Downloads that player's cloud saves into `my-game-saves/` (`--out <folder>` to choose), as `.rmmzsave` / `.rpgsave` files. Needs the token permission *Workers R2 Storage → Read* when you use `CLOUDFLARE_API_TOKEN` | link, name | |
 | `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
@@ -81,7 +81,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
-| `--dry-run` | Only `deploy`: checks the game and stops before Cloudflare, like `analyze`. See [Check without publishing](#check-without-publishing) |
+| `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
 | `--to <name>` | Only `rename`: the new site name |
 | `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
 
@@ -103,6 +103,13 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 ```
 
 With `--json` the result has `"dryRun": true`, the `build` report and `game: { title, engine }`, and no `site` or `url`.
+
+`rename --dry-run` and `saves import --dry-run` go one step further: they log in and read the game's settings in R2 (a game that is not published yet stops there), but create, upload and delete nothing, not even the R2 bucket.
+
+- `rename --dry-run --to new-name` checks the name (format, current name, used by another game) and lists what the rename would do.
+- `saves import --dry-run` lists the saves in `save/` that would go up, and where: the email you sign in with, or the shared saves of a public site. Nothing is asked about the email.
+
+Their result has `"dryRun": true` with the site's current `site` and `url`.
 
 ### File paths that work on Windows only
 
