@@ -4,7 +4,7 @@
 //
 //   {
 //     "hosting": "personal" | "shared" | "public" | "none",
-//     "features": { "saveTools": false, "itemBatch": false, "fastForward": false, "messageMode": false, "alwaysDash": false, "backlog": false, "remap": false, "quickSave": false, "autoSave": false, "cheats": false, "offline": false, "sync": false },
+//     "features": { "saveTools": false, "itemBatch": false, "fastForward": false, "messageMode": false, "alwaysDash": false, "backlog": false, "remap": false, "quickSave": false, "autoSave": false, "cheats": false, "offline": false, "translate": false, "sync": false },
 //     "message": "Shown to whoever publishes the game",
 //     "contact": "https://example.com/contact"
 //   }
@@ -16,7 +16,7 @@ import { resolveCI } from "./game.js";
 export const POLICY_FILE = "rwk-policy.json";
 export const HOSTING_LEVELS = ["none", "personal", "shared", "public"];
 // Features a policy can force off, mapped to how the game config spells them.
-const FEATURE_KEYS = ["saveTools", "itemBatch", "fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "cheats", "offline", "sync"];
+const FEATURE_KEYS = ["saveTools", "itemBatch", "fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "cheats", "offline", "translate", "sync"];
 
 // -> null (no policy file) | { hosting, features, message, contact, file, problems }
 export function readPolicy(game) {
@@ -76,6 +76,7 @@ export function applyPolicy(cfg, policy) {
   if (policy.features.autoSave === false) out.autoSave = false;
   if (policy.features.cheats === false) out.cheats = false;
   if (policy.features.offline === false) out.offline = false;
+  if (policy.features.translate === false) out.translate = false;
   if (policy.features.sync === false) out.sync = { ...cfg.sync, enabled: false };
   return out;
 }

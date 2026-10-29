@@ -8,14 +8,15 @@ lang: en
 | Service | Limit | In practice |
 |---|---|---|
 | Workers Static Assets | 20,000 files, 25 MiB each | Most games fit. Larger files go to R2 automatically; too many files: [`exclude`](/setup/configuration#common-changes) |
-| Workers requests | 100,000 / day | Only save requests and R2 files count, not normal game files |
+| Workers requests | 100,000 / day | Only save requests, R2 files and live translation (one request per message while it is on) count, not normal game files |
 | R2 | 10 GB; 1M writes and 10M reads / month | Saves are tiny, even with their [older copies](/reference/config) (`saveHistory`). Large files of all your games share the 10 GB |
 | R2 sign-up | Payment method required | Even on the free tier |
 | Cloudflare Access | 50 users | |
+| Workers AI | 10,000 Neurons / day for the whole account | [Live translation](/play/translate) sends at most 100,000 characters a day across all your games (about 6,200 Neurons with `m2m100-1.2b`); each line is translated once and kept in R2 |
 | Upload of one file | About 300 MiB | Larger files fail |
 
 Cloudflare's pricing pages have the current numbers.
 
 ## When Cloudflare changes them
 
-The limits the toolkit enforces (file count and size per file for static assets) live in [`cli/limits.json`](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/cli/limits.json). Each deploy downloads the copy on `main`, so a pinned `RWK_REF` or an old clone follows a change as soon as the file is updated, without a new release. Offline, it uses the last downloaded copy, or the one it ships with: whichever is newest.
+The limits the toolkit enforces (file count and size per file for static assets, and the translation model and its characters a day) live in [`cli/limits.json`](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/cli/limits.json). Each deploy downloads the copy on `main`, so a pinned `RWK_REF` or an old clone follows a change as soon as the file is updated, without a new release. Offline, it uses the last downloaded copy, or the one it ships with: whichever is newest.

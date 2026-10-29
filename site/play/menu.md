@@ -27,7 +27,7 @@ At the top, **tiles** for what you use most: **Quick save**, **Quick load** and,
 | **Saves** | Cloud saves, Load autosave, Older saves, Saves (export, import, delete) | [Cloud saves](/play/saves), [Quick save and autosave](/play/quick-save), [Older saves](/play/older-saves), [Save files](/play/save-files) |
 | **Cheats** | Cheats, when turned on for you | [Cheats](/play/cheats) |
 | **Controls** | Edit button layout (phones), Keys and buttons | [Touch controls](/play/controls), [Keys and buttons](/play/keys) |
-| **Display** | Language, when the game has translations | [Language](/play/language) |
+| **Display** | Language, when the game has translations; Translate the game and Translate into, when live translation is turned on | [Language](/play/language), [Live translation](/play/translate) |
 | **Offline** | Play offline | [Play offline](/play/offline) |
 | **Help** | Report a problem, Game files on this device | [Help](/play/help) |
 

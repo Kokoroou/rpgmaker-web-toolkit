@@ -5,12 +5,13 @@
 // (its folder may be gone), or by its folder, which gives the site name and the
 // creator's current policy and is otherwise not read.
 
-import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
+import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
-import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
+import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources, translateWorker } from "../lib/stage.js";
+import { loadLimits } from "../lib/limits.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, ask, c, confirm, log } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
@@ -89,6 +90,7 @@ export async function upgrade(input) {
     saveHistory: toolkit.config.saveHistory,
     playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
+    translate: translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE })),
   });
   const token = await apiToken();
   if (!token) throw new CliError("Not logged in to Cloudflare.", { hint: "Run the command in a terminal once to log in, or set CLOUDFLARE_API_TOKEN." });

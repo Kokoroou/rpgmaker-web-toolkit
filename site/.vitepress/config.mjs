@@ -107,7 +107,10 @@ export default defineConfig({
       },
       {
         text: "Display",
-        items: [{ text: "Language", link: "/play/language" }],
+        items: [
+          { text: "Language", link: "/play/language" },
+          { text: "Live translation", link: "/play/translate" },
+        ],
       },
       {
         text: "Offline",
