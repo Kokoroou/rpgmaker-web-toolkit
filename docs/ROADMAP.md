@@ -1,10 +1,10 @@
 # Roadmap
 
-Build order for the toolkit, updated 2026-10-26 (after release 0.3.0 and the work merged since). [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs what each item depends on, what players and game creators feel most today, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
+Build order for the toolkit, updated 2026-10-29 (after release 0.5.0 and the work merged since, up to #104). [FEATURE_IDEAS.md](FEATURE_IDEAS.md) (Vietnamese) lists the player-facing ideas ranked by value alone ("Ideas #n" below); this order also weighs what each item depends on, what players and game creators feel most today, and effort (**S** a few hours, **M** 1–3 days, **L** more than 3 days). Each row is meant to be its own PR.
 
 ## Shipped
 
-Waves 0 and 1 of the previous plan are done, and so is most of the next wave (details in [CHANGELOG.md](../CHANGELOG.md)):
+Waves 0, 1, A and B are done (details in [CHANGELOG.md](../CHANGELOG.md)):
 
 | Item | Release |
 |---|---|
@@ -17,34 +17,43 @@ Waves 0 and 1 of the previous plan are done, and so is most of the next wave (de
 | Several items at once (battle and events), simpler touch toolbar with full screen button | 0.2.0, 0.3.0 |
 | CLI: rename a site and keep its saves; update the toolkit of a deployed game from its link; Access page follows Cloudflare's new flow | 0.3.0 |
 | Tooling: runtime performance measurement (`npm run perf`), Node.js 22 minimum, Workers API schema check | 0.3.0 |
-| Performance fixes P1 (`RWK_Report` keeps decoded audio through `WeakRef`) and P2 (one layout per rotation) | next |
-| Service Worker cache for the game's files (#1, core: cache-first, per-file versions, 25 MiB cap, `cache: false`) | next |
-| Presets, per-feature limits and per-player settings (#2, FEATURE_IDEAS §5, for the features that exist) | next |
-| SEO / AIEO for the guide: sitemap, social tags, JSON-LD, `robots.txt`, `llms.txt`, Search Console tag (#3) | next |
-| Messages log players can reopen (#4, Ideas #10) | next |
-| macOS and Linux launchers `run.sh` / `rwk.sh`, tests on three OSes (#8) | next |
-| ⚙ → Game files on this device: what the cache holds, and a button to clear it (#1b) | next |
-| Basic cheats, off unless the deployer turns them on, per player too (#6, Ideas #5) | next |
-| Non-interactive CLI (`--yes`, or no terminal), exit code 2 when a question needs a person, `CLOUDFLARE_API_TOKEN` login (#10a) | next |
-| Game CD (#10): `--json` result, `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY`, the `action.yml` GitHub Action, GitLab CI and generic shell examples in `site/setup/ci.md` | next |
-| Advanced cheats (#7, Ideas #8): switches and variables by id or name, walk through walls, teleport and remembered places | next |
-| Settings without a redeploy (#2b): feature settings are edited in R2 and read by the Worker (`worker/settings.js`) | next |
-| Larger touch targets and a pull-down settings sheet for phones | next |
-| `config` asks questions (a wizard in `cli/lib/config-wizard.js`) instead of opening a JSON file | next |
-| Fixes: the missing `print` import that failed every deploy at its end, and credentials sent when fetching the web manifest | next |
-| CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | next |
-| CLI from a link (#16b): `status`, `saves export` (via the R2 API: `cli/lib/r2-api.js`), `logs`, `open`, `list` and `delete` take a link or site name, no folder needed | next |
-| CLI from the game folder (#17): `analyze` / `deploy --dry-run` (warnings and file count, no Cloudflare login, nothing written), `doctor` (Node.js, wrangler, login, token permissions), the current directory as the default target when it holds a game; `analyze` in the GitHub Action for pull requests | next |
-| Key and gamepad remapping (#11, Ideas #12): ⚙ → Keys and buttons, kept per device, `remap` config key and policy switch | next |
-| Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | next |
-| Download to play offline + PWA (#5, Ideas #6): ⚙ → Play offline (`RWK_Offline`) downloads every file, big ones from R2 included, into the Service Worker's cache; resumable, with progress, a free-space check and a screen wake lock. The page itself opens from the cache without a connection, a cached file answers `Range` requests, the web manifest carries the icon's real size so browsers offer to install, and `offline` is a feature key (preset `shared` and the creator's policy can turn it off). Diagrams redrawn | next |
-| Deployment architecture diagrams (#13): architecture, deploy and first-load / save-sync sequence on "How it works", as light and dark SVG drawn by `site/diagrams/build.mjs`; the archify skill was checked and not used (see Details) | next |
+| Performance fixes P1 (`RWK_Report` keeps decoded audio through `WeakRef`) and P2 (one layout per rotation) | 0.4.0 |
+| Service Worker cache for the game's files (#1, core: cache-first, per-file versions, 25 MiB cap, `cache: false`) | 0.4.0 |
+| Presets, per-feature limits and per-player settings (#2, FEATURE_IDEAS §5, for the features that exist) | 0.4.0 |
+| SEO / AIEO for the guide: sitemap, social tags, JSON-LD, `robots.txt`, `llms.txt`, Search Console tag (#3) | guide |
+| Messages log players can reopen (#4, Ideas #10) | 0.4.0 |
+| macOS and Linux launchers `run.sh` / `rwk.sh`, tests on three OSes (#8) | 0.4.0 |
+| ⚙ → Game files on this device: what the cache holds, and a button to clear it (#1b) | 0.4.0 |
+| Basic cheats, off unless the deployer turns them on, per player too (#6, Ideas #5) | 0.4.0 |
+| Non-interactive CLI (`--yes`, or no terminal), exit code 2 when a question needs a person, `CLOUDFLARE_API_TOKEN` login (#10a) | 0.4.0 |
+| Game CD (#10): `--json` result, `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY`, the `action.yml` GitHub Action, GitLab CI and generic shell examples in `site/setup/ci.md` | 0.4.0 |
+| Advanced cheats (#7, Ideas #8): switches and variables by id or name, walk through walls, teleport and remembered places | 0.4.0 |
+| Settings without a redeploy (#2b): feature settings are edited in R2 and read by the Worker (`worker/settings.js`) | 0.4.0 |
+| Larger touch targets and a pull-down settings sheet for phones | 0.4.0 |
+| `config` asks questions (a wizard in `cli/lib/config-wizard.js`) instead of opening a JSON file | 0.4.0 |
+| Fixes: the missing `print` import that failed every deploy at its end, and credentials sent when fetching the web manifest | 0.4.0 |
+| CLI syntax and output standardized (#16a): `rwk <command> [<target>] [flags]`, a folder, link or site name as the target, per-command `--help`, log on stderr and result on stdout, one closing summary, hints on errors, exit code 64 for wrong usage. Breaking: `update-from-link` → `upgrade`, `import-saves` → `saves import`, `edit-config` → `config`, `site rename` → `rename --to`, `rwk <path>` → `rwk deploy <path>` | 0.4.0 |
+| CLI from a link (#16b): `status`, `saves export` (via the R2 API: `cli/lib/r2-api.js`), `logs`, `open`, `list` and `delete` take a link or site name, no folder needed | 0.5.0 |
+| CLI from the game folder (#17): `analyze` / `deploy --dry-run` (warnings and file count, no Cloudflare login, nothing written), `doctor` (Node.js, wrangler, login, token permissions), the current directory as the default target when it holds a game; `analyze` in the GitHub Action for pull requests | 0.5.0 |
+| Key and gamepad remapping (#11, Ideas #12): ⚙ → Keys and buttons, kept per device, `remap` config key and policy switch | 0.5.0 |
+| Access through the API (#9): the first deploy creates the Access application and an Allow policy (the account's email plus `players`) with `cli/lib/access-api.js`, so `--yes` / CI answers the Access question; the dashboard steps remain the fallback in a terminal when the token lacks the Access permissions or Zero Trust has no team yet | 0.5.0 |
+| Download to play offline + PWA (#5, Ideas #6): ⚙ → Play offline (`RWK_Offline`) downloads every file, big ones from R2 included, into the Service Worker's cache; resumable, with progress, a free-space check and a screen wake lock. The page itself opens from the cache without a connection, a cached file answers `Range` requests, the web manifest carries the icon's real size so browsers offer to install, and `offline` is a feature key (preset `shared` and the creator's policy can turn it off). Diagrams redrawn | 0.5.0 |
+| Deployment architecture diagrams (#13): architecture, deploy and first-load / save-sync sequence on "How it works", as light and dark SVG drawn by `site/diagrams/build.mjs`; the archify skill was checked and not used (see Details) | guide |
+| L / R buttons hidden by default, lower default opacity | 0.5.0 |
+| `analyze` warns about file paths that work on Windows but not on the web (letter case, upper-case extensions, engine folders) | 0.5.0 |
+| Translations from `data-xx` folders: players pick one in ⚙ (`RWK_Language`) | 0.5.0 |
+| Cheats panel in tabs, with search and browse | 0.5.0 |
+| Engine table (`cli/lib/engines.js`): one description per engine instead of `engine === "MZ"` checks | next |
+| Settings menu redesign, steps 2–5: clearer groups, a page per group with summaries, the phone's Back key, switch and segmented rows, search above 15 rows | next |
+| CLI follow-ups: toolkit version in `status`, GitHub Actions annotations, `doctor` checks R2 and the workers.dev subdomain, `config --get` / `--set`, `--dry-run` for `rename` and `saves import`, `upgrade` from a game folder, `deploy --name`, `delete --purge` | next |
 
-"next" is merged on `main` and goes out with the next release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
+"next" is merged on `main` and goes out with the next release; "guide" ships with the docs site, not in a release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).
 
 ## Build order
 
-Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Waves A and B are done: #5, #17, the CLI from the game folder, #16 (apart from `rename` without the folder, see Details), #9, #10, #7 and #2b all shipped.
+Order of work from here. Row numbers stay as they were, so "needs #n" still points at the same item. Waves A and B are done: #5, #17, the CLI from the game folder, #16 (apart from `rename` without the folder, see Details), #9, #10, #7 and #2b all shipped, and so are steps 2–5 of the [Settings page redesign](#settings-page-redesign) and step 1 of [Other RPG Maker versions](#other-rpg-maker-versions).
+
+Planned next, in this order: step 6 of the settings redesign (the guide follows the menu, before the next release puts the new menu in front of players), live translation (#12, a first phase), a `rwk.json` next to the game, progress for uploads, and `--account` (the last three from [CLI commands](#cli-commands-from-a-folder-and-from-a-link)).
 
 | # | Item | Effort | Why here |
 |---|---|---|---|
@@ -137,7 +146,7 @@ The [archify](https://github.com/tt-a1i/archify) skill was looked at (Apache-2.0
 
 ### Settings page redesign
 
-Planned 2026-10-28, decisions made the same day; **nothing built**. "Settings page" is the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option, and the guide pages that explain it.
+Planned 2026-10-28, decisions made the same day; steps 2–5 shipped (not released yet), step 1 was skipped (the decisions above were enough), step 6 is next. "Settings page" is the in-game ⚙ menu (F1, `openTools` in `runtime/RWK_Core.js`), the one place players reach every toolkit option, and the guide pages that explain it.
 
 Why: the menu grew one feature at a time. Tools register with `RWK.addTool({ icon, label, detail, onSelect, keepOpen, group, quick })` and are listed under fixed `GROUPS` (Play, Saves, Cheats, Controls, Display, Offline, Help, then "More"). Counting `group:` in `runtime/` shows **9 of 17 tools sit in "Play"**, so that group is a long mixed list; every toggle, choice and action is the same kind of row; a sub-choice (speed, language, message mode) opens another dialog or cycles on tap.
 
@@ -173,15 +182,15 @@ Order, each its own PR:
 
 Steps 3–5 change what players see (`feat(runtime)`); step 2 is a `refactor`, 1 and 6 are `docs`.
 
-Not tested: no mock-up exists yet; the group counts above are from a search of `runtime/`, and the page list from `site/play/`.
+No mock-up was made; the group counts above are from a search of `runtime/` before step 2, and the page list from `site/play/`.
 
 ### Other RPG Maker versions
 
-Evaluated 2026-10-28; **nothing built**. The toolkit only knows MZ and MV: `analyzeGame` (`cli/lib/game.js`) looks for `js/rmmz_core.js` or `js/rpg_core.js` and stops with "Unknown engine" otherwise, the save extensions (`.rmmzsave`, `.rpgsave`) are chosen in `game.js` and `cloudflare.js`, and every `runtime/RWK_*.js` plugin hooks classes of the JS engine (`Window_Message`, `Input`, `ConfigManager`, `Game_Actor`…). What does not depend on the engine and can be reused: `worker/` (assets, Access, save API with `If-Match`, history, players, settings), the deploy flow and R2 for large files, `cli/limits.json`, the Service Worker cache, Play offline and the web manifest.
+Evaluated 2026-10-28; step 1 shipped, step 2 answered from the documentation (see below). The toolkit only knows MZ and MV: `analyzeGame` (`cli/lib/game.js`) looks for `js/rmmz_core.js` or `js/rpg_core.js` and stops with "Unknown engine" otherwise, the save extensions (`.rmmzsave`, `.rpgsave`) are chosen in `game.js` and `cloudflare.js`, and every `runtime/RWK_*.js` plugin hooks classes of the JS engine (`Window_Message`, `Input`, `ConfigManager`, `Game_Actor`…). What does not depend on the engine and can be reused: `worker/` (assets, Access, save API with `If-Match`, history, players, settings), the deploy flow and R2 for large files, `cli/limits.json`, the Service Worker cache, Play offline and the web manifest.
 
 | Version | How it would run on the web | Verdict |
 |---|---|---|
-| Pixel Game Maker MV | Same JS core as MV (unverified) | Try first: one real game, no code if it already passes `analyze` |
+| Pixel Game Maker MV | None: its player is a native Windows program in C++ on [cocos2d-x 3.17.1](https://github.com/GGGweb-adm/PGMMV) (the open-source player), not MV's JavaScript core, and it exports only to [Windows and Nintendo Switch](https://en.wikipedia.org/wiki/Pixel_Game_Maker_MV), with no browser export ([a PGMMV developer on itch.io](https://itch.io/post/10977238)) | Not planned: a web build would mean porting the C++ player to the web |
 | RPG Maker 2000 / 2003 | [EasyRPG Player](https://easyrpg.org/player/guide/webplayer/) (Emscripten build, `?game=<folder>`, saves in IndexedDB) | Feasible, as its own item |
 | XP / VX / VX Ace (RGSS, Ruby) | Community ports only: [mkxp-web](https://github.com/pulsejet/mkxp) (last pushed over two years ago, per a third-party index), [mkxp-z libretro Emscripten](https://white-axe.github.io/mkxp-z-libretro-emscripten) (still a proposal; RTP must be copied into the game; no way to upload saves) | Not planned until a port is maintained |
 | RPG Maker Unite (Unity) | Unity WebGL export, a different pipeline (not researched) | Not planned |
@@ -189,7 +198,7 @@ Evaluated 2026-10-28; **nothing built**. The toolkit only knows MZ and MV: `anal
 Order, each its own PR:
 
 1. **Engine table** (S–M, worth doing on its own): replace the `engine === "MZ" ? … : …` checks in `game.js`, `cloudflare.js` and `stage.js` with one per-engine description (marker files, web folders, save extension, runtime plugin set). No change in behaviour; `npm test` stays green. **Shipped**: `cli/lib/engines.js` (marker file, save extension, gameId, phone media check, MV `global` retitle); web folders and the runtime plugin set stay shared until an engine needs its own.
-2. **Pixel Game Maker MV check** (S): run `analyze` and a deploy on one real game; if it works, allow it in the detection and the docs, otherwise record why.
+2. **Pixel Game Maker MV check** (S): **answered without a game**, checked 2026-10-29 from the sources in the table: the "same JS core as MV" guess was wrong. A PGMMV game ships a native player (C++, cocos2d-x) and no `js/rpg_core.js`, so `analyze` stops with "Unknown engine", which is right. No real game was run; revisit only if PGMMV gains a web export.
 3. **EasyRPG adapter** (L): detect by `RPG_RT.ldb` / `RPG_RT.lmt`; stage the EasyRPG web player with the game's files and its asset index; a small wrapper script instead of the `RWK_*` plugins that mirrors the `Save*.lsd` files between IndexedDB and the save API (binary, no decoding), plus the Service Worker cache. Touch controls would send keyboard events to the player. Open points: letter-case of file names (the `rwk-paths` checks assume MZ/MV folders), RTP for 2000/2003 games, the player's licence (GPL; check how it is bundled and whether it fits the project's licence before copying anything), and a maintainer for a second runtime.
 4. **XP / VX / Ace**: revisit only if a maintained web port appears. Until then say in the README that these engines are not supported.
 
@@ -217,8 +226,8 @@ Plan:
 - Save sync for the desktop (NW.js) build: an optional plugin so the desktop version pushes and pulls saves too, using an Access service token.
 - A `/` page listing all deployed games (personal hub, Ideas #18).
 - Apply a patch or translation archive (`patch.zip`) to the build folder instead of copying it over the game folder, so the original stays untouched. Reference: the `patch.zip` / `CN.json` options of [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
-- Redesign of the in-game settings page (the ⚙ / F1 menu: sub-pages, search, guide reorganised): planned 2026-10-28, not started. See [Settings page redesign](#settings-page-redesign).
-- Other RPG Maker versions (2000/2003 through EasyRPG, Pixel Game Maker MV; XP/VX/Ace and Unite not planned): evaluated 2026-10-28, not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
+- Redesign of the in-game settings page (the ⚙ / F1 menu): steps 2–5 shipped, the guide (step 6) is next; the slider row waits for a tool with a number to set. See [Settings page redesign](#settings-page-redesign).
+- Other RPG Maker versions (2000/2003 through EasyRPG; Pixel Game Maker MV, XP/VX/Ace and Unite not planned): the engine table shipped, the EasyRPG adapter is not started. See [Other RPG Maker versions](#other-rpg-maker-versions).
 - Other deploy targets: build only (also needed by the CD integration's pull request builds), or a local folder / LAN server, for people who do not use Cloudflare. Reference: `--deploy-target local|custom|none` in [rpgmaker-web-port](https://github.com/rebecca-kruger/rpgmaker-web-port).
 
 ## Not planned

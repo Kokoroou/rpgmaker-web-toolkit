@@ -8,7 +8,7 @@ Tài liệu này gồm năm phần:
 4. Thiết kế lại cách sắp xếp, nhóm và icon các nút.
 5. Những gì người thiết lập game được tùy chỉnh (vd. không cho tải game về).
 
-Đã thi công: bản 0.2.0 có #1 tua nhanh, #2 chế độ đọc thoại, #3 save an toàn, #4 lịch sử save, #9 luôn chạy, #11 báo lỗi và menu ⏸ ở mục 4; đã merge vào `main` cho bản sau: #5 cheat cơ bản, #10 lịch sử hội thoại và config hai tầng ở mục 5 (gói cài sẵn, giới hạn từng tính năng, `players`). Các mục còn lại chưa làm. Thứ tự thi công: [ROADMAP.md](ROADMAP.md).
+Đã thi công: bản 0.2.0 có #1 tua nhanh, #2 chế độ đọc thoại, #3 save an toàn, #4 lịch sử save, #9 luôn chạy, #11 báo lỗi và menu ⏸ ở mục 4; bản 0.4.0 có #5 cheat cơ bản, #8 cheat nâng cao, #10 lịch sử hội thoại và config hai tầng ở mục 5 (gói cài sẵn, giới hạn từng tính năng, `players`); bản 0.5.0 có #6 tải để chơi offline, #12 chỉnh phím và phần đầu của #7 (chọn bản dịch có sẵn trong thư mục `data-xx`, chưa có dịch máy). Phần "Gỡ kẹt" của #11 (nút "Thử tiếp tục", "Về map an toàn") và các mục còn lại chưa làm. Thứ tự thi công: [ROADMAP.md](ROADMAP.md).
 
 ## 1. Công cụ đã tham khảo
 
