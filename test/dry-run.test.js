@@ -9,7 +9,7 @@ import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { analyze } from "../cli/commands/analyze.js";
 import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "../cli/lib/build-checks.js";
 import { doctor, runChecks } from "../cli/commands/doctor.js";
-import { preview } from "../cli/commands/preview.js";
+import { checkSiteName, preview } from "../cli/commands/preview.js";
 import { analyzeGame } from "../cli/lib/game.js";
 import { renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
 import { currentGameFolder } from "../cli/lib/target.js";
@@ -38,7 +38,7 @@ test("args: analyze, doctor and deploy --dry-run", () => {
   const dry = parse(["deploy", "--dry-run", "g"]);
   assert.deepEqual([dry.spec.name, dry.target, dry.flags.dryRun], ["deploy", "g", true]);
   assert.equal(parse(["deploy", "g"]).flags.dryRun, false);
-  assert.match(commandHelp(dry.spec), /Usage:\n  rwk deploy <game folder> \[--dry-run\] \[flags\]/);
+  assert.match(commandHelp(dry.spec), /Usage:\n  rwk deploy <game folder> \[--name <site name>\] \[--dry-run\] \[flags\]/);
   assert.match(commandHelp(dry.spec), /--dry-run\s+Only check the game/);
   assert.equal(parse(["rename", "g", "--to", "n", "--dry-run"]).flags.dryRun, true);
   assert.equal(parse(["saves", "import", "g", "--dry-run"]).flags.dryRun, true);
@@ -82,6 +82,28 @@ test("analyze: the file count and the warnings, and the game folder stays untouc
 test("analyze: a folder that is not a game is an error, a missing one too", async () => {
   await assert.rejects(analyze(fs.mkdtempSync(path.join(os.tmpdir(), "rwk-none-"))), /No index\.html \+ js\//);
   await assert.rejects(analyze(path.join(os.tmpdir(), "rwk-does-not-exist-xyz")), /Folder not found/);
+});
+
+test("deploy --name: the first deploy's site name, checked before any question", async () => {
+  assert.equal(parse(["deploy", "g", "--name", "my-game"]).flags.name, "my-game");
+  assert.throws(() => parse(["deploy", "g", "--name", "My Game"]), (err) => err.exitCode === 64 && /Bad site name "My Game" for --name/.test(err.message));
+  assert.throws(() => parse(["upgrade", "g", "--name", "x"]), (err) => err.exitCode === 64 && /Unknown option --name/.test(err.message));
+  assert.throws(() => parse(["deploy", "g", "--name"]), (err) => err.exitCode === 64);
+
+  const taken = new Set(["other"]);
+  assert.equal(checkSiteName(undefined, null, taken, "g"), undefined, "no flag: the question");
+  assert.equal(checkSiteName("mine", null, taken, "g"), "mine");
+  assert.throws(() => checkSiteName("other", null, taken, "g"), /already used by another game/);
+  assert.equal(checkSiteName("mine", { slug: "mine" }, taken, "g"), "mine", "a published game with that name");
+  assert.throws(
+    () => checkSiteName("new", { slug: "mine" }, taken, "D:\\G"),
+    (err) => /already published as "mine", not "new"/.test(err.message) && /rwk rename "D:\\G" --to new/.test(err.hint)
+  );
+
+  const game = makeGame();
+  const result = await analyze(game, { command: "deploy", name: "my-game" });
+  assert.deepEqual(result.facts[1], ["Site name", "my-game (on a first deploy, if no other game uses it)"]);
+  assert.match(result.next[0], /--name my-game$/);
 });
 
 test("analyze: the summary says nothing was published", () => {

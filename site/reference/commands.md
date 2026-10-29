@@ -40,7 +40,7 @@ Flags may come before or after the command. A command comes first, then the game
 
 | Command | Does | Target | Guide |
 |---|---|---|---|
-| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game without uploading it again; the game files stay as uploaded. From a folder it only reads the site name and the creator's policy | folder, link, name | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
@@ -82,6 +82,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
+| `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from the folder's name by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
 | `--to <name>` | Only `rename`: the new site name |
 | `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
 
@@ -176,7 +177,7 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 ```
 
 - Each question takes its default answer, and the log shows it with `(non-interactive)`.
-- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, a first [access protection](/setup/access) the API cannot set up (no Zero Trust team yet, or a token without the Access permissions), `config` without `--get` / `--set` (it asks questions). `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
+- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, a first [access protection](/setup/access) the API cannot set up (no Zero Trust team yet, or a token without the Access permissions), `config` without `--get` / `--set` (it asks questions). The site name of a first deploy is the folder's by default; `--name` gives it, and `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
 - Two questions answer **no** when nobody is there: deleting the old Worker after a `rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`saves import --yes` uploads it).
 - [Exit codes](#exit-codes) tell a script what happened.
 - `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).

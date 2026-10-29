@@ -12,7 +12,7 @@ import { ask, c, formatBytes, log } from "../lib/ui.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 
-export async function analyze(inputPath, { command = "analyze" } = {}) {
+export async function analyze(inputPath, { command = "analyze", name } = {}) {
   const usage = command === "deploy" ? 'rwk deploy --dry-run "<game folder>"' : 'rwk analyze "<game folder>"';
   if (!inputPath) {
     inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command, or run it in the game folder: ${usage}` });
@@ -26,7 +26,8 @@ export async function analyze(inputPath, { command = "analyze" } = {}) {
   const policy = readPolicy(game);
   showPolicy(policy);
 
-  const cfg = baseConfig(game, { slug: suggestSlug(game) });
+  // Whether the name is free is only known with the login: the real deploy checks it.
+  const cfg = baseConfig(game, { slug: name ?? suggestSlug(game) });
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
   if (game.unknownDirs.length) {
     log.info(`Non-standard folders in the game root, left out unless included with rwk config: ${game.unknownDirs.join(", ")}`);
@@ -63,7 +64,7 @@ export async function analyze(inputPath, { command = "analyze" } = {}) {
     paths,
     languages,
     build: { files: files.length, bytes: totalBytes, r2Files: overflow.length, r2Uploaded: 0 },
-    facts: [["Game", `${game.engine} · ${game.title}`]],
-    next: [`Nothing was published. To publish: rwk deploy "${inputPath}"`],
+    facts: [["Game", `${game.engine} · ${game.title}`], ...(name ? [["Site name", `${name} (on a first deploy, if no other game uses it)`]] : [])],
+    next: [`Nothing was published. To publish: rwk deploy "${inputPath}"${name ? ` --name ${name}` : ""}`],
   };
 }

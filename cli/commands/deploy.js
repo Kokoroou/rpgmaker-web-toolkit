@@ -30,14 +30,14 @@ import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, pla
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
-import { askNewName, preview } from "./preview.js";
+import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
 // dryRun (rename and saves import only; deploy --dry-run is analyze): reads R2, then says what would
 // happen and stops; nothing in the account is created or changed.
-export async function deploy(inputPath, { importOnly = false, rename = false, to, dryRun = false } = {}) {
+export async function deploy(inputPath, { importOnly = false, rename = false, to, dryRun = false, name } = {}) {
   const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
   if (!inputPath) {
     inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command: ${usage}` });
@@ -70,6 +70,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   };
 
   let cfg = configs[game.fingerprint];
+  const slug = checkSiteName(name, cfg, takenNames(configs, game.fingerprint), inputPath);
   if (cfg) {
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
@@ -77,7 +78,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     throw new CliError("This game is not published yet, so it has no site to rename.", { hint: `Publish it first: rwk deploy "${inputPath}"` });
   } else {
     log.info("First deploy of this game: answer a few questions (Enter = use the default).");
-    cfg = await createConfig(game, takenNames(configs, game.fingerprint));
+    cfg = await createConfig(game, takenNames(configs, game.fingerprint), slug);
   }
   await addNewKeys(game, cfg);
   // Kept for upgrade, which has no game folder to read it from.
@@ -260,12 +261,15 @@ export function editInEditor(cfg) {
 // First-run questions
 //---------------------------------------------------------------------------
 
-async function createConfig(game, takenSlugs) {
-  const slug = await ask("Site name (becomes <name>.<username>.workers.dev)", suggestSlug(game), (v) => {
-    const problem = validateSlug(v);
-    if (problem) return problem;
-    return takenSlugs.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
-  });
+async function createConfig(game, takenSlugs, name) {
+  const slug =
+    name ??
+    (await ask("Site name (becomes <name>.<username>.workers.dev)", suggestSlug(game), (v) => {
+      const problem = validateSlug(v);
+      if (problem) return problem;
+      return takenSlugs.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
+    }, { hint: "Pass it with --name <site name>." }));
+  if (name) log.ok(`Site name: ${name}`);
 
   const include = [];
   if (game.unknownDirs.length) {
