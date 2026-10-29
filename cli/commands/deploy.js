@@ -153,7 +153,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   //-------------------------------------------------------------------------
   log.step("Deploying the Worker (wrangler uploads changed files only)");
   const playerSettings = perPlayerSettings(game.engine, cfg, policy);
-  const project = {
+  const worker = {
     buildDir,
     slug: cfg.slug,
     gameId: storageIdOf(cfg),
@@ -169,7 +169,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   // Written before the Worker, which reads it from R2 and puts it over the build's own.
   const publishSettings = () => saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
   await publishSettings();
-  let url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: !authReady }));
+  let url = await deployWorker(writeWorkerProject({ ...worker, auth: cfg.auth, locked: !authReady }));
   if (url) cfg.url = url;
   cfg.liveSettings = true; // config applies without a redeploy from now on
   cfg.toolkitVersion = TOOLKIT_VERSION; // for rwk status
@@ -181,13 +181,13 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     if (isAuthReady(cfg.auth)) {
       // A public site that asked to be listed needs the files without noindex.
       if (isIndexable(cfg)) {
-        project.indexable = true;
+        worker.indexable = true;
         syncPublicDir(publicDir, assets, generatedFiles(game, applyPolicy(cfg, policy), files));
       }
-      project.playerSettings = perPlayerSettings(game.engine, cfg, policy);
+      worker.playerSettings = perPlayerSettings(game.engine, cfg, policy);
       await publishSettings();
       log.step("Redeploying with access protection");
-      url = await deployWorker(writeWorkerProject({ ...project, auth: cfg.auth, locked: false }));
+      url = await deployWorker(writeWorkerProject({ ...worker, auth: cfg.auth, locked: false }));
     } else {
       log.warn("The site is still locked. Run this command again to finish setting up access protection.");
     }
