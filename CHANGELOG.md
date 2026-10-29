@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.5.0...v0.6.0) (2026-10-29)
+
+
+### Features
+
+* **cli:** check R2 and the workers.dev subdomain in doctor ([#99](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/99)) ([6a03a77](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/6a03a7722f3c301c3a2b68774d374fd35726d985))
+* **cli:** delete a game's saves and large files with delete --purge ([#104](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/104)) ([7f578ac](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/7f578acd5e84e88f6344f1a23bcda2d5d564eb9d))
+* **cli:** name the site of a first deploy with --name ([#103](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/103)) ([e7f53b0](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e7f53b09ba91847dc6f8ce18868a73cb43877509))
+* **cli:** pick one of several Cloudflare accounts with --account ([#110](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/110)) ([e9efa2c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e9efa2c718f3a357497baa53c2bcff05ea70623b))
+* **cli:** preview rename and saves import with --dry-run ([#101](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/101)) ([5aa2237](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/5aa22370c638d8d1f3b86df20d000ee1a4f3b6ba))
+* **cli:** read or change one setting with config --get / --set ([#100](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/100)) ([f30cf65](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f30cf65942521a952bd1962025c7bdaa728246dd))
+* **cli:** read the site name and file patterns from rwk.json in the game folder ([#108](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/108)) ([eca1897](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/eca189747fd1002f4ee6156c4067c5f310dea68c))
+* **cli:** show the site's toolkit version in status ([#97](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/97)) ([7952ccd](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/7952ccd581cc4b42de3006dd8b81eb8fb686b569))
+* **cli:** show upload progress and number the deploy steps ([#109](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/109)) ([f762e27](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f762e27c3636f58dc95cea934ec56b0a57f63334))
+* **cli:** show warnings and errors as GitHub Actions annotations ([#96](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/96)) ([fa962ac](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/fa962ac6ca5d2c99566197d87c0053084ec77dfd))
+* **cli:** upgrade a game from its folder ([#102](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/102)) ([69992d2](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/69992d2f8e7a660d543db701a28dfb10b51c0f58))
+* **runtime:** add live machine translation through Workers AI ([#107](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/107)) ([05a950c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/05a950c879f9d87ae0ccc3592bcede55775f25fc))
+* **runtime:** go back one level in the settings menu with the phone's Back key ([#98](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/98)) ([cae0a86](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/cae0a86e586eb97884446983d11c8caa72776c23))
+* **runtime:** open each settings group on its own page ([#92](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/92)) ([1cf7f88](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1cf7f888917e81f98350748dedf3f47191437e0e))
+* **runtime:** search the settings menu when it has many rows ([#95](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/95)) ([e73cc48](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e73cc4877878d4eac9fb5189af7c5c6c593d177d))
+* **runtime:** show switches and segmented choices in the settings menu ([#94](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/94)) ([d2d8df4](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/d2d8df444307cfd4ad0388be37a8e86fd4c58581))
+
 ## [0.5.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.4.0...v0.5.0) (2026-10-27)
 
 
