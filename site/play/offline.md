@@ -5,6 +5,8 @@ lang: en
 
 # Play offline
 
+In the menu: ⚙ → **Play offline** (the **Offline** group, on the first screen).
+
 Download the game to your device once, and it opens and plays without a connection. Saves you make offline stay on the device and upload when you are back online.
 
 ## Download the game
@@ -37,10 +39,10 @@ An installed game keeps its downloaded files like the website does. Your saves a
 
 ## Free the space
 
-⚙ → **Game files on this device** shows what is kept and clears it. The game then downloads again as you play, or when you tap **Download**. Saves are not touched.
+⚙ → **Help** → [Game files on this device](/play/help#game-files-on-this-device) shows what is kept and clears it. The game then downloads again as you play, or when you tap **Download**. Saves are not touched.
 
 ## Limits
 
-- Over a connection that never reaches the server, the game opens but cloud saves wait until it does ([Saves on several devices](/play/saves)).
+- Over a connection that never reaches the server, the game opens but cloud saves wait until it does ([Cloud saves](/play/saves)).
 - **Sign in once while online** after the login expires, even on an installed copy.
 - Some sites have this turned off by the person who set up the game, or by the game's creator.

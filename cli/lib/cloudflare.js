@@ -289,9 +289,10 @@ export function overflowRoutes(rels, extra = []) {
 export const COMPATIBILITY_DATE = "2026-09-01";
 
 // The Worker's environment variables (worker/index.js reads them).
-// saveHistory: from saveHistoryConfig() (stage.js)
-export function workerVars({ gameId, auth, locked, indexable, saveHistory }) {
-  return {
+// saveHistory: from saveHistoryConfig() (stage.js); translate: null (no
+// Workers AI binding) or { model, dailyChars, on } (limits.js, worker/translate.js)
+export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null }) {
+  const vars = {
     GAME_ID: gameId,
     AUTH_MODE: auth.mode || "locked",
     ACCESS_TEAM_DOMAIN: auth.teamDomain || "",
@@ -300,12 +301,14 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory }) {
     RWK_INDEXABLE: indexable ? "1" : "0",
     RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
   };
+  if (translate) vars.RWK_TRANSLATE = JSON.stringify(translate);
+  return vars;
 }
 
 // playerSettings: from playerOverrides() (stage.js). With a bucket or any
 // player settings, the Worker also serves js/plugins.js, to put the settings
 // from R2 (worker/settings.js) and each player's own in it.
-export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {} }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -331,10 +334,12 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
-    vars: workerVars({ gameId, auth, locked, indexable, saveHistory }),
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
+  // Translations are kept in R2, so no bucket, no translation.
+  if (translate && bucket) config.ai = { binding: "AI" };
   const file = path.join(buildDir, "wrangler.json");
   fs.writeFileSync(file, JSON.stringify(config, null, 2));
   return file;

@@ -25,19 +25,20 @@ export const WORKERS_API = {
   // PATCH ?deploy=true: a new version from the latest one, at 100% of traffic.
   patchLatest: "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest",
   // Fields sent: main_module, compatibility_date, bindings (plain_text,
-  // r2_bucket, assets), modules (name, content_type, content_base64),
+  // r2_bucket, assets, ai), modules (name, content_type, content_base64),
   // assets.config (not_found_handling, run_worker_first).
   schema: "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json",
-  checked: "2026-10-25",
+  checked: "2026-10-29",
 };
 
 // The same Worker as writeWorkerProject() + `wrangler deploy`, plus the newer
 // toolkit for the Worker to serve (worker/toolkit.js). Modules go up
 // unbundled: the API resolves their relative imports. -> merge patch body
-export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, toolkit }) {
-  const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory });
+export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, toolkit, translate = null }) {
+  const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory, translate });
   const bindings = Object.entries(vars).map(([name, text]) => ({ name, type: "plain_text", text }));
   if (bucket) bindings.push({ name: "BUCKET", type: "r2_bucket", bucket_name: bucket });
+  if (translate && bucket) bindings.push({ name: "AI", type: "ai" });
   bindings.push({ name: "ASSETS", type: "assets" });
 
   const modules = {
@@ -156,5 +157,6 @@ export function checkWorkersApi(openapi) {
   binding("plain_text", "text");
   binding("r2_bucket", "bucket_name");
   binding("assets", "type");
+  binding("ai", "type");
   return problems;
 }

@@ -17,7 +17,12 @@ const FIELDS = {
   maxFileBytes: [1024 ** 2, 10 * 1024 ** 3],
 };
 
-// Returns { assets: { maxFiles, maxFileBytes }, updated, from: "remote" | "cache" | "bundled",
+// Live translation (worker/translate.js): the model and the characters a day it
+// may be sent, kept under the Workers AI free allocation (10,000 Neurons a day).
+export const DEFAULT_TRANSLATE = { model: "@cf/meta/m2m100-1.2b", dailyChars: 100000 };
+const MODEL_RE = /^@cf\/[\w.-]+\/[\w.-]+$/;
+
+// Returns { assets: { maxFiles, maxFileBytes }, translate: { model, dailyChars }, updated, from: "remote" | "cache" | "bundled",
 // newer: true when it replaces the bundled copy with a later one }.
 export async function loadLimits({
   url = process.env.RWK_LIMITS_URL || LIMITS_URL,
@@ -54,7 +59,13 @@ export function parseLimits(data) {
     if (!Number.isInteger(value) || value < min || value > max) return null;
     assets[key] = value;
   }
-  return { updated: data.updated, assets };
+  // Optional, so a copy written before it existed still counts.
+  const t = data.translate;
+  const translate =
+    t && typeof t === "object" && MODEL_RE.test(String(t.model)) && Number.isInteger(t.dailyChars) && t.dailyChars >= 0 && t.dailyChars <= 100_000_000
+      ? { model: t.model, dailyChars: t.dailyChars }
+      : { ...DEFAULT_TRANSLATE };
+  return { updated: data.updated, assets, translate };
 }
 
 async function fetchJson(url, fetchFn) {

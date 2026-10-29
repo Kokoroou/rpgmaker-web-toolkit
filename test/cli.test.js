@@ -98,9 +98,11 @@ test("syncPublicDir never writes through hard links into the game folder", () =>
 });
 
 test("creator policy: parsing, strict fallback, feature locks", () => {
-  const p = parsePolicy({ hosting: "shared", features: { saveTools: false, itemBatch: true, translate: false }, message: " Hi " });
+  const p = parsePolicy({ hosting: "shared", features: { saveTools: false, itemBatch: true, teleport: false }, message: " Hi " });
   assert.equal(p.hosting, "shared");
   assert.deepEqual(p.features, { saveTools: false });
+  assert.deepEqual(parsePolicy({ hosting: "shared", features: { translate: false } }).features, { translate: false });
+  assert.equal(applyPolicy({ translate: true }, parsePolicy({ hosting: "shared", features: { translate: false } })).translate, false);
   assert.equal(p.message, "Hi");
   assert.deepEqual(p.problems, []);
   assert.equal(parsePolicy({ hosting: "everyone" }).hosting, "personal");
@@ -528,6 +530,7 @@ function workersSchema() {
         workers_binding_kind_plain_text: prop({ name: {}, type: {}, text: {} }),
         workers_binding_kind_r2_bucket: prop({ name: {}, type: {}, bucket_name: {} }),
         workers_binding_kind_assets: prop({ name: {}, type: {} }),
+        workers_binding_kind_ai: prop({ name: {}, type: {} }),
       },
     },
   };

@@ -43,11 +43,12 @@ Set a feature to `false` to turn it off in every web copy. The player cannot tur
 | `messageMode` | [Message modes](/play/messages): Auto, Skip, and a tap ending pauses in the text |
 | `backlog` | The [messages log](/play/messages#messages-log) (the last messages, reread in a panel) |
 | `remap` | ⚙ → [Keys and buttons](/play/keys) (players choosing other keys and gamepad buttons) |
-| `alwaysDash` | ⚙ → [Always dash](/play/dash). The game's own Options menu still has it unless the game removed it |
+| `alwaysDash` | ⚙ → [Always dash](/play/speed#always-dash). The game's own Options menu still has it unless the game removed it |
 | `quickSave` | [Quick save / load](/play/quick-save), e.g. for a game that disallows saving in some places on purpose |
 | `autoSave` | The toolkit's [autosave](/play/quick-save#autosave). The game's own autosave is not affected |
 | `cheats` | ⚙ → [Cheats](/play/cheats) (off unless the player turns them on) |
 | `offline` | ⚙ → [Play offline](/play/offline): keeping a full copy of the game on the player's device. The browser still keeps the files a player plays through |
+| `translate` | ⚙ → [Translate the game](/play/translate): machine translation of the messages and names (off unless the deployer turns it on) |
 | `sync` | Cloud save sync: each browser keeps its own saves |
 
 Keys the toolkit does not know yet are ignored, so you can already list features from later versions.
