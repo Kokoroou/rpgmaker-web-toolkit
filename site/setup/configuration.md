@@ -22,6 +22,18 @@ Changes to the in-game features (every key in [Common changes](#common-changes),
 
 The menu's last entries are **Save and finish** and **Quit without saving**. For anything the questions do not cover (limits such as `speed` or `lock`, [settings for one player](#settings-for-one-player)), pick **Advanced: edit the JSON in a text editor**: Notepad opens (TextEdit on macOS, `$EDITOR` or nano on Linux; set `EDITOR`, for example `EDITOR="code --wait"`, to use another), and a JSON mistake reopens it. The tables below show the key behind each question. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 
+### One setting at a time
+
+For a script or CI, or a quick change, `--get` and `--set` skip the menu. A key with dots goes into an object, and a value is read as JSON (`false`, `3`, `{"skip":false}`) or else as text. `null` removes the key, so the default applies again. `--set` can be repeated, and works with `--yes`.
+
+```sh
+rwk config my-game --get fastForward            # prints {"maxSpeed":3}, or null when not set
+rwk config my-game --set cheats=true --set fastForward.maxSpeed=3
+rwk config my-game --set backlog=null           # back to the default
+```
+
+`--get` prints the value alone on stdout (with `--json`, the whole [result](/setup/ci#the-result) with `key` and `value`). The keys the toolkit writes itself (`slug`, `fingerprint`, `storageId`, `policy`…) cannot be set.
+
 ## Common changes
 
 | To | Set |

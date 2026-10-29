@@ -43,9 +43,13 @@ export const COMMANDS = [
   },
   {
     name: "config",
-    summary: "Change the game's settings (buttons, features, files…) by answering questions",
+    summary: "Change the game's settings (buttons, features, files…) by answering questions, or one at a time with --get / --set",
     targets: ["folder", "link", "name"],
-    examples: ['rwk config "D:\\Games\\My Game"', "rwk config my-game"],
+    options: {
+      get: "Print one setting and change nothing, e.g. --get fastForward.maxSpeed",
+      set: "Change one setting without questions, e.g. --set cheats=false (repeat it for several; null goes back to the default)",
+    },
+    examples: ['rwk config "D:\\Games\\My Game"', "rwk config my-game", "rwk config my-game --get cheats", "rwk config my-game --set cheats=true --set fastForward.maxSpeed=3"],
   },
   {
     name: "rename",
@@ -112,7 +116,7 @@ export const FLAGS = [
   ["-V, --version", "Show the toolkit version"],
 ];
 
-const OPTION_VALUES = { to: "name", email: "address", out: "folder" };
+const OPTION_VALUES = { to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
@@ -189,7 +193,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, help, version, to, email, out }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, help, version, to, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -210,11 +214,13 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         to: { type: "string" },
         email: { type: "string" },
         out: { type: "string" },
+        get: { type: "string" },
+        set: { type: "string", multiple: true },
       },
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --to new-name or --email me@example.com." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -231,6 +237,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     to: values.to,
     email: values.email,
     out: values.out,
+    get: values.get,
+    set: values.set,
   };
   // --json implies --yes: a script reads the result. No terminal on stdin means nobody to answer.
   const unattended = flags.json || flags.yes || !stdinIsTTY;
@@ -256,11 +264,12 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  for (const option of ["to", "email", "out"]) {
+  for (const option of ["to", "email", "out", "get", "set"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
   }
+  if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
   if (flags.dryRun && !spec.switches?.["dry-run"]) {
     throw new UsageError(`Unknown option --dry-run for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
