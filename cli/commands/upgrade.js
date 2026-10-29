@@ -7,7 +7,7 @@
 
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
-import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
+import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources } from "../lib/stage.js";
@@ -114,11 +114,4 @@ export async function upgrade(input) {
   }
 
   return { ...siteOf(cfg), next: ["Players get the new version on their next reload. In game: ⚙ → Report a problem shows the toolkit version."] };
-}
-
-// The stored config of the game in a folder -> [fingerprint, cfg]
-export function publishedEntry(configs, game, folder) {
-  const cfg = configs[game.fingerprint];
-  if (!cfg) throw new CliError("This game is not published yet, so there is nothing to upgrade.", { hint: `Publish it first: rwk deploy "${folder}"` });
-  return [game.fingerprint, cfg];
 }
