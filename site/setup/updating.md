@@ -77,7 +77,7 @@ Cloud saves with the same name (`file1`…) are replaced. For a single save, use
 rwk rename ~/Games/"My Game" --to new-name           # macOS / Linux
 ```
 
-Without `--to`, it asks for the new site name. It then deploys the game under it. Saves and [older saves](/play/saves#bring-back-an-older-save) carry over: nothing is copied.
+Without `--to`, it asks for the new site name. It then deploys the game under it. Saves and [older saves](/play/older-saves) carry over: nothing is copied.
 
 1. With [Cloudflare Access](/setup/access), the new address needs it turned on again: the steps open in the browser, as on the first deploy. Emails you allowed on the old site must be allowed again.
 2. Once the new site works, the toolkit deletes the old Worker, after asking: the old link stops working. Answer no to keep it a while; the next deploy asks again.

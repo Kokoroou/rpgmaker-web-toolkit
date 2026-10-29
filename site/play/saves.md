@@ -1,9 +1,11 @@
 ---
-description: "Cloud save sync for an RPG Maker web game: saves follow your email, so you can save on a phone and continue on a PC. "
+description: "Cloud save sync for an RPG Maker web game: saves follow your email, so you can save on a phone and continue on a PC."
 lang: en
 ---
 
-# Saves on several devices
+# Cloud saves
+
+In the menu: ⚙ → **Saves** → **Cloud saves**.
 
 With **cloud save sync** on, your saves follow your email. Save on your phone, continue on your PC. Nothing to do: save in the game as usual.
 
@@ -15,7 +17,7 @@ With **cloud save sync** on, your saves follow your email. Save on your phone, c
 
 ## The ☁ icon
 
-⚙ → **Cloud saves** shows where your saves are, with this icon and in words. Tap it to upload waiting saves.
+⚙ → **Saves** → **Cloud saves** shows where your saves are, with this icon and in words. Tap it to upload waiting saves.
 
 | Icon | Means |
 |---|---|
@@ -43,13 +45,7 @@ With **cloud save sync** on, your saves follow your email. Save on your phone, c
 
 ## Bring back an older save
 
-![⚙ → Older saves](/img/save-history.png){.shot .portrait}
-
-The cloud keeps older copies of your saves: one when a save is overwritten (at most every 15 minutes, or when another device saves over it) and one when it is deleted. By default up to 10 per save, for 30 days.
-
-Tap ⚙ → **Older saves**, pick a copy, then **Restore**. It replaces that save on every device, and the game restarts. The save it replaced is kept in the list, so you can change your mind.
-
-Use it when a save is broken, when you picked the wrong copy above, or when you saved over the wrong slot. It needs an internet connection.
+The cloud also keeps older copies of your saves: see [Older saves](/play/older-saves).
 
 ::: tip Good habits
 Play on one device at a time, use the same email everywhere, and keep a second slot before a boss.

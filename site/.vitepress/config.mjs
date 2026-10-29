@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vitepress";
-import { SITE_URL, buildLlmsTxt, pageHead } from "./seo.mjs";
+import { SITE_URL, buildLlmsTxt, pageHead, pagePath, redirectHead } from "./seo.mjs";
 
 const repo = "https://github.com/Kokoroou/rpgmaker-web-toolkit";
+
+// Pages that only point to where their content moved (`redirect:` in the front matter):
+// left out of the sitemap, so search engines index the new page instead.
+const redirects = new Set();
 
 export default defineConfig({
   title: "rpgmaker-web-toolkit",
@@ -12,10 +16,15 @@ export default defineConfig({
   lang: "en",
   cleanUrls: true,
   lastUpdated: true,
-  sitemap: { hostname: SITE_URL },
+  sitemap: {
+    hostname: SITE_URL,
+    transformItems: (items) => items.filter((item) => !redirects.has(item.url)),
+  },
   transformPageData(pageData) {
     pageData.frontmatter.head ??= [];
-    pageData.frontmatter.head.push(...pageHead(pageData));
+    const { redirect } = pageData.frontmatter;
+    if (redirect) redirects.add(pagePath(pageData.relativePath));
+    pageData.frontmatter.head.push(...(redirect ? redirectHead(pageData, redirect) : pageHead(pageData)));
   },
   buildEnd(siteConfig) {
     const { sidebar } = siteConfig.userConfig.themeConfig;
@@ -55,23 +64,58 @@ export default defineConfig({
           { text: "Troubleshooting", link: "/setup/troubleshooting" },
         ],
       },
+      // Play, then one section per group of the in-game ⚙ menu, in the menu's order.
       {
         text: "Play",
         items: [
           { text: "Open and play", link: "/play/" },
-          { text: "Touch controls", link: "/play/controls" },
-          { text: "Saves on several devices", link: "/play/saves" },
-          { text: "Quick save and autosave", link: "/play/quick-save" },
-          { text: "Edit or move a save", link: "/play/save-files" },
-          { text: "Fast forward", link: "/play/speed" },
-          { text: "Messages: Auto and Skip", link: "/play/messages" },
-          { text: "Always dash", link: "/play/dash" },
-          { text: "Keys and buttons", link: "/play/keys" },
-          { text: "Use several items at once", link: "/play/items" },
-          { text: "Cheats", link: "/play/cheats" },
-          { text: "Play offline", link: "/play/offline" },
-          { text: "Language", link: "/play/language" },
+          { text: "Menu map", link: "/play/menu" },
+          { text: "Toolbar", link: "/play/toolbar" },
         ],
+      },
+      {
+        text: "Speed and movement",
+        items: [{ text: "Fast forward and always dash", link: "/play/speed" }],
+      },
+      {
+        text: "Messages",
+        items: [{ text: "Auto, Skip and the log", link: "/play/messages" }],
+      },
+      {
+        text: "Items",
+        items: [{ text: "Use several items at once", link: "/play/items" }],
+      },
+      {
+        text: "Saves",
+        items: [
+          { text: "Cloud saves", link: "/play/saves" },
+          { text: "Quick save and autosave", link: "/play/quick-save" },
+          { text: "Older saves", link: "/play/older-saves" },
+          { text: "Save files", link: "/play/save-files" },
+        ],
+      },
+      {
+        text: "Cheats",
+        items: [{ text: "Cheats", link: "/play/cheats" }],
+      },
+      {
+        text: "Controls",
+        items: [
+          { text: "Touch controls", link: "/play/controls" },
+          { text: "Keys and buttons", link: "/play/keys" },
+        ],
+      },
+      {
+        text: "Display",
+        items: [{ text: "Language", link: "/play/language" }],
+      },
+      {
+        text: "Offline",
+        items: [{ text: "Play offline", link: "/play/offline" }],
+      },
+      {
+        text: "Help",
+        items: [{ text: "Report a problem, game files", link: "/play/help" }],
       },
       {
         text: "Reference",
