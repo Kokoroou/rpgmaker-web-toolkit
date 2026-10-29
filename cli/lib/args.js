@@ -34,8 +34,8 @@ export const COMMANDS = [
   {
     name: "upgrade",
     summary: "Update the toolkit of a deployed game; the game files stay as uploaded",
-    targets: ["link", "name"],
-    examples: ["rwk upgrade https://my-game.alice.workers.dev", "rwk upgrade my-game"],
+    targets: ["folder", "link", "name"],
+    examples: ["rwk upgrade https://my-game.alice.workers.dev", "rwk upgrade my-game", "rwk upgrade   (in the game folder: its site name, nothing uploaded)"],
   },
   {
     name: "saves import",
