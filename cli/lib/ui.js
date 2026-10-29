@@ -3,7 +3,10 @@ import readline from "node:readline/promises";
 // The log (steps, questions, warnings, the closing summary) goes to stderr and
 // stdout carries only the run's result: a script reads `--json`, or the link
 // when stdout is piped (report.js).
-export const print = (msg = "") => console.error(msg);
+export const print = (msg = "") => {
+  clearProgress();
+  console.error(msg);
+};
 
 // Colour: NO_COLOR or --no-color switch it off, FORCE_COLOR on; otherwise
 // only on a terminal that is not "dumb".
@@ -31,8 +34,8 @@ export function supportsUnicode(env = process.env) {
   const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || "";
   return !locale || /utf-?8/i.test(locale);
 }
-const UNICODE = { step: "▶", ok: "✓", warn: "!", error: "✗", ask: "?", arrow: "→" };
-const ASCII = { step: ">", ok: "+", warn: "!", error: "x", ask: "?", arrow: "->" };
+const UNICODE = { step: "▶", ok: "✓", warn: "!", error: "✗", ask: "?", arrow: "→", up: "↑" };
+const ASCII = { step: ">", ok: "+", warn: "!", error: "x", ask: "?", arrow: "->", up: "^" };
 export const sym = supportsUnicode() ? UNICODE : ASCII;
 
 // --quiet: only warnings, questions and errors; the result still reaches stdout.
@@ -46,8 +49,22 @@ const say = (msg) => {
 // Every warning of the run, repeated in the deploy's build report.
 export const warnings = [];
 
+// [n/N] on the steps once a command knows how many are left: planSteps(N)
+// numbers the next N steps, and the ones after them print as before.
+let plan = null;
+export function planSteps(total) {
+  plan = total > 0 ? { at: 0, total } : null;
+}
+function stepNumber() {
+  if (!plan) return "";
+  const n = ++plan.at;
+  const { total } = plan;
+  if (n >= total) plan = null;
+  return c.dim(`[${n}/${total}]`) + " ";
+}
+
 export const log = {
-  step: (msg) => say(`\n${c.cyan(sym.step)} ${c.bold(msg)}`),
+  step: (msg) => say(`\n${c.cyan(sym.step)} ${stepNumber()}${c.bold(msg)}`),
   info: (msg) => say(`  ${msg}`),
   ok: (msg) => say(`  ${c.green(sym.ok)} ${msg}`),
   warn: (msg) => {
@@ -60,6 +77,47 @@ export const log = {
     if (hint) print(`  ${c.cyan(sym.arrow)} ${hint}`);
   },
 };
+
+// A line rewritten in place (upload progress) only on a terminal, without
+// NO_COLOR / --no-color, outside CI and without --json (setLive(false)).
+let liveOff = false;
+export const setLive = (on) => (liveOff = !on);
+export function useLive(env = process.env, isTTY = !!process.stderr.isTTY) {
+  if (liveOff || colorOff || env.NO_COLOR || env.CI) return false;
+  return isTTY && env.TERM !== "dumb";
+}
+
+// The progress line on screen, erased before anything else is printed.
+let shownLine = null;
+function clearProgress() {
+  if (!shownLine) return;
+  shownLine.write("\r\x1b[2K");
+  shownLine = null;
+}
+
+// -> { live, update(text), end() }. On a terminal (live) each update replaces the
+// last one, cut to the width; elsewhere every update is a plain line, as a log
+// file keeps them all. Nothing with --quiet.
+export function progressLine({ live = useLive(), write = (s) => process.stderr.write(s), columns = () => process.stderr.columns || 80 } = {}) {
+  const line = {
+    live,
+    write,
+    update(text) {
+      if (quiet) return;
+      if (!live) return print(`  ${text}`);
+      const chars = [...`  ${text}`];
+      const width = Math.max(10, columns() - 1);
+      const shown = chars.length > width ? chars.slice(0, width - 1).join("") + "…" : chars.join("");
+      if (shownLine && shownLine !== line) clearProgress();
+      write(`\r\x1b[2K${shown}`);
+      shownLine = line;
+    },
+    end() {
+      if (shownLine === line) clearProgress();
+    },
+  };
+  return line;
+}
 
 // A failure the user can act on. exitCode: 1 failed, 2 a question needs a
 // person, 64 wrong usage. hint: the next thing to try.

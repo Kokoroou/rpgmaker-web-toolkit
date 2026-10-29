@@ -10,7 +10,7 @@ import { findGameBySite, storageIdOf } from "../lib/game.js";
 import { openUrlCommand } from "../lib/platform.js";
 import { TOOLKIT_VERSION } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
-import { CliError, NeedsAnswer, ask, c, formatBytes, log } from "../lib/ui.js";
+import { CliError, NeedsAnswer, ask, c, formatBytes, log, planSteps, progressLine } from "../lib/ui.js";
 import { wrangler } from "../lib/wrangler.js";
 import { connect, siteOf } from "../lib/session.js";
 
@@ -191,6 +191,7 @@ export async function deleteSite(input, { purge = false } = {}, deps = {}) {
     hint: "Deleting needs a person: run it in a terminal.",
   });
 
+  if (doomed) planSteps(2);
   log.step("Deleting the Worker");
   if (!(await d.deleteWorker(cfg.slug))) {
     throw new CliError(`Could not delete the Worker "${cfg.slug}".`, { hint: "Delete it in the Cloudflare dashboard: Workers & Pages → the game → Settings → Delete." });
@@ -200,7 +201,13 @@ export async function deleteSite(input, { purge = false } = {}, deps = {}) {
   }
   if (doomed) {
     log.step("Deleting the game's files in R2");
-    for (const object of doomed.objects) await d.deleteObject({ ...doomed.where, key: object.key });
+    const bar = progressLine();
+    for (const [i, object] of doomed.objects.entries()) {
+      // A plain line per object would flood a log: there, only the summary below.
+      if (bar.live) bar.update(`${i + 1}/${doomed.objects.length} · ${object.key}`);
+      await d.deleteObject({ ...doomed.where, key: object.key });
+    }
+    bar.end();
     log.ok(`${doomed.objects.length} object(s) deleted`);
   }
   const configs = await d.loadGameConfigs(DEFAULT_BUCKET);

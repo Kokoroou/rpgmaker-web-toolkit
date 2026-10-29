@@ -131,6 +131,8 @@ To fix them, open the toolkit folder in [Claude Code](https://claude.com/claude-
 
 The log (steps, questions, warnings, errors) goes to **stderr**; **stdout** holds only the result. So `url=$(rwk deploy ./game --quiet)` gets the link, and `rwk deploy ./game --json > result.json` gets the [JSON result](/setup/ci#the-result). On a terminal, stdout stays empty.
 
+Once a deploy knows which steps are left (after the questions), they carry their number: `▶ [2/3] Large files on R2`. While files upload, a terminal shows one line that updates in place: the large files going to R2 (`↑ R2 3/12 · 120.4 MB of 410.0 MB · audio/bgm/Theme.ogg`), wrangler's `Uploaded 120 of 340 assets (35%)`, and the objects `delete --purge` removes. In CI, in a pipe or log file, with `--json`, `--no-color` or `NO_COLOR=1`, nothing is rewritten: each large file uploaded gets its own line (`↑ R2 [3/12] audio/bgm/Theme.ogg (40.2 MB)`) and wrangler's lines stay as it prints them.
+
 Every command ends with the same summary:
 
 ```
