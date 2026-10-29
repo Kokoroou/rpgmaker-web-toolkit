@@ -33,7 +33,7 @@ import { connect, siteOf } from "../lib/session.js";
 import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { PROJECT_FILE, readProjectFile, showProjectFile, siteNameFor, withProjectPatterns } from "../lib/project.js";
-import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
+import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, planSteps } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
 // dryRun (rename and saves import only; deploy --dry-run is analyze): reads R2, then says what would
@@ -113,13 +113,16 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
 
   //-------------------------------------------------------------------------
-  log.step("Preparing the web build");
   const limits = await loadLimits({ cacheFile: LIMITS_CACHE_FILE });
   const { maxFiles, maxFileBytes } = limits.assets;
-  if (limits.newer) log.info(c.dim(`Free plan limits updated on ${limits.updated}: ${maxFiles} files, ${formatMiB(maxFileBytes)} each`));
-  const buildDir = createBuildDir(game.root, cfg.slug);
   const files = collectFiles(game, withProjectPatterns(cfg, project));
   const overflow = files.filter((f) => f.size > maxFileBytes);
+  const authReady = isAuthReady(cfg.auth);
+  // From here the steps are known: build, large files (if any), Worker, Access (first time).
+  planSteps(2 + (overflow.length ? 1 : 0) + (authReady ? 0 : 1));
+  log.step("Preparing the web build");
+  if (limits.newer) log.info(c.dim(`Free plan limits updated on ${limits.updated}: ${maxFiles} files, ${formatMiB(maxFileBytes)} each`));
+  const buildDir = createBuildDir(game.root, cfg.slug);
   const assets = files.filter((f) => f.size <= maxFileBytes);
   const generated = generatedFiles(game, applyPolicy(cfg, policy), files);
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
@@ -165,7 +168,6 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     playerSettings,
     translate: translateWorker(cfg, policy, limits),
   };
-  const authReady = isAuthReady(cfg.auth);
   // Written before the Worker, which reads it from R2 and puts it over the build's own.
   const publishSettings = () => saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
   await publishSettings();
@@ -186,7 +188,8 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
       }
       worker.playerSettings = perPlayerSettings(game.engine, cfg, policy);
       await publishSettings();
-      log.step("Redeploying with access protection");
+      // Part of the Access step, so the numbered steps stay as planned.
+      log.info(c.bold("Redeploying with access protection"));
       url = await deployWorker(writeWorkerProject({ ...worker, auth: cfg.auth, locked: false }));
     } else {
       log.warn("The site is still locked. Run this command again to finish setting up access protection.");

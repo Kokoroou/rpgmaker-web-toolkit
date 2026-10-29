@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import LZString from "lz-string";
 import { engineOf } from "./engines.js";
-import { NeedsAnswer, choose, isUnattended, log } from "./ui.js";
+import { NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
@@ -210,30 +210,41 @@ export async function loadOverflowRels(bucket, slug) {
   return Object.keys(await loadOverflowManifest(bucket, slug));
 }
 
-export async function syncOverflow({ bucket, slug, files }) {
+// io: the R2 calls and the progress line, replaced in tests.
+export async function syncOverflow({ bucket, slug, files, io = {} }) {
+  const { load = loadOverflowManifest, put = r2Put, remove = r2Delete, putJson = r2PutJson, bar = progressLine() } = io;
   const manifestKey = manifestKeyOf(slug);
-  const remote = await loadOverflowManifest(bucket, slug);
+  const remote = await load(bucket, slug);
   const next = {};
   let uploaded = 0;
 
-  for (const file of files) {
+  // On a terminal one line shows the file and the bytes done so far (checking a file
+  // that has not changed counts too); elsewhere a line per uploaded file.
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  let doneBytes = 0;
+  for (const [i, file] of files.entries()) {
+    const count = `${i + 1}/${files.length}`;
+    if (bar.live) bar.update(`${sym.up} R2 ${count} · ${formatBytes(doneBytes)} of ${formatBytes(totalBytes)} · ${file.rel}`);
     const sha256 = await hashFile(file.abs);
     next[file.rel] = { sha256, size: file.size };
-    if (remote[file.rel] && remote[file.rel].sha256 === sha256) continue;
-    log.info(`↑ R2: ${file.rel} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
-    await r2Put(bucket, `assets/${slug}/${file.rel}`, file.abs, contentTypeOf(file.rel));
-    uploaded++;
+    if (!(remote[file.rel] && remote[file.rel].sha256 === sha256)) {
+      if (!bar.live) bar.update(`${sym.up} R2 [${count}] ${file.rel} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+      await put(bucket, `assets/${slug}/${file.rel}`, file.abs, contentTypeOf(file.rel));
+      uploaded++;
+    }
+    doneBytes += file.size;
   }
+  bar.end();
 
   let removed = 0;
   for (const rel of Object.keys(remote)) {
     if (next[rel]) continue;
-    await r2Delete(bucket, `assets/${slug}/${rel}`);
+    await remove(bucket, `assets/${slug}/${rel}`);
     removed++;
   }
 
   if (uploaded || removed || Object.keys(remote).length !== Object.keys(next).length) {
-    await r2PutJson(bucket, manifestKey, next);
+    await putJson(bucket, manifestKey, next);
   }
   return { uploaded, removed, unchanged: files.length - uploaded };
 }
@@ -335,7 +346,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
 }
 
 export async function deployWorker(configFile) {
-  const res = await wrangler(["deploy", "--config", configFile]);
+  const res = await wrangler(["deploy", "--config", configFile], { progress: true });
   if (res.code !== 0) {
     if (/workers\.dev subdomain/i.test(res.output)) {
       throw new Error(
