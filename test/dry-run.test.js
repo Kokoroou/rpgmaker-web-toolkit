@@ -195,7 +195,7 @@ test("doctor: a token is probed for each permission and the missing ones are nam
     assert.equal(init.headers.authorization, "Bearer tok");
     return answers({ "/accounts?": 200, "/user": 403, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 403, "/accounts/acc1/access/apps": 200, "/accounts/acc1/access/organizations": 403 })(url);
   };
-  const checks = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", usingEnvToken: true, accountId: "acc1", fetchImpl });
+  const checks = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", usingEnvToken: true, asked: null, savedAccountId: "acc1", fetchImpl });
   assert.equal(by(checks, "Account").detail, "Alice (acc1)");
   assert.equal(by(checks, "Workers scripts").status, "ok");
   const r2 = by(checks, "R2 storage");
@@ -209,7 +209,7 @@ test("doctor: a token is probed for each permission and the missing ones are nam
 
 test("doctor: the browser login is not asked about Access, and an unreachable API is a failure", async () => {
   const fetchImpl = answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 200 });
-  const checks = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", usingEnvToken: false, accountId: "acc1", fetchImpl });
+  const checks = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", usingEnvToken: false, asked: null, savedAccountId: "acc1", fetchImpl });
   assert.ok(!checks.some((x) => /Access/.test(x.label)));
   assert.ok(checks.every((x) => x.status === "ok"));
 
@@ -219,7 +219,7 @@ test("doctor: the browser login is not asked about Access, and an unreachable AP
 
 test("doctor: the workers.dev subdomain and the R2 bucket are looked at where the login may", async () => {
   const fetchImpl = answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 200 });
-  const ready = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", accountId: "acc1", fetchImpl });
+  const ready = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", asked: null, savedAccountId: "acc1", fetchImpl });
   assert.equal(by(ready, "workers.dev subdomain").detail, "alice.workers.dev");
   assert.equal(by(ready, "R2 bucket").detail, "rpgmaker-web-toolkit found");
 
@@ -228,7 +228,7 @@ test("doctor: the workers.dev subdomain and the R2 bucket are looked at where th
     nodeVersion: "22.1.0",
     wranglerVersion: "4.1.0",
     getToken: async () => "tok",
-    accountId: "acc1",
+    asked: null, savedAccountId: "acc1",
     fetchImpl: async (url) => {
       urls.push(url);
       if (url.endsWith("/workers/subdomain")) return Response.json({ success: false, result: null, errors: [{ code: 10007, message: "no subdomain" }] }, { status: 404 });
@@ -244,7 +244,7 @@ test("doctor: the workers.dev subdomain and the R2 bucket are looked at where th
   assert.match(bucket.detail, /first deploy creates it/);
   assert.ok(urls.every((u) => !/\/r2\/buckets\/.+\/objects/.test(u)), "reads only the bucket, not its contents");
 
-  const denied = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", accountId: "acc1", fetchImpl: answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 403, "/accounts/acc1/r2": 403 }) });
+  const denied = await runChecks({ nodeVersion: "22.1.0", wranglerVersion: "4.1.0", getToken: async () => "tok", asked: null, savedAccountId: "acc1", fetchImpl: answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 403, "/accounts/acc1/r2": 403 }) });
   assert.ok(!by(denied, "workers.dev subdomain") && !by(denied, "R2 bucket"), "nothing asked of a denied permission");
 });
 
@@ -254,7 +254,7 @@ test("doctor: R2 not enabled on the account is a failure that says where to swit
     nodeVersion: "22.1.0",
     wranglerVersion: "4.1.0",
     getToken: async () => "tok",
-    accountId: "acc1",
+    asked: null, savedAccountId: "acc1",
     fetchImpl: async (url) => (url.endsWith("/r2/buckets") ? off() : answers({ "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200 })(url)),
   });
   const r2 = by(checks, "R2 storage");
@@ -294,10 +294,10 @@ test("doctor: several accounts and none chosen is a warning, and odd answers are
     if (url.includes("/access/apps")) return Response.json({ success: false, result: null }, { status: 400 });
     return Response.json({ success: true, result: [] });
   };
-  const checks = await runChecks({ ...base, getToken: async () => "tok", usingEnvToken: true, accountId: "nope", fetchImpl });
+  const checks = await runChecks({ ...base, getToken: async () => "tok", usingEnvToken: true, asked: null, savedAccountId: "nope", fetchImpl });
   const warn = checks.filter((x) => x.label === "Account");
   assert.equal(warn[0].status, "warn");
-  assert.match(warn[0].detail, /One, Two/);
+  assert.match(warn[0].detail, /One \(a1\), Two \(a2\)/);
   assert.equal(by(checks, "User details").status, "warn");
   assert.match(by(checks, "User details").detail, /could not tell/);
   assert.match(by(checks, "Access applications").detail, /no Zero Trust team/);

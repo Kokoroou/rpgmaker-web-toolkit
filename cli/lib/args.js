@@ -114,6 +114,8 @@ export const FLAGS = [
   ["-y, --yes", "Never ask: take each question's default, or stop with exit code 2 when one has none"],
   ["", "(also when stdin is not a terminal, as in CI). Logs in with CLOUDFLARE_API_TOKEN if it is set"],
   ["    --json", "Same as --yes, and prints the result as JSON on stdout"],
+  ["    --account", "The Cloudflare account to work in, by ID or name, when the login has several"],
+  ["", "(else CLOUDFLARE_ACCOUNT_ID in a run with --yes, else the last one chosen)"],
   ["-q, --quiet", "Only warnings and errors; the result still goes to stdout"],
   ["    --verbose", "Print full error details"],
   ["    --no-color", "No colors (also NO_COLOR=1)"],
@@ -165,7 +167,7 @@ export function commandHelp(spec, bold = (s) => s) {
   const options = { ...spec.options, ...spec.switches };
   if (Object.keys(options).length) lines.push("", bold("Options:"), ...Object.entries(options).map(([o, text]) => `  --${o.padEnd(12)}${text}`));
   lines.push("", bold("Examples:"), ...spec.examples.map((e) => `  ${e}`));
-  lines.push("", "Flags: --yes, --json, --quiet, --verbose, --no-color. See `rwk --help`.");
+  lines.push("", "Flags: --yes, --json, --account, --quiet, --verbose, --no-color. See `rwk --help`.");
   return lines.join("\n");
 }
 
@@ -198,7 +200,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, name, to, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, name, to, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -217,6 +219,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
+        account: { type: "string" },
         name: { type: "string" },
         to: { type: "string" },
         email: { type: "string" },
@@ -227,7 +230,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --account <account ID>, --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -242,6 +245,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     purge: !!values.purge,
     help: !!values.help,
     version: !!values.version,
+    account: values.account,
     name: values.name,
     to: values.to,
     email: values.email,
