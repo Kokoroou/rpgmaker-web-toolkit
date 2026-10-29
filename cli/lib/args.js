@@ -21,7 +21,7 @@ export const COMMANDS = [
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
     targets: ["folder"],
-    options: { name: "The site name on the first deploy, without the question (default: from the folder's name); a published game must already have it" },
+    options: { name: "The site name on the first deploy, without the question (default: the name in rwk.json, else from the folder's name); a published game must already have it" },
     switches: { "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)" },
     examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy --dry-run   (in the game folder)"],
   },

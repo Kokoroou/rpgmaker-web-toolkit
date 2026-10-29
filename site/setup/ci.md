@@ -9,11 +9,11 @@ A game kept in a Git repository can publish itself: each push to `main` updates 
 
 ## Before you start
 
-1. **Publish the game once from a terminal** ([first deploy](/setup/first-deploy)) if you can, to answer its questions. A first deploy in CI takes the defaults; give it the site name with the `site-name` input (`--name` on the command line), or it is made from the folder's name. [Access protection](/setup/access) is set up through the API when the token has the Access permissions and the account already has a Zero Trust team.
+1. **Publish the game once from a terminal** ([first deploy](/setup/first-deploy)) if you can, to answer its questions. A first deploy in CI takes the defaults; give it the site name with a [`rwk.json`](/reference/config#rwk-json-in-the-game-folder) in the game folder, or the `site-name` input (`--name` on the command line), or it is made from the folder's name. [Access protection](/setup/access) is set up through the API when the token has the Access permissions and the account already has a Zero Trust team.
 2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts.
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
-The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run.
+The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run. To keep the site name and the files to leave out in the repository instead, next to the game, use a [`rwk.json`](/reference/config#rwk-json-in-the-game-folder): the pull request check (`analyze`) then counts the same files as the deploy.
 
 ## GitHub Actions
 
