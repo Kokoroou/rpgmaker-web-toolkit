@@ -16,6 +16,7 @@ import { AuthError, identify, userHash } from "./auth.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
 import { liveSettings } from "./settings.js";
 import { patchConfig, serveToolkit } from "./toolkit.js";
+import { handleTranslate } from "./translate.js";
 
 export function createWorker({ overflow = [], toolkit = null, playerSettings = {} } = {}) {
   const overflowSet = new Set(overflow);
@@ -68,6 +69,7 @@ async function handleApi(request, env, path, whoIs) {
     if (path.startsWith("/api/saves/")) return handleSaves(request, env, user, path.slice("/api/saves/".length));
     if (path === "/api/history") return handleHistory(request, env, user, "");
     if (path.startsWith("/api/history/")) return handleHistory(request, env, user, path.slice("/api/history/".length));
+    if (path === "/api/translate") return handleTranslate(request, env, user);
     return json({ error: "Not found" }, 404);
   } catch (err) {
     if (err instanceof AuthError) return json({ error: err.message }, err.status);

@@ -26,7 +26,7 @@ import { loadLimits } from "../lib/limits.js";
 import { gamepadKeys, cleanHint, defaultLabel, scanKeys } from "../lib/keys.js";
 import { POLICY_FILE, allowsPublic, applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { DEFAULT_PRESET, PRESETS, baseConfig, checkFeatureConfig, playerEmails } from "../lib/features.js";
-import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir } from "../lib/stage.js";
+import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, playerOverrides, runtimeConfigOf, syncPublicDir, translateWorker } from "../lib/stage.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
@@ -158,6 +158,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     indexable: isIndexable(cfg),
     saveHistory: runtimeConfigOf(game.engine, cfg).saveHistory,
     playerSettings,
+    translate: translateWorker(cfg, policy, limits),
   };
   const authReady = isAuthReady(cfg.auth);
   // Written before the Worker, which reads it from R2 and puts it over the build's own.

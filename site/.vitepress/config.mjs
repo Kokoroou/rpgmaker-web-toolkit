@@ -71,6 +71,7 @@ export default defineConfig({
           { text: "Cheats", link: "/play/cheats" },
           { text: "Play offline", link: "/play/offline" },
           { text: "Language", link: "/play/language" },
+          { text: "Live translation", link: "/play/translate" },
         ],
       },
       {

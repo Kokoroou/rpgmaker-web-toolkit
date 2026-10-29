@@ -42,6 +42,8 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
            runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
              RWK_Core            config, device id, toasts, dialogs, ⚙ menu, web build label
              RWK_Language        ⚙ → Language: points data/ requests (XMLHttpRequest) at data-<code>/ files, file by file
+             RWK_Translate       live translation, off by default: messages wait in Window_Message.canStart for /api/translate,
+                                 control codes kept; item / skill names in $data*; a full Vietnamese font
              RWK_SaveSync        save sync (MZ: localforage, MV: localStorage)
              RWK_MobileControls  on-screen buttons, driven through Input._currentState
              RWK_SafeSaves       quick save / load and autosave in slots of their own, ☁ sync state, storage.persist()
@@ -64,6 +66,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              players.js          counts the emails that save, for the deploy's reminder
              toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
+             translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
 ```
 
 ## The build
@@ -110,6 +113,9 @@ saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
 history/<sha256(email)>/<slug>/<name>/<time>
                                      older copies of those saves (not config and global)
 rwk/players/<slug>.json              hashes of the emails that saved, with the first save time
+rwk/translate/<model>/<from>-<to>/<sha256(text)>.txt
+                                     live translations, shared by every game (one per line of text)
+rwk/translate/usage/<day>.json       characters sent to Workers AI that day (UTC), for the daily cap
 ```
 
 `<slug>` is the site name the game was first deployed under (`storageId` after a [rename](/setup/updating#change-the-site-address)), so a rename moves nothing.
