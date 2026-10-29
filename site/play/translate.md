@@ -5,7 +5,9 @@ lang: en
 
 # Live translation
 
-For a game in a language you do not read. ⚙ → **Translate the game** turns on machine translation of what the game says: messages, choices, the speaker's name, and the names and descriptions of items, weapons, armor and skills. ⚙ → **Translate into** picks the language, when the site offers more than one. Both are remembered in this browser, and your saves do not depend on them.
+In the menu: ⚙ → **Display** → **Translate the game** and **Translate into**.
+
+For a game in a language you do not read. **Translate the game** turns on machine translation of what the game says: messages, choices, the speaker's name, and the names and descriptions of items, weapons, armor and skills. **Translate into** picks the language, when the site offers more than one. Both are remembered in this browser, and your saves do not depend on them.
 
 It is there only when the person who set up the game [turned it on](/reference/config) (it is off unless they do), and the game's creator can keep it off.
 

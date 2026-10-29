@@ -5,20 +5,22 @@ lang: en
 
 # Quick save and autosave
 
+In the menu: the **Quick save** and **Quick load** tiles at the top of ⚙, and ⚙ → **Saves** → **Load autosave**.
+
 Two save slots of the toolkit's own, next to the game's: they never take a slot of the game's save screen, and with [cloud sync](/play/saves) they follow you to your other devices like the game's saves.
 
 ## Quick save
 
 | On | Quick save | Quick load |
 |---|---|---|
-| Anywhere | ⚙ → **Quick save** | ⚙ → **Quick load** |
+| Anywhere | ⚙ → the **Quick save** tile | ⚙ → the **Quick load** tile |
 | PC | <kbd>F6</kbd> | <kbd>F7</kbd> |
 
 Quick save works on the map, outside events and messages, and also where the game itself does not let you save (some sites turn that off). Each quick save replaces the previous one. Quick load asks first, since progress since the quick save is lost; it works from the title screen too, but not during a battle.
 
 ## Autosave
 
-Every 5 minutes of play on the map, and when you switch away from the browser (phones often close it in the background), the game is saved to the autosave slot. Nothing is saved while you are idle. Load it with ⚙ → **Load autosave**, which shows where and when it was made.
+Every 5 minutes of play on the map, and when you switch away from the browser (phones often close it in the background), the game is saved to the autosave slot. Nothing is saved while you are idle. Load it with ⚙ → **Saves** → **Load autosave**, which shows where and when it was made.
 
 The game's own autosave (MZ, slot *Autosave*) works as before.
 

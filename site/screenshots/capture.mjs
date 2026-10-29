@@ -161,8 +161,13 @@ const wake = (page) => page.evaluate(() => document.querySelector(".rwk-pad").cl
 
 // bindPress listens to pointer events; a mouse click sends them.
 const tap = (page, selector) => page.click(selector);
-const openTool = async (page, label) => {
+// A group with several tools has its own page in the menu: open it first.
+const openGroup = async (page, group) => {
   await tap(page, ".rwk-tool-menu");
+  if (group) await page.click(`.rwk-tools-list .rwk-group[data-group="${group}"]`);
+};
+const openTool = async (page, label, group) => {
+  await openGroup(page, group);
   await page.click(`.rwk-tools-list button:has(:text-is("${label}"))`);
 };
 
@@ -190,11 +195,16 @@ await shot("tools-menu", PORTRAIT, async (p) => {
   await play(p);
   await tap(p, ".rwk-tool-menu");
 });
+await shot("menu-page", PORTRAIT, async (p) => {
+  await play(p);
+  await openGroup(p, "save");
+});
 await shot("edit-layout", LANDSCAPE, async (p) => {
   await play(p);
-  await openTool(p, "Edit button layout");
-  // Hide L, as a player who never uses it would (each button's badge follows it).
-  await p.click(".rwk-shoulder + .rwk-badge");
+  await openTool(p, "Edit button layout", "controls");
+  // Hide the Candle key, as a player who never uses it would (each button's badge follows it).
+  // L / R are off by default, so they are not on screen to hide.
+  await p.click('.rwk-key:text-is("Candle") + .rwk-badge');
   await p.waitForTimeout(5200); // let the help toast fade
 });
 await shot("saves-panel", PORTRAIT, async (p) => {
@@ -206,11 +216,11 @@ await shot("saves-panel", PORTRAIT, async (p) => {
     }
   });
   await p.waitForTimeout(2500); // the uploads' toasts
-  await openTool(p, "Saves");
+  await openTool(p, "Saves", "save");
 });
 await shot("save-history", PORTRAIT, async (p) => {
   await play(p);
-  await openTool(p, "Older saves");
+  await openTool(p, "Older saves", "save");
 });
 const conflict = (p) => p.waitForSelector(".rwk-modal", { timeout: 90000 });
 await shot("sync-conflict", PORTRAIT, conflict, { sync: "conflict", localSaves: [1, 2] });

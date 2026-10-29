@@ -30,7 +30,7 @@ Cloudflare takes **Visa, Mastercard, American Express, Discover, UnionPay**, and
 
 | Service | Past the free plan | With the toolkit |
 |---|---|---|
-| R2 | **Billed** to your payment method: there is no cap | A save weighs a few KB, even with its [older copies](/play/saves#bring-back-an-older-save). Only files over 25 MiB (usually movies) take real space, shared by all your games |
+| R2 | **Billed** to your payment method: there is no cap | A save weighs a few KB, even with its [older copies](/play/older-saves). Only files over 25 MiB (usually movies) take real space, shared by all your games |
 | Workers | Requests fail until the next day; nothing is billed on the Free plan | Normal game files are not counted, only saves and R2 files |
 | Zero Trust | Person 51 cannot sign in; nothing is billed | Each game's player list counts the same people once |
 

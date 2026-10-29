@@ -5,7 +5,9 @@ lang: en
 
 # Keys and buttons
 
-Open ⚙ → **Keys and buttons** to choose which key or gamepad button does what. The game is paused while the panel is open.
+In the menu: ⚙ → **Controls** → **Keys and buttons**.
+
+Open ⚙ → **Controls** → **Keys and buttons** to choose which key or gamepad button does what. The game is paused while the panel is open.
 
 1. Under **Keyboard** or **Gamepad**, tap **Change** next to an action: OK / confirm, Cancel (Esc also opens the menu), Dash, Previous page, Next page. The gamepad also has Menu.
 2. Press the key, or the button on the gamepad. Press **Esc** (keyboard) or tap **Cancel** to leave it as it was.

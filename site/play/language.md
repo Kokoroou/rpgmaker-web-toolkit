@@ -5,6 +5,8 @@ lang: en
 
 # Language
 
+In the menu: ⚙ → **Language** (the **Display** group, on the first screen; the row shows the language in use).
+
 Some games have translations. ⚙ → **Language** lists them, each in its own language (Tiếng Việt, English, 日本語…) next to **Original**, the game as its creator made it. The one in use has a highlight.
 
 Picking another restarts the game, because the game reads its text once at start-up: **progress since your last save is lost**, so save first. The choice is remembered in this browser; your saves do not depend on it, so a save made in one language opens in another.

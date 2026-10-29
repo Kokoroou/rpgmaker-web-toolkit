@@ -14,7 +14,7 @@ Someone sent you a link like `https://my-game.name.workers.dev`.
 No code? Your email is not on the list yet (or the code went to spam). Ask for it to be [added](/setup/access#invite-players).
 
 ::: tip Your email is your save
-Sign in with the same email everywhere to keep playing the same game. See [Saves on several devices](/play/saves).
+Sign in with the same email everywhere to keep playing the same game. See [Cloud saves](/play/saves).
 :::
 
 ## Play full screen on a phone
@@ -26,7 +26,7 @@ Sign in with the same email everywhere to keep playing the same game. See [Saves
 
 Or tap ⟳ in the game's toolbar (⚙ → **Full screen** on a PC). It also turns a landscape game sideways.
 
-## Controls and tools
+## Controls and the menu
 
 <div class="shots">
 
@@ -38,23 +38,16 @@ Or tap ⟳ in the game's toolbar (⚙ → **Full screen** on a PC). It also turn
 
 | On | Use |
 |---|---|
-| Phone or tablet | The on-screen gamepad: [Touch controls](/play/controls) |
+| Phone or tablet | The on-screen gamepad ([Touch controls](/play/controls)) and the [toolbar](/play/toolbar) |
 | PC | Keyboard or a controller, as in the desktop game |
-| ⏩ | [Fast forward](/play/speed) ×2 / ×3 / ×4 |
-| ⚙ Menu | Full screen (on a PC; a toolbar button on a phone), [quick save / load](/play/quick-save), [older saves](/play/saves#bring-back-an-older-save), [message modes](/play/messages) (Auto, Skip), [messages log](/play/messages#messages-log), [always dash](/play/dash), [keys and buttons](/play/keys), [move buttons](/play/controls#move-or-hide-buttons), [manage save files](/play/save-files), [use several items at once](/play/items) (also [in battle](/play/items#in-battle) and [as gifts](/play/items#gifts-and-other-events-that-ask-for-an-item)), [cheats](/play/cheats) and [live translation](/play/translate) when turned on, [play offline](/play/offline), [report a problem](#report-a-problem), [game files on this device](#game-files-on-this-device) |
+| ⚙ Settings | Every option of the toolkit, in groups: speed, messages, items, saves, controls, language, offline, help. Where each one lives: [Menu map](/play/menu) |
 
 The game pauses while the ⚙ menu is open, but the music keeps playing; ✕, Esc or a tap outside it resumes. On a PC, ⚙ is a faint button in the top-left corner, or press **F1**. Options the person who set up the game turned off are missing.
 
 ## Game files on this device
 
-The browser keeps the game's pictures, sounds and data, so the next launch does not download them again (useful over 4G). ⚙ → **Game files on this device** shows how many are kept, how much space they take and how much is left. **Clear** frees that space: the files download again as you play. Saves are not touched.
-
-To have **all** of them on the device, use ⚙ → [Play offline](/play/offline).
-
-A phone may also drop them on its own when it is short of space, or (iPhone) after some weeks without opening the game. Nothing is lost: they download again.
+Moved to [Help](/play/help#game-files-on-this-device).
 
 ## Report a problem
 
-⚙ → **Report a problem** (also on the game's error screen) shows the latest errors, the audio state and the sound files that failed to load. **Copy report** and send it to whoever set up the game, with what you were doing. It has no email or save data.
-
-Check first whether the problem also happens in the desktop version of the game: only then is it the game's own bug.
+Moved to [Help](/play/help#report-a-problem).
