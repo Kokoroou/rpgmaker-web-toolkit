@@ -76,6 +76,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 |---|---|
 | `-y`, `--yes` | Never asks: each question takes its default answer, or stops the run with exit code 2 when it has none. See [Run without questions](#run-without-questions-ci) |
 | `--json` | Same as `--yes`, and prints the result as one JSON object on stdout. See [Publish from CI](/setup/ci#the-result) |
+| `--account <ID or name>` | The Cloudflare account to work in, when the login reaches several. See [Several Cloudflare accounts](#several-cloudflare-accounts) |
 | `-q`, `--quiet` | Prints only warnings, questions and errors. The result still reaches stdout |
 | `--verbose` | Prints full error details (like `RWK_DEBUG=1`) |
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
@@ -183,7 +184,7 @@ Each run downloads the toolkit to a temporary folder and deletes it at the end.
 - [Exit codes](#exit-codes) tell a script what happened.
 - `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).
 
-Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` when the token reaches several accounts. Only a run with `--yes` (or without a terminal) reads them, so a token set for another tool never replaces the toolkit's own login. Create the token in the dashboard (My Profile → API Tokens → Create Custom Token) with these permissions, for the one account:
+Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` (or [`--account`](#several-cloudflare-accounts)) when the token reaches several accounts. Only a run with `--yes` (or without a terminal) reads them, so a token set for another tool never replaces the toolkit's own login. Create the token in the dashboard (My Profile → API Tokens → Create Custom Token) with these permissions, for the one account:
 
 | Permission | Why |
 |---|---|
@@ -197,3 +198,22 @@ Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN
 Keep the token in the CI's secrets: the toolkit never prints it.
 
 From a clone, `.\rwk.cmd` (Windows) or `./rwk.sh` (macOS, Linux) takes the same commands. See [CONTRIBUTING.md](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/CONTRIBUTING.md).
+
+## Several Cloudflare accounts
+
+When the login (or the token) reaches more than one account, the first command that talks to Cloudflare asks which one to use, and later runs take the same one. To work in another account for one run, name it with `--account`, by its ID (in the dashboard's address, `dash.cloudflare.com/<ID>`) or its name:
+
+```sh
+rwk list --account "Team account"
+rwk deploy ./game --yes --account 0123456789abcdef0123456789abcdef
+```
+
+The account is chosen in this order:
+
+1. `--account`: an ID, or a name without regard to case. An account the login does not reach stops the run and lists the ones it does; so does a name two accounts share (give the ID). It is not saved: the next run goes back to the usual choice.
+2. `CLOUDFLARE_ACCOUNT_ID`, read only by a run with `--yes` (or without a terminal), like `CLOUDFLARE_API_TOKEN`. An ID it does not reach stops the run too.
+3. The account chosen last time on this PC.
+4. The only account, when there is one.
+5. The question, in a terminal. Without one the run stops with exit code 2: give `--account` or `CLOUDFLARE_ACCOUNT_ID`.
+
+`rwk doctor` shows the account it checks and where that choice came from. It takes `--account` too, and reads `CLOUDFLARE_ACCOUNT_ID` even in a terminal.

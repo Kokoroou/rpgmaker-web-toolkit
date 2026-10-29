@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken } from "../lib/cloudflare.js";
+import { apiToken, askedAccount, matchAccount } from "../lib/cloudflare.js";
 import { CliError, log } from "../lib/ui.js";
 import { envApiToken } from "../lib/wrangler.js";
 
@@ -32,7 +32,9 @@ export async function runChecks({
   getToken = apiToken,
   usingEnvToken = !!envApiToken(),
   envTokenIgnored = false,
-  accountId = process.env.CLOUDFLARE_ACCOUNT_ID || loadSettings().accountId,
+  // The account a deploy would use: --account, else CLOUDFLARE_ACCOUNT_ID, else the saved choice.
+  asked = askedAccount({ unattended: true }),
+  savedAccountId = loadSettings().accountId,
   fetchImpl = globalThis.fetch,
 } = {}) {
   const checks = [];
@@ -81,16 +83,29 @@ export async function runChecks({
     return checks;
   }
   const list = accounts.body.result || [];
-  const account = list.find((a) => a.id === accountId) || (list.length === 1 ? list[0] : null);
   if (!list.length) {
     checks.push(check("fail", "Account", "this login reaches no Cloudflare account"));
     return checks;
   }
+  let account = null;
+  let from = "";
+  if (asked) {
+    const match = matchAccount(list, asked.value);
+    if (match.error) {
+      checks.push(check("fail", "Account", `${asked.from}: ${match.error}`, `Use one of these IDs or names with ${asked.from}`));
+      return checks;
+    }
+    account = match.account;
+    from = `, from ${asked.from}`;
+  } else {
+    account = list.find((a) => a.id === savedAccountId) || (list.length === 1 ? list[0] : null);
+    if (account && list.length > 1) from = ", the one chosen last time";
+  }
   if (!account) {
-    checks.push(check("warn", "Account", `${list.length} accounts and none chosen: ${list.map((a) => a.name).join(", ")}`, "Set CLOUDFLARE_ACCOUNT_ID to the one to use"));
+    checks.push(check("warn", "Account", `${list.length} accounts and none chosen: ${list.map((a) => `${a.name} (${a.id})`).join(", ")}`, "Pass --account <ID or name>, or set CLOUDFLARE_ACCOUNT_ID, to choose one; the checks below use the first"));
   }
   const used = account || list[0];
-  checks.push(check("ok", "Account", `${used.name} (${used.id})`));
+  checks.push(check("ok", "Account", `${used.name} (${used.id})${from}`));
 
   const allowed = new Set();
   const enableR2 = `Open https://dash.cloudflare.com/${used.id}/r2/overview and enable R2 (the free plan asks for a payment method, nothing is charged within it)`;

@@ -12,6 +12,7 @@ import { TOOLKIT_VERSION } from "./lib/stage.js";
 import { classifyTarget, currentGameFolder } from "./lib/target.js";
 import { UsageError, ask, c, isUnattended, log, print, setColor, setQuiet, setUnattended, warnings } from "./lib/ui.js";
 import { useEnvToken } from "./lib/wrangler.js";
+import { setAccountFlag } from "./lib/cloudflare.js";
 
 const argv = process.argv.slice(2);
 const json = argv.includes("--json");
@@ -40,6 +41,7 @@ async function main() {
 
   setUnattended(cli.unattended);
   setQuiet(flags.quiet);
+  setAccountFlag(flags.account);
   if (isUnattended() && useEnvToken()) log.info(c.dim("Using the Cloudflare API token in CLOUDFLARE_API_TOKEN."));
 
   let { target } = cli;

@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import LZString from "lz-string";
 import { engineOf } from "./engines.js";
-import { NeedsAnswer, choose, isUnattended, log } from "./ui.js";
+import { CliError, NeedsAnswer, choose, isUnattended, log } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
@@ -18,7 +18,34 @@ import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } f
 
 // CI without a login: what to set instead.
 const TOKEN_HINT =
-  "Set CLOUDFLARE_API_TOKEN (and CLOUDFLARE_ACCOUNT_ID) for a non-interactive run, or run the command once in a terminal to log in.";
+  "Set CLOUDFLARE_API_TOKEN (and CLOUDFLARE_ACCOUNT_ID, or --account) for a non-interactive run, or run the command once in a terminal to log in.";
+
+// --account for this run (an ID or a name): wins over CLOUDFLARE_ACCOUNT_ID and the saved choice.
+let accountFlag = null;
+export function setAccountFlag(value) {
+  accountFlag = value || null;
+}
+
+const ACCOUNT_HINT = "Pass --account <ID or name>, or set CLOUDFLARE_ACCOUNT_ID to the account's ID.";
+
+// The account a run asked for by name, before the saved choice: --account, then
+// CLOUDFLARE_ACCOUNT_ID (read only by an unattended run, like the API token). -> { value, from } | null
+export function askedAccount({ flag = accountFlag, env = process.env, unattended = isUnattended() } = {}) {
+  if (flag) return { value: flag, from: "--account" };
+  if (unattended && env.CLOUDFLARE_ACCOUNT_ID) return { value: env.CLOUDFLARE_ACCOUNT_ID, from: "CLOUDFLARE_ACCOUNT_ID" };
+  return null;
+}
+
+// accounts [{ id, name }], an ID or a name -> { account } | { error }. The ID first, then the name without regard to case.
+export function matchAccount(accounts, wanted) {
+  const byId = accounts.find((a) => a.id === wanted);
+  if (byId) return { account: byId };
+  const named = accounts.filter((a) => (a.name || "").toLowerCase() === String(wanted).toLowerCase());
+  if (named.length === 1) return { account: named[0] };
+  const all = accounts.map((a) => `${a.name} (${a.id})`).join(", ");
+  if (named.length > 1) return { error: `Several accounts are named "${wanted}": ${named.map((a) => a.id).join(", ")}. Give the ID instead.` };
+  return { error: `This login has no Cloudflare account "${wanted}"${all ? `. It has: ${all}` : ""}.` };
+}
 
 export async function ensureLogin(settings) {
   let who = await whoami();
@@ -30,24 +57,34 @@ export async function ensureLogin(settings) {
     who = await whoami();
     if (!who.loggedIn) throw new Error("Cloudflare login failed.");
   }
-  const accounts = who.accounts || [];
-  const wanted = (isUnattended() && process.env.CLOUDFLARE_ACCOUNT_ID) || settings.accountId;
-  let account = accounts.find((a) => a.id === wanted);
-  if (!account) {
-    if (!accounts.length) throw new Error("This login has no Cloudflare account.");
-    account =
-      accounts.length === 1
-        ? accounts[0]
-        : await choose(
-            "Choose the Cloudflare account to host on:",
-            accounts.map((a) => ({ label: `${a.name} (${a.id})`, value: a })),
-            0,
-            { whenUnattended: null, hint: "Set CLOUDFLARE_ACCOUNT_ID to the account's ID." }
-          );
-    settings.accountId = account.id;
-  }
+  const account = await pickAccount(who.accounts || [], settings);
   useAccount(account.id);
   return { email: who.email, account };
+}
+
+// The account to work in: the one asked for (an unknown one is an error, never a fallback),
+// else the saved choice, else the only one, else a question (exit code 2 without a terminal).
+// Only an answer to the question is saved, so --account stays for one run.
+export async function pickAccount(accounts, settings, asked = askedAccount()) {
+  if (!accounts.length) throw new Error("This login has no Cloudflare account.");
+  if (asked) {
+    const { account, error } = matchAccount(accounts, asked.value);
+    if (error) throw new CliError(`${asked.from}: ${error}`, { hint: asked.from === "--account" ? "Use one of the IDs or names above." : "Set CLOUDFLARE_ACCOUNT_ID to one of the IDs above." });
+    return account;
+  }
+  const saved = accounts.find((a) => a.id === settings.accountId);
+  if (saved) return saved;
+  const account =
+    accounts.length === 1
+      ? accounts[0]
+      : await choose(
+          "Choose the Cloudflare account to host on:",
+          accounts.map((a) => ({ label: `${a.name} (${a.id})`, value: a })),
+          0,
+          { whenUnattended: null, hint: ACCOUNT_HINT }
+        );
+  settings.accountId = account.id;
+  return account;
 }
 
 // `wrangler whoami` only reads the default profile, so ask the API with the
