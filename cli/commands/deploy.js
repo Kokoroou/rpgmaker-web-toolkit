@@ -30,6 +30,7 @@ import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, pla
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
+import { askNewName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
@@ -346,34 +347,6 @@ export async function addNewKeys(game, cfg) {
 // (storageId), so nothing is copied.
 //---------------------------------------------------------------------------
 
-// The new name, from --to or asked, and what the rename will do. Changes nothing.
-async function askNewName(cfg, taken, to) {
-  log.step("New site name");
-  log.info(`Now: ${cfg.url || cfg.slug}`);
-  const check = (v) => {
-    if (v === cfg.slug) return "That is the current name.";
-    const problem = validateSlug(v);
-    if (problem) return problem;
-    return taken.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
-  };
-  if (to !== undefined && check(to)) throw new CliError(`Cannot rename to "${to}": ${check(to)}`, { hint: "Give another name with --to." });
-  const slug =
-    to !== undefined
-      ? to
-      : await ask("New site name (becomes <name>.<username>.workers.dev)", "", check, {
-          hint: "Pass the new name: rwk rename \"<game folder>\" --to <new name>",
-        });
-  const access = cfg.auth.mode === "access";
-  log.info("What the rename does:");
-  log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
-  if (access) {
-    log.info("  2. Cloudflare Access is set up again for the new address (the steps open in the browser).");
-    log.info("     Emails you allowed on the old site must be allowed again in the new Access policy.");
-  }
-  log.info(`  ${access ? 3 : 2}. The old Worker "${cfg.slug}" is deleted: its link stops working.`);
-  return slug;
-}
-
 async function renameSite(cfg, taken, to) {
   const slug = await askNewName(cfg, taken, to);
   const access = cfg.auth.mode === "access";
@@ -597,34 +570,6 @@ async function loadConfigsIfAny(bucket) {
     if (/bucket does not exist|NoSuchBucket|10006/i.test(err.message)) return {};
     throw err;
   }
-}
-
-export async function preview(game, policy, configs, { inputPath, rename, to }) {
-  const cfg = configs[game.fingerprint];
-  const command = rename ? "rename" : "saves import";
-  if (!cfg) throw new CliError(`This game is not published yet, so there is nothing to ${rename ? "rename" : "import saves into"}.`, { hint: `Check what a first deploy would do: rwk deploy --dry-run "${inputPath}"` });
-  log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
-  const done = (facts, todo) => ({ ...siteOf(cfg), dryRun: true, facts, next: [todo ? `Nothing was changed. To do it: ${todo}` : "Nothing was changed."] });
-
-  if (rename) {
-    const slug = await askNewName(cfg, takenNames(configs, game.fingerprint), to);
-    return done([["New name", slug]], `rwk ${command} "${inputPath}" --to ${slug}`);
-  }
-
-  log.step("Local saves");
-  if (!applyPolicy(cfg, policy).sync.enabled) {
-    log.warn(cfg.sync?.enabled === false ? "Save sync is disabled for this game." : "The game's creator turned cloud save sync off for this game.");
-    return done([["Saves", "none would be uploaded"]]);
-  }
-  const saves = game.saveDir ? listSaveFiles(game.saveDir, game.engine) : [];
-  if (!saves.length) {
-    log.warn(game.saveDir ? `No save files in ${game.saveDir}.` : "No save/ folder found in the game.");
-    return done([["Saves", "none would be uploaded"]]);
-  }
-  log.info(`Found ${saves.length} save(s) in ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
-  const owner = cfg.auth?.mode === "none" ? "the site's shared saves (a public site has no sign-in)" : "the email you sign in with through Access (asked when you run it)";
-  log.info(`They would go to ${owner}, overwriting cloud saves with the same name.`);
-  return done([["Saves", `${saves.length} would be uploaded`]], `rwk ${command} "${inputPath}"`);
 }
 
 //---------------------------------------------------------------------------
