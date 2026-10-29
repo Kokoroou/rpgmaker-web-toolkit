@@ -30,7 +30,7 @@ import { TOOLKIT_VERSION, generatedFiles, keysNeedingDeploy, liveSettingsOf, pla
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
-import { askNewName, preview } from "./preview.js";
+import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
@@ -260,20 +260,6 @@ export function editInEditor(cfg) {
 //---------------------------------------------------------------------------
 // First-run questions
 //---------------------------------------------------------------------------
-
-// --name: the first deploy's site name, or a check that the published game has it.
-// -> the name to use without asking, or undefined to ask. Throws when it cannot be used.
-export function checkSiteName(name, cfg, taken, folder) {
-  if (name === undefined) return undefined;
-  if (cfg) {
-    if (cfg.slug === name) return name;
-    throw new CliError(`This game is already published as "${cfg.slug}", not "${name}".`, {
-      hint: `Drop --name, or move the site to the new name: rwk rename "${folder}" --to ${name}`,
-    });
-  }
-  if (taken.has(name)) throw new CliError(`"${name}" is already used by another game in this account.`, { hint: "Give another name with --name." });
-  return name;
-}
 
 async function createConfig(game, takenSlugs, name) {
   const slug =
