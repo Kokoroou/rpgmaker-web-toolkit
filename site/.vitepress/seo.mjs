@@ -14,10 +14,14 @@ export const OG_ALT = "rpgmaker-web-toolkit: play your RPG Maker game in any bro
 export const MAX_TITLE = 60;
 export const MAX_DESCRIPTION = 160;
 
-/** Canonical URL of a page (cleanUrls: no .md, `index` becomes the folder). */
+/** A page's path under the site (cleanUrls: no .md, `index` becomes the folder). */
+export function pagePath(relativePath) {
+  return relativePath.replace(/\.md$/, "").replace(/(^|\/)index$/, "$1");
+}
+
+/** Canonical URL of a page. */
 export function pageUrl(relativePath) {
-  const p = relativePath.replace(/\.md$/, "").replace(/(^|\/)index$/, "$1");
-  return SITE_URL + p;
+  return SITE_URL + pagePath(relativePath);
 }
 
 /** The page's own title, as it appears in <title>. The home page shows only the site name. */
@@ -129,6 +133,17 @@ export function pageHead(pageData) {
     head.push(["script", { type: "application/ld+json" }, JSON.stringify(data)]);
   }
   return head;
+}
+
+/** <head> of a page whose content moved (`redirect:` in its front matter): send the browser on, point search engines at the new page. */
+export function redirectHead(pageData, target) {
+  checkLimits(pageData);
+  const url = SITE_URL + target.replace(/^\//, "");
+  return [
+    meta({ "http-equiv": "refresh", content: `0; url=${url}` }),
+    ["link", { rel: "canonical", href: url.replace(/#.*$/, "") }],
+    meta({ name: "robots", content: "noindex, follow" }),
+  ];
 }
 
 function readDescription(srcDir, relativePath) {

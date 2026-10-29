@@ -3,9 +3,9 @@ description: "Export, import or delete an RPG Maker save slot in the web copy, a
 lang: en
 ---
 
-# Edit or move a save
+# Save files: export, import, delete
 
-⚙ → **Saves**:
+In the menu: ⚙ → **Saves** → **Saves** opens this panel:
 
 ![The Saves panel: Export, Import and Delete per slot](/img/saves-panel.png){.shot .portrait}
 
@@ -18,5 +18,5 @@ lang: en
 Import refuses files from the other engine, and the game's `config` and `global` files.
 
 ::: danger
-With cloud saves on, a deleted save can come back from ⚙ → [Older saves](/play/saves#bring-back-an-older-save) (for 30 days by default). Otherwise Delete cannot be undone: export first if you may want the save back.
+With cloud saves on, a deleted save can come back from ⚙ → **Saves** → [Older saves](/play/older-saves) (for 30 days by default). Otherwise Delete cannot be undone: export first if you may want the save back.
 :::

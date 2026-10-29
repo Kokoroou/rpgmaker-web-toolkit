@@ -5,9 +5,11 @@ lang: en
 
 # Cheats
 
+In the menu: ⚙ → **Cheats** (on the first screen).
+
 ⚙ → **Cheats** opens a panel to change the game as you play. It is there only when the person who set up the game [turned cheats on](/setup/configuration#common-changes), for everyone or just for you; the game's creator can also keep them off.
 
-The first time, the panel asks you to confirm: cheats change the game as its creator made it, and what they change stays in your saves. Save first (⚙ → **Quick save**) if you may want to go back; [older saves](/play/saves#bring-back-an-older-save) are a second safety net.
+The first time, the panel asks you to confirm: cheats change the game as its creator made it, and what they change stays in your saves. Save first (the ⚙ → **Quick save** tile) if you may want to go back; [older saves](/play/older-saves) are a second safety net.
 
 | Section | What it does |
 |---|---|
