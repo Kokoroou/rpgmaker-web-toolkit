@@ -87,7 +87,7 @@ async function main() {
     case "list":
       return list();
     case "delete":
-      return deleteSite(target);
+      return deleteSite(target, { purge: flags.purge });
     default:
       throw new UsageError(`Unknown command "${name}".`, { hint: `Commands: ${COMMANDS.map((s) => s.name).join(", ")}` });
   }

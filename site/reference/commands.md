@@ -51,7 +51,7 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
 | `& $rwk open my-game` | Opens the site in the browser | link, name | |
 | `& $rwk list` | Lists the games published in this Cloudflare account | none | |
-| `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2; the Access application stays in the dashboard. Never runs with `--yes` | link, name | |
+| `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2, so the game can be published again; `--purge` deletes them too (every player's saves and older saves, the settings, the player list, the large files), which cannot be undone: `saves export` first keeps a player's saves. The Access application stays in the dashboard. Never runs with `--yes` | link, name | |
 | `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token), and what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. Reads only; exits with `1` when something needed is missing | none | [Troubleshooting](/setup/troubleshooting) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
@@ -84,6 +84,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
 | `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from the folder's name by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
 | `--to <name>` | Only `rename`: the new site name |
+| `--purge` | Only `delete`: also deletes what the game keeps in R2 |
 | `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
 
 ## Check without publishing
