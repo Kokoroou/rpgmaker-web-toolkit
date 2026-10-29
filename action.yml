@@ -25,7 +25,7 @@ inputs:
     required: false
     default: deploy
   site-name:
-    description: For deploy, the site name of a first deploy (default: from the folder's name). A published game must already have it.
+    description: For deploy, the site name of a first deploy (default: the name in the game's rwk.json, else from the folder's name). A published game must already have it.
     required: false
     default: ""
   cloudflare-api-token:

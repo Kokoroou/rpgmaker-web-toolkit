@@ -48,7 +48,7 @@ export function tooManyFiles(assets, count, max) {
   const lines = [...byTop].sort((a, b) => b[1] - a[1]).map(([dir, n]) => `    ${dir}: ${n}`);
   return new Error(
     `The web build has ${count} files, over the Workers limit of ${max} (free plan).\n` +
-      `${lines.join("\n")}\nAdd exclude patterns (rwk config, e.g. "data-tw/**") and run again.`
+      `${lines.join("\n")}\nAdd exclude patterns (rwk config, or "exclude" in rwk.json, e.g. "data-tw/**") and run again.`
   );
 }
 

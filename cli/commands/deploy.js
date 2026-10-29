@@ -32,6 +32,7 @@ import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
 import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
+import { PROJECT_FILE, readProjectFile, showProjectFile, siteNameFor, withProjectPatterns } from "../lib/project.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
@@ -51,6 +52,8 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   log.info(c.dim(game.root));
   const policy = readPolicy(game);
   showPolicy(policy);
+  const project = readProjectFile(game);
+  showProjectFile(project);
 
   const settings = loadSettings();
   const { email, account } = await connect(settings);
@@ -70,7 +73,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   };
 
   let cfg = configs[game.fingerprint];
-  const slug = checkSiteName(name, cfg, takenNames(configs, game.fingerprint), inputPath);
+  const slug = checkSiteName(siteNameFor(name, project, cfg), cfg, takenNames(configs, game.fingerprint), inputPath);
   if (cfg) {
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
@@ -78,7 +81,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     throw new CliError("This game is not published yet, so it has no site to rename.", { hint: `Publish it first: rwk deploy "${inputPath}"` });
   } else {
     log.info("First deploy of this game: answer a few questions (Enter = use the default).");
-    cfg = await createConfig(game, takenNames(configs, game.fingerprint), slug);
+    cfg = await createConfig(game, takenNames(configs, game.fingerprint), slug, project);
   }
   await addNewKeys(game, cfg);
   // Kept for upgrade, which has no game folder to read it from.
@@ -87,8 +90,10 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
 
   // Then deploys as usual, under the new name.
   if (rename) {
+    const from = cfg.slug;
     if (!(await renameSite(cfg, takenNames(configs, game.fingerprint), to))) return siteOf(cfg);
     await saveGameConfig();
+    if (project && project.name === from) log.info(`Change "name" in ${PROJECT_FILE} to "${cfg.slug}" too.`);
   }
 
   // The creator can turn sync off; the stored config keeps the deployer's choice.
@@ -113,7 +118,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   const { maxFiles, maxFileBytes } = limits.assets;
   if (limits.newer) log.info(c.dim(`Free plan limits updated on ${limits.updated}: ${maxFiles} files, ${formatMiB(maxFileBytes)} each`));
   const buildDir = createBuildDir(game.root, cfg.slug);
-  const files = collectFiles(game, cfg);
+  const files = collectFiles(game, withProjectPatterns(cfg, project));
   const overflow = files.filter((f) => f.size > maxFileBytes);
   const assets = files.filter((f) => f.size <= maxFileBytes);
   const generated = generatedFiles(game, applyPolicy(cfg, policy), files);
@@ -262,7 +267,7 @@ export function editInEditor(cfg) {
 // First-run questions
 //---------------------------------------------------------------------------
 
-async function createConfig(game, takenSlugs, name) {
+async function createConfig(game, takenSlugs, name, project) {
   const slug =
     name ??
     (await ask("Site name (becomes <name>.<username>.workers.dev)", suggestSlug(game), (v) => {
@@ -273,9 +278,11 @@ async function createConfig(game, takenSlugs, name) {
   if (name) log.ok(`Site name: ${name}`);
 
   const include = [];
-  if (game.unknownDirs.length) {
-    log.info(`Non-standard folders in the game root: ${game.unknownDirs.join(", ")}`);
-    for (const dir of game.unknownDirs) {
+  // Folders the rwk.json already includes are not asked about.
+  const unknownDirs = game.unknownDirs.filter((dir) => !project || !project.include.includes(dir));
+  if (unknownDirs.length) {
+    log.info(`Non-standard folders in the game root: ${unknownDirs.join(", ")}`);
+    for (const dir of unknownDirs) {
       if (await confirm(`Include "${dir}" in the web build? (yes if a plugin reads files from it)`, false)) include.push(dir);
     }
   }

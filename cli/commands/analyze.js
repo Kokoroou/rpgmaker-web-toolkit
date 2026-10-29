@@ -1,6 +1,6 @@
 // analyze and deploy --dry-run: what a deploy would find in the game, without Cloudflare.
 // No login, no R2, no build folder, nothing written: the game's warnings and file count,
-// for the first deploy's defaults (a config already saved in R2 is not read, as that needs the login).
+// for the first deploy's defaults plus the game's rwk.json (a config already saved in R2 is not read, as that needs the login).
 
 import { collectFiles, nonAsciiPaths, analyzeGame, suggestSlug } from "../lib/game.js";
 import { baseConfig, checkFeatureConfig } from "../lib/features.js";
@@ -8,6 +8,7 @@ import { loadLimits } from "../lib/limits.js";
 import { applyPolicy, readPolicy } from "../lib/policy.js";
 import { generatedFiles } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
+import { PROJECT_FILE, readProjectFile, showProjectFile, siteNameFor, withProjectPatterns } from "../lib/project.js";
 import { ask, c, formatBytes, log } from "../lib/ui.js";
 import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
@@ -25,12 +26,17 @@ export async function analyze(inputPath, { command = "analyze", name } = {}) {
   log.info(c.dim(game.root));
   const policy = readPolicy(game);
   showPolicy(policy);
+  const project = readProjectFile(game);
+  showProjectFile(project);
+  const fromFile = name === undefined && !!project && !!project.name;
+  name = siteNameFor(name, project);
 
   // Whether the name is free is only known with the login: the real deploy checks it.
-  const cfg = baseConfig(game, { slug: name ?? suggestSlug(game) });
+  const cfg = withProjectPatterns(baseConfig(game, { slug: name ?? suggestSlug(game) }), project);
   for (const problem of checkFeatureConfig(cfg)) log.warn(problem);
-  if (game.unknownDirs.length) {
-    log.info(`Non-standard folders in the game root, left out unless included with rwk config: ${game.unknownDirs.join(", ")}`);
+  const leftOut = game.unknownDirs.filter((dir) => !cfg.include.includes(dir));
+  if (leftOut.length) {
+    log.info(`Non-standard folders in the game root, left out unless included with rwk config or ${PROJECT_FILE}: ${leftOut.join(", ")}`);
   }
 
   log.step("Checking the web build");
@@ -64,7 +70,11 @@ export async function analyze(inputPath, { command = "analyze", name } = {}) {
     paths,
     languages,
     build: { files: files.length, bytes: totalBytes, r2Files: overflow.length, r2Uploaded: 0 },
-    facts: [["Game", `${game.engine} · ${game.title}`], ...(name ? [["Site name", `${name} (on a first deploy, if no other game uses it)`]] : [])],
-    next: [`Nothing was published. To publish: rwk deploy "${inputPath}"${name ? ` --name ${name}` : ""}`],
+    facts: [
+      ["Game", `${game.engine} · ${game.title}`],
+      ...(name ? [["Site name", `${name} (on a first deploy, if no other game uses it${fromFile ? `; from ${PROJECT_FILE}` : ""})`]] : []),
+      ...(project ? [["Settings file", project.file]] : []),
+    ],
+    next: [`Nothing was published. To publish: rwk deploy "${inputPath}"${name && !fromFile ? ` --name ${name}` : ""}`],
   };
 }

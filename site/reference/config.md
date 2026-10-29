@@ -14,8 +14,8 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `retiredWorkers` | Set by `rename`: old Workers to delete once the new site works | No |
 | `fingerprint` | Identifies the game. MZ: `mz:<advanced.gameId>`; MV: `mv:<game title>` | No |
 | `title`, `engine`, `url` | For reference, filled in by the toolkit | No effect |
-| `include` | Extra top-level folders / files to publish, or patterns of files to keep | Yes |
-| `exclude` | Patterns of files to leave out | Yes |
+| `include` | Extra top-level folders / files to publish, or patterns of files to keep. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |
+| `exclude` | Patterns of files to leave out. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |
 | `sync.enabled` | Cloud save sync | Yes |
 | `auth` | `{ "mode": "access", "teamDomain", "aud" }`, or public: `{ "mode": "none", "basis", "since" }`. Filled in by the [Access setup](/setup/access) | With care |
 | `auth.basis` | Why a public site may be public: `"author"`, `"permission"` or `"creator-policy"` | Through the deploy |
@@ -46,3 +46,25 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 :::
 
 All games' settings live in `rwk/games.json` in the R2 bucket `rpgmaker-web-toolkit`, keyed by `fingerprint` ([storage](/reference/how-it-works#storage)).
+
+## rwk.json in the game folder
+
+The settings above live in your Cloudflare account. A few can also travel with the game itself, in an optional `rwk.json` next to `index.html` (or in the folder you pass, when the game is in its `www/`), so a [repository that publishes itself](/setup/ci) carries them and [`analyze`](/reference/commands#check-without-publishing) counts the same files as the real deploy:
+
+```json
+{
+  "name": "my-game",
+  "include": ["Fonts2"],
+  "exclude": ["data-tw/**", "movies/*.webm"]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `name` | The site name of the first deploy, so neither the question nor `--name` is needed. A published game keeps its name: when they differ, the toolkit warns and uses the published one ([`rename`](/setup/updating#change-the-site-address) moves the site) |
+| `include` | Added to the `include` above: extra top-level folders / files to publish, or patterns of files to keep. A folder listed here is not asked about on the first deploy |
+| `exclude` | Added to the `exclude` above: patterns of files to leave out |
+
+Every key is optional. Which value wins: a command-line flag (`--name`), then `rwk.json`, then the settings kept in your account, then the defaults. The file's patterns apply to each run that reads them and are not copied into your account, so removing one takes effect at the next deploy.
+
+The toolkit only reads `rwk.json`, never writes it, and does not publish it. An unknown key is a warning; a file that is not valid JSON, a `name` that is not a site name, or `include` / `exclude` that are not lists of text stop the run (exit code `1`) and say what to fix.
