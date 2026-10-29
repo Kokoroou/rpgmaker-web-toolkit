@@ -63,7 +63,7 @@ async function main() {
 
   switch (name) {
     case "deploy":
-      return flags.dryRun ? analyze(target, { command: "deploy" }) : deploy(target);
+      return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name });
     case "analyze":
       return analyze(target);
     case "doctor":

@@ -1,5 +1,5 @@
 // rename --dry-run and saves import --dry-run: what the command would do, from
-// the configs already read from R2. Nothing in the account or the game folder
+// the configs already read from R2, and the site name checks deploy shares with them. Nothing in the account or the game folder
 // is changed. Kept apart from deploy.js, which would otherwise load the whole
 // deploy command for a preview.
 
@@ -8,6 +8,20 @@ import { takenNames, validateSlug } from "../lib/game.js";
 import { applyPolicy } from "../lib/policy.js";
 import { siteOf } from "../lib/session.js";
 import { CliError, ask, log } from "../lib/ui.js";
+
+// --name: the first deploy's site name, or a check that the published game has it.
+// -> the name to use without asking, or undefined to ask. Throws when it cannot be used.
+export function checkSiteName(name, cfg, taken, folder) {
+  if (name === undefined) return undefined;
+  if (cfg) {
+    if (cfg.slug === name) return name;
+    throw new CliError(`This game is already published as "${cfg.slug}", not "${name}".`, {
+      hint: `Drop --name, or move the site to the new name: rwk rename "${folder}" --to ${name}`,
+    });
+  }
+  if (taken.has(name)) throw new CliError(`"${name}" is already used by another game in this account.`, { hint: "Give another name with --name." });
+  return name;
+}
 
 // The new name, from --to or asked, and what the rename will do. Changes nothing.
 export async function askNewName(cfg, taken, to) {

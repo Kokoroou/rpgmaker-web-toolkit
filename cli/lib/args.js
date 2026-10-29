@@ -6,6 +6,7 @@
 // read, so a command is added here and nowhere else.
 
 import { parseArgs } from "node:util";
+import { validateSlug } from "./game.js";
 import { classifyTarget } from "./target.js";
 import { UsageError } from "./ui.js";
 
@@ -20,8 +21,9 @@ export const COMMANDS = [
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
     targets: ["folder"],
+    options: { name: "The site name on the first deploy, without the question (default: from the folder's name); a published game must already have it" },
     switches: { "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)" },
-    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes", "rwk deploy --dry-run   (in the game folder)"],
+    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy --dry-run   (in the game folder)"],
   },
   {
     name: "analyze",
@@ -119,7 +121,7 @@ export const FLAGS = [
   ["-V, --version", "Show the toolkit version"],
 ];
 
-const OPTION_VALUES = { to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
+const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
@@ -196,7 +198,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, to, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, name, to, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -215,6 +217,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
+        name: { type: "string" },
         to: { type: "string" },
         email: { type: "string" },
         out: { type: "string" },
@@ -224,7 +227,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -239,6 +242,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     purge: !!values.purge,
     help: !!values.help,
     version: !!values.version,
+    name: values.name,
     to: values.to,
     email: values.email,
     out: values.out,
@@ -269,11 +273,12 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  for (const option of ["to", "email", "out", "get", "set"]) {
+  for (const option of ["name", "to", "email", "out", "get", "set"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
   }
+  if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
   for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });

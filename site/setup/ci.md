@@ -9,7 +9,7 @@ A game kept in a Git repository can publish itself: each push to `main` updates 
 
 ## Before you start
 
-1. **Publish the game once from a terminal** ([first deploy](/setup/first-deploy)) if you can: the site name needs a person, and a run in CI that reaches that question stops with exit code 2. [Access protection](/setup/access) is set up through the API when the token has the Access permissions and the account already has a Zero Trust team.
+1. **Publish the game once from a terminal** ([first deploy](/setup/first-deploy)) if you can, to answer its questions. A first deploy in CI takes the defaults; give it the site name with the `site-name` input (`--name` on the command line), or it is made from the folder's name. [Access protection](/setup/access) is set up through the API when the token has the Access permissions and the account already has a Zero Trust team.
 2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts.
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
@@ -58,6 +58,7 @@ The action installs Node.js and the toolkit at the tag you pin, then publishes t
 |---|---|---|
 | `game-folder` | `.` | The game folder, from the repository's root. For `upgrade`, the game's link or site name |
 | `command` | `deploy` | Or `analyze`, `saves import`, `upgrade` |
+| `site-name` | | `deploy`: the site name of a first deploy. A published game must already have it |
 | `cloudflare-api-token` | | Required, except for `analyze` |
 | `cloudflare-account-id` | | When the token reaches several accounts |
 | `node-version` | `22` | |
