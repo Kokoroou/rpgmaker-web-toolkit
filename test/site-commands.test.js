@@ -7,9 +7,9 @@ import path from "node:path";
 import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { exportSaves, saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
-import { deleteSite, describeSite, list, logs, open, status, toolkitFact } from "../cli/commands/site.js";
+import { deleteSite, describeSite, list, logs, open, purgeObjects, status, toolkitFact } from "../cli/commands/site.js";
 import { userHash as userHashOf } from "../cli/lib/cloudflare.js";
-import { getObject, listObjects } from "../cli/lib/r2-api.js";
+import { deleteObject, getObject, listObjects } from "../cli/lib/r2-api.js";
 import { renderSummary, runResult } from "../cli/lib/report.js";
 
 const parse = (args) => parseCommandLine(args, { stdinIsTTY: true });
@@ -146,13 +146,83 @@ test("delete: needs the site name typed, then removes the Worker and the config"
       saved = value;
     },
   };
-  const result = await deleteSite("my-game", deps);
+  const result = await deleteSite("my-game", {}, deps);
   assert.deepEqual(deleted, ["my-game", "old-name"]);
   assert.deepEqual(Object.keys(saved), ["fp2"]);
   assert.equal(result.url, null);
 
   deleted.length = 0;
-  await assert.rejects(deleteSite("my-game", { ...deps, deleteWorker: async () => false }), /Could not delete the Worker/);
+  await assert.rejects(deleteSite("my-game", {}, { ...deps, deleteWorker: async () => false }), /Could not delete the Worker/);
+});
+
+test("delete --purge: which R2 objects belong to the game", () => {
+  const listed = [
+    { key: "saves/p1/my-game/file1", size: 5 },
+    { key: "saves/p1/my-game-2/file1", size: 5 },
+    { key: "saves/p2/my-game/global", size: 1 },
+    { key: "saves/my-game", size: 1 },
+    { key: "history/p1/my-game/file1/123", size: 5 },
+    { key: "history/p1/other/file1/123", size: 5 },
+    { key: "assets/my-game/movies/big.webm", size: 9 },
+    { key: "assets/my-game-2/x.png", size: 9 },
+  ];
+  assert.deepEqual(purgeObjects(listed, "my-game").map((o) => o.key), [
+    "saves/p1/my-game/file1",
+    "saves/p2/my-game/global",
+    "history/p1/my-game/file1/123",
+    "assets/my-game/movies/big.webm",
+    "rwk/players/my-game.json",
+    "rwk/settings/my-game.json",
+  ]);
+  assert.equal(parse(["delete", "my-game", "--purge"]).flags.purge, true);
+  assert.throws(() => parse(["status", "my-game", "--purge"]), (err) => err.exitCode === 64 && /Unknown option --purge/.test(err.message));
+});
+
+test("delete --purge: lists first, then deletes the Worker, the R2 objects and the config", async (t) => {
+  quiet(t);
+  const steps = [];
+  const configs = { fp1: { ...CFG, slug: "new-name", storageId: "my-game" }, fp2: { ...CFG, slug: "other" } };
+  const deps = {
+    ...baseDeps(configs),
+    apiToken: async () => "tok",
+    listObjects: async ({ prefix, token, accountId }) => {
+      steps.push(`list ${prefix} ${token} ${accountId}`);
+      return prefix === "saves/" ? [{ key: "saves/p1/my-game/file1", size: 3 }, { key: "saves/p1/other/file1", size: 3 }] : [];
+    },
+    ask: async () => (steps.push("ask"), "new-name"),
+    deleteWorker: async (name) => (steps.push(`worker ${name}`), true),
+    deleteObject: async ({ key }) => steps.push(`delete ${key}`),
+    saveGameConfigs: async (bucket, value) => steps.push(`configs ${Object.keys(value)}`),
+  };
+  const result = await deleteSite("new-name", { purge: true }, deps);
+  assert.deepEqual(steps, [
+    "list saves/ tok acc",
+    "list history/ tok acc",
+    "list assets/my-game/ tok acc",
+    "ask",
+    "worker new-name",
+    "delete saves/p1/my-game/file1",
+    "delete rwk/players/my-game.json",
+    "delete rwk/settings/my-game.json",
+    "configs fp2",
+  ]);
+  assert.deepEqual(result.facts[1], ["R2", "3 object(s) deleted"]);
+
+  await assert.rejects(deleteSite("new-name", { purge: true }, { ...deps, apiToken: async () => null }), /Not logged in/);
+  const sharing = { fp1: configs.fp1, fp3: { ...CFG, slug: "copy", storageId: "my-game" } };
+  await assert.rejects(deleteSite("new-name", { purge: true }, { ...deps, ...baseDeps(sharing) }), /"copy" uses the same storage/);
+});
+
+test("r2 api: deletes an object, a missing one included", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => (calls.push([url, init.method]), new Response(null, { status: calls.length === 1 ? 204 : 404 }));
+  await deleteObject({ token: "t", accountId: "a", bucket: "b", key: "saves/x/f", fetchImpl });
+  await deleteObject({ token: "t", accountId: "a", bucket: "b", key: "k", fetchImpl });
+  assert.deepEqual(calls[0], ["https://api.cloudflare.com/client/v4/accounts/a/r2/buckets/b/objects/saves%2Fx%2Ff", "DELETE"]);
+  await assert.rejects(
+    deleteObject({ token: "t", accountId: "a", bucket: "b", key: "k", fetchImpl: async () => Response.json({ success: false, errors: [{ message: "denied" }] }, { status: 403 }) }),
+    /Could not delete k.*denied.*Workers R2 Storage → Edit/
+  );
 });
 
 test("logs: needs a terminal", async (t) => {

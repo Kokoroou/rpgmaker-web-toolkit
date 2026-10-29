@@ -3,17 +3,19 @@
 
 import { spawn } from "node:child_process";
 import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
-import { deleteWorker, loadGameConfigs, loadPlayers, probeAccess, saveGameConfigs } from "../lib/cloudflare.js";
+import { apiToken, deleteWorker, loadGameConfigs, loadPlayers, probeAccess, saveGameConfigs } from "../lib/cloudflare.js";
+import { deleteObject, listObjects } from "../lib/r2-api.js";
+import { settingsKey } from "../../worker/settings.js";
 import { findGameBySite, storageIdOf } from "../lib/game.js";
 import { openUrlCommand } from "../lib/platform.js";
 import { TOOLKIT_VERSION } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
-import { CliError, NeedsAnswer, ask, c, log } from "../lib/ui.js";
+import { CliError, NeedsAnswer, ask, c, formatBytes, log } from "../lib/ui.js";
 import { wrangler } from "../lib/wrangler.js";
 import { connect, siteOf } from "../lib/session.js";
 
 // What the commands call: the Cloudflare and terminal steps, replaceable in tests.
-const realDeps = { connect, loadSettings, loadGameConfigs, saveGameConfigs, deleteWorker, ask, spawn, wrangler };
+const realDeps = { connect, loadSettings, loadGameConfigs, saveGameConfigs, deleteWorker, ask, spawn, wrangler, apiToken, listObjects, deleteObject };
 const depsOf = (deps) => ({ ...realDeps, ...deps });
 
 // The game's stored config for a link or name target. Needs the Cloudflare login (connect() first).
@@ -21,22 +23,27 @@ export async function findSite(target, deps) {
   return (await findEntry(target, deps))[1];
 }
 
-// -> [fingerprint, cfg]
+// -> [fingerprint, cfg, configs]
 async function findEntry(target, deps) {
   log.step("Finding the game");
-  const entry = findGameBySite(await depsOf(deps).loadGameConfigs(DEFAULT_BUCKET), siteNameOf(target));
+  const configs = await depsOf(deps).loadGameConfigs(DEFAULT_BUCKET);
+  const entry = findGameBySite(configs, siteNameOf(target));
   log.ok(`${entry[1].engine} · ${entry[1].title}`);
-  return entry;
+  return [...entry, configs];
 }
 
 async function targetOf(input, usage, deps) {
+  return (await sessionOf(input, usage, deps)).target;
+}
+
+async function sessionOf(input, usage, deps) {
   const d = depsOf(deps);
   if (!input) {
     input = await d.ask("Paste the game's link or its site name", "", null, { hint: `Pass it after the command: ${usage}` });
   }
   const target = expectTarget(input, ["link", "name"], usage);
-  await d.connect(d.loadSettings());
-  return target;
+  const session = await d.connect(d.loadSettings());
+  return { target, session };
 }
 
 const ACCESS_WORDS = { access: "Cloudflare Access (sign-in by email)", none: "none: anyone with the link can play" };
@@ -134,14 +141,51 @@ export async function logs(input, deps = {}) {
   return null;
 }
 
-// Deletes the Worker and forgets the game's config. Saves and large files stay in R2.
-export async function deleteSite(input, deps = {}) {
+// What a game keeps in R2 under its storage id, from listings of saves/, history/
+// and assets/<id>/: the keys to delete for delete --purge. Saves and older saves sit
+// under saves/<player>/<id>/ and history/<player>/<id>/.
+// -> [{ key, size }]
+export function purgeObjects(listed, gameId) {
+  const own = (item) => {
+    const parts = item.key.split("/");
+    if (parts[0] === "saves" || parts[0] === "history") return parts[2] === gameId && parts.length > 3;
+    return item.key.startsWith(`assets/${gameId}/`);
+  };
+  const singles = [`rwk/players/${gameId}.json`, settingsKey(gameId)].map((key) => ({ key, size: 0 }));
+  return listed.filter(own).concat(singles);
+}
+
+// The objects delete --purge would remove, listed before anything is deleted.
+async function listPurge(fingerprint, configs, session, d) {
+  const cfg = configs[fingerprint];
+  const gameId = storageIdOf(cfg);
+  const sharing = Object.entries(configs).find(([key, other]) => key !== fingerprint && storageIdOf(other) === gameId)?.[1];
+  if (sharing) throw new CliError(`The game "${sharing.slug}" uses the same storage as "${cfg.slug}", so --purge would delete its saves too.`, { hint: "Delete without --purge." });
+  const token = await d.apiToken();
+  if (!token) throw new CliError("Not logged in to Cloudflare.", { hint: "Run the command in a terminal once to log in, or set CLOUDFLARE_API_TOKEN." });
+  const where = { token, accountId: session.account.id, bucket: DEFAULT_BUCKET };
+  const listed = [];
+  for (const prefix of ["saves/", "history/", `assets/${gameId}/`]) listed.push(...(await d.listObjects({ ...where, prefix })));
+  return { where, objects: purgeObjects(listed, gameId) };
+}
+
+// Deletes the Worker and forgets the game's config. Saves and large files stay in R2,
+// unless purge: then they go too, before the config, so a failed purge can be run again.
+export async function deleteSite(input, { purge = false } = {}, deps = {}) {
   const d = depsOf(deps);
-  const target = await targetOf(input, "rwk delete <game link | site name>", deps);
-  const [fingerprint, cfg] = await findEntry(target, deps);
+  const { target, session } = await sessionOf(input, "rwk delete <game link | site name> [--purge]", deps);
+  const [fingerprint, cfg, known] = await findEntry(target, deps);
+  const doomed = purge ? await listPurge(fingerprint, known, session, d) : null;
 
   log.warn(`This deletes the Worker "${cfg.slug}": ${cfg.url || "its link"} stops working for everyone.`);
-  log.info("The saves, the save history and the large files stay in R2, so the game can be published again.");
+  if (doomed) {
+    const files = doomed.objects.filter((o) => o.size);
+    const bytes = files.reduce((sum, o) => sum + o.size, 0);
+    log.warn(`--purge also deletes ${files.length} file(s) in R2 (${formatBytes(bytes)}): every player's saves and older saves, the settings, the player list and the large files. This cannot be undone.`);
+    log.info(c.dim(`To keep a player's saves, first run: rwk saves export ${cfg.slug} --email <address>`));
+  } else {
+    log.info("The saves, the save history and the large files stay in R2, so the game can be published again.");
+  }
   // No default: a run without a person stops here with exit code 2.
   await d.ask(`Type the site name (${cfg.slug}) to delete it`, "", (v) => (v === cfg.slug ? null : `That is not "${cfg.slug}".`), {
     hint: "Deleting needs a person: run it in a terminal.",
@@ -154,6 +198,11 @@ export async function deleteSite(input, deps = {}) {
   for (const name of cfg.retiredWorkers || []) {
     if (!(await d.deleteWorker(name))) log.warn(`The old Worker "${name}" could not be deleted: remove it in the dashboard.`);
   }
+  if (doomed) {
+    log.step("Deleting the game's files in R2");
+    for (const object of doomed.objects) await d.deleteObject({ ...doomed.where, key: object.key });
+    log.ok(`${doomed.objects.length} object(s) deleted`);
+  }
   const configs = await d.loadGameConfigs(DEFAULT_BUCKET);
   delete configs[fingerprint];
   await d.saveGameConfigs(DEFAULT_BUCKET, configs);
@@ -161,7 +210,7 @@ export async function deleteSite(input, deps = {}) {
   return {
     ...siteOf(cfg),
     url: null,
-    facts: [["Deleted", cfg.url || cfg.slug]],
+    facts: [["Deleted", cfg.url || cfg.slug], ...(doomed ? [["R2", `${doomed.objects.length} object(s) deleted`]] : [])],
     next: ["The site's Cloudflare Access application, if any, stays in the dashboard (Zero Trust → Access): delete it there."],
   };
 }

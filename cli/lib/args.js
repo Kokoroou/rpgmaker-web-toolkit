@@ -93,9 +93,10 @@ export const COMMANDS = [
   },
   {
     name: "delete",
-    summary: "Delete the site's Worker (saves stay in R2); asks you to type the site name",
+    summary: "Delete the site's Worker (saves stay in R2, unless --purge); asks you to type the site name",
     targets: ["link", "name"],
-    examples: ["rwk delete my-game"],
+    switches: { purge: "Also delete what the game keeps in R2: every player's saves and older saves, its settings, player list and large files" },
+    examples: ["rwk delete my-game", "rwk saves export my-game --email me@example.com && rwk delete my-game --purge"],
   },
   {
     name: "doctor",
@@ -195,7 +196,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, help, version, to, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, to, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -210,6 +211,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         quiet: { type: "boolean", short: "q" },
         verbose: { type: "boolean" },
         "dry-run": { type: "boolean" },
+        purge: { type: "boolean" },
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
@@ -234,6 +236,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     verbose: !!values.verbose,
     noColor: !!values["no-color"],
     dryRun: !!values["dry-run"],
+    purge: !!values.purge,
     help: !!values.help,
     version: !!values.version,
     to: values.to,
@@ -272,8 +275,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
   }
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
-  if (flags.dryRun && !spec.switches?.["dry-run"]) {
-    throw new UsageError(`Unknown option --dry-run for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
+  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge]]) {
+    if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;
   // An unquoted path with spaces arrives as several words: join them back.
