@@ -46,6 +46,8 @@ What stays as it was:
 - **`index.html`, `robots.txt` and the icon**, from the last deploy from the folder. A [public site](/setup/access) that changes whether search engines may list it needs a deploy from the folder.
 - **Features the game's creator turned off** stay off. If its last deploy from the folder used a toolkit from before this command, every feature that was off then also stays off: deploy once from the folder to turn one back on.
 
+Still have the folder but only want the new toolkit, without uploading anything? `upgrade` takes the folder too: `rwk upgrade "D:\Games\My Game"` (or `rwk upgrade` inside it). The folder gives the site name and the creator's current [policy](/creators/policy); the game files on the site stay as uploaded.
+
 The site must already be set up (Access, or public). This command calls the Cloudflare API directly instead of going through wrangler, because wrangler always replaces every file. If it fails with a Cloudflare API error, deploy from the game folder and [report it](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues). The next deploy from the folder puts everything back the usual way.
 
 ## Upload desktop saves again

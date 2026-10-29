@@ -67,6 +67,8 @@ test("targets: a folder, a link or a site name", () => {
   assert.equal(siteNameOf(classifyTarget("my-game", nothing)), "my-game");
   assert.throws(() => expectTarget("./game", ["link", "name"], "rwk upgrade <game link | site name>"), (err) => err.exitCode === 64 && /game link or a site name/.test(err.message));
   assert.equal(expectTarget("./game", ["folder"], "x").kind, "folder");
+  const upgrade = COMMANDS.find((cmd) => cmd.name === "upgrade");
+  assert.deepEqual(upgrade.targets, ["folder", "link", "name"], "upgrade takes the folder too, for its site name");
 });
 
 test("terminal: colors and symbols follow NO_COLOR, TERM and the locale", () => {
