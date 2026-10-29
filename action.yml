@@ -24,6 +24,10 @@ inputs:
     description: "deploy (default), analyze (checks the game, publishes nothing, needs no token), saves import or upgrade"
     required: false
     default: deploy
+  site-name:
+    description: For deploy, the site name of a first deploy (default: from the folder's name). A published game must already have it.
+    required: false
+    default: ""
   cloudflare-api-token:
     description: A Cloudflare API token (see the guide for its permissions). Keep it in the repository's secrets. Not needed for analyze.
     required: false
@@ -71,12 +75,17 @@ runs:
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
         RWK_COMMAND: ${{ inputs.command }}
         RWK_TARGET: ${{ inputs.game-folder }}
+        RWK_SITE_NAME: ${{ inputs.site-name }}
       run: |
         case "$RWK_COMMAND" in
           deploy | analyze | upgrade) args=("$RWK_COMMAND") ;;
           "saves import") args=(saves import) ;;
           *) echo "::error::Unknown command \"$RWK_COMMAND\" (use deploy, analyze, saves import or upgrade)"; exit 1 ;;
         esac
+        if [ -n "$RWK_SITE_NAME" ]; then
+          [ "$RWK_COMMAND" = deploy ] || { echo "::error::site-name is only for the deploy command"; exit 1; }
+          args+=(--name "$RWK_SITE_NAME")
+        fi
         result="$RUNNER_TEMP/rwk-result.json"
         status=0
         node "$GITHUB_ACTION_PATH/cli/index.js" --json "${args[@]}" "$RWK_TARGET" >"$result" || status=$?
