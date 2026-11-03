@@ -245,7 +245,7 @@
       `${describeCache(usage)}.\n\nThe pictures, sounds and data kept here load the game without downloading them again. ` +
         "Clearing them frees the space; they download again as you play. Your saves are not touched.",
       usage.files
-        ? [{ label: "Keep", value: false, cancel: true }, { label: "Clear", value: true, primary: true }]
+        ? [{ label: "Keep", value: false }, { label: "Clear", value: true, primary: true }]
         : [{ label: "OK", value: false, primary: true }]
     );
     if (!clear) return;
@@ -278,9 +278,7 @@
   // walk the party to where the button was.
   let questions = 0;
 
-  // options: [{ label, value, primary, cancel }] -> Promise<value>
-  // Back (the phone's key or swipe) picks the cancel option, or the only one;
-  // a real choice (no cancel) stays on screen until it is answered.
+  // options: [{ label, value, primary }] -> Promise<value>
   function choose(title, message, options) {
     questions++;
     return new Promise((resolve) => {
@@ -294,30 +292,24 @@
       p.textContent = message;
       const actions = document.createElement("div");
       actions.className = "rwk-modal-actions";
-      const answer = (opt) => {
-        if (!overlay.isConnected) return;
-        overlay.remove();
-        questions--;
-        Input.clear();
-        if (window.TouchInput) TouchInput.clear();
-        syncBackEntry();
-        resolve(opt.value);
-      };
       for (const opt of options) {
         const b = document.createElement("button");
         b.textContent = opt.label;
         if (opt.primary) b.className = "primary";
-        b.addEventListener("click", () => answer(opt));
+        b.addEventListener("click", () => {
+          if (!overlay.isConnected) return;
+          overlay.remove();
+          questions--;
+          Input.clear();
+          if (window.TouchInput) TouchInput.clear();
+          resolve(opt.value);
+        });
         actions.appendChild(b);
       }
       box.append(h, p, actions);
       overlay.appendChild(box);
       shield(overlay);
       document.body.appendChild(overlay);
-      onBack(overlay, () => {
-        const cancel = options.find((o) => o.cancel) || (options.length === 1 && options[0]);
-        if (cancel) answer(cancel);
-      });
     });
   }
 
@@ -638,36 +630,16 @@
     menu = null;
     menuBack = null;
     resume();
-    syncBackEntry();
+    dropMenuEntry();
   }
 
-  // The phone's Back key and back swipe (and the browser's): a history entry
-  // while any toolkit window is open (the ⚙ menu, a panel, a question), so
-  // Back acts on the window on top instead of leaving the game. Same URL, so a
-  // reload is not affected. backStack: [{ node, back }], newest last; a window
-  // leaves it when its node leaves the page, however it was closed.
-  const backStack = [];
-  let backEntry = false;
+  // The phone's Back key (and the browser's): a history entry while the menu
+  // is open, so Back goes up one level, then closes the menu, instead of
+  // leaving the game. Same URL, so a reload is not affected.
+  let menuEntry = false;
   let skipPops = 0; // our own history.back() calls, not the player's
-  let pushLater = false; // a window opened before such a call went through
-  let watching = false;
-  function onBack(node, back) {
-    backStack.push({ node, back });
-    if (!watching && window.MutationObserver) {
-      watching = true;
-      new MutationObserver(() => backStack.some((w) => !w.node.isConnected) && syncBackEntry()).observe(document.body, { childList: true });
-    }
-    syncBackEntry();
-  }
-  function prune() {
-    for (let i = backStack.length - 1; i >= 0; i--) if (!backStack[i].node.isConnected) backStack.splice(i, 1);
-  }
-  function syncBackEntry() {
-    prune();
-    if (!backStack.length) dropBackEntry();
-    else if (!backEntry) pushBackEntry();
-  }
-  function pushBackEntry() {
+  let pushLater = false; // reopened before such a call went through
+  function pushMenuEntry() {
     // history.back() is asynchronous: an entry pushed before it lands would be the one it takes.
     if (skipPops) {
       pushLater = true;
@@ -675,15 +647,15 @@
     }
     try {
       history.pushState({ rwkMenu: true }, "");
-      backEntry = true;
+      menuEntry = true;
     } catch {
-      backEntry = false;
+      menuEntry = false;
     }
   }
-  function dropBackEntry() {
+  function dropMenuEntry() {
     pushLater = false;
-    if (!backEntry) return;
-    backEntry = false;
+    if (!menuEntry) return;
+    menuEntry = false;
     if (!(history.state && history.state.rwkMenu)) return; // already gone
     skipPops++;
     history.back();
@@ -691,18 +663,16 @@
   window.addEventListener("popstate", () => {
     if (skipPops) {
       skipPops--;
-      if (!skipPops && pushLater) {
+      if (!skipPops && pushLater && menu) {
         pushLater = false;
-        syncBackEntry();
+        pushMenuEntry();
       }
       return;
     }
-    if (!backEntry) return;
-    backEntry = false; // the browser took it
-    prune();
-    const top = backStack[backStack.length - 1];
-    if (top) top.back();
-    syncBackEntry();
+    if (!menu || !menuEntry) return;
+    menuEntry = false; // the browser took it
+    backOrClose();
+    if (menu) pushMenuEntry();
   });
 
   // Esc and the back button: up one level from a group's page, then close.
@@ -934,7 +904,7 @@
     shield(overlay);
     pause();
     document.body.appendChild(overlay);
-    onBack(overlay, backOrClose);
+    pushMenuEntry();
   }
 
   // F1 opens the menu (unless one of the game's plugins uses that key). While
@@ -1053,7 +1023,6 @@
     toast,
     choose,
     shield,
-    onBack,
     icons,
     tools: { add: addTool, remove: removeTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
     fullscreen: { toggle: toggleFullscreen, isOn: isFullscreen, tool: fullscreenTool },

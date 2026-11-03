@@ -299,7 +299,6 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
     render();
 
     const _updateScene = SceneManager.updateScene;

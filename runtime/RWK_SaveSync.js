@@ -481,7 +481,7 @@
       "The cloud has a newer save",
       `Save “${label(name)}” was updated in the cloud at ${when}.\nOverwrite it with the save just made on this device?`,
       [
-        { label: "Later", value: "later", cancel: true },
+        { label: "Later", value: "later" },
         { label: "Overwrite cloud", value: "overwrite", primary: true },
       ]
     );

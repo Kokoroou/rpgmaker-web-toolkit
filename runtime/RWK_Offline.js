@@ -397,7 +397,6 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
     panel = { render };
     render();
     if (!active) scan();

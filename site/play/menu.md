@@ -53,6 +53,4 @@ When the menu has more than 15 settings, a search box sits above the groups. Typ
 | Go back to the first screen | The back arrow at the top, <kbd>Esc</kbd>, or the phone's Back button |
 | Close the menu | **✕**, a tap outside it, <kbd>Esc</kbd> or Back on the first screen, or <kbd>F1</kbd> |
 
-The phone's Back button (or back swipe) also closes the panels the menu opens (Cheats, Saves, Keys and buttons…) and answers **Cancel** to a question. A question with no Cancel, such as which copy of a save to keep, stays until you pick an answer.
-
 On a keyboard, <kbd>Tab</kbd> moves through the rows and <kbd>Enter</kbd> picks one.
