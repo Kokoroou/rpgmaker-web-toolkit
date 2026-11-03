@@ -130,6 +130,7 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
+    RWK.onBack(overlay, close);
 
     sync
       .history()
@@ -177,7 +178,7 @@
         "The current copy of that save is kept in the older saves.\n\n" +
         "The game restarts afterwards: progress not saved yet is lost.",
       [
-        { label: "Cancel", value: false },
+        { label: "Cancel", value: false, cancel: true },
         { label: "Restore", value: true, primary: true },
       ]
     );
