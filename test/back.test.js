@@ -268,3 +268,16 @@ test("Back does not answer a real choice, and closing a window by hand drops its
   await tick();
   assert.equal(doc.body.children.some((c) => c.className === "rwk-modal"), false, "Back answers a question with one button");
 });
+
+test("Back on a question lets the game run again, like a tap on its button", async () => {
+  const { RWK, game, TouchInput, SceneManager } = load();
+  const answer = RWK.choose("Use cheats?", "", [{ label: "Cancel", value: false, cancel: true }, { label: "Use cheats", value: true }]);
+  SceneManager.updateScene();
+  assert.equal(game.scene, 0, "paused while the question is open");
+  const cleared = TouchInput.cleared;
+  win.history.pop();
+  assert.equal(await answer, false);
+  assert.ok(TouchInput.cleared > cleared, "the taps read meanwhile are dropped");
+  SceneManager.updateScene();
+  assert.equal(game.scene, 1);
+});

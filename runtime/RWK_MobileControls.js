@@ -182,6 +182,7 @@
 
   const pad = document.createElement("div");
   pad.className = "rwk-pad";
+  pad.setAttribute("data-rwk-ui", ""); // not the game's taps (RWK_Core: fromToolkit)
   // Stop every event from reaching the engine's document-level TouchInput.
   for (const type of ["touchstart", "touchmove", "touchend", "touchcancel", "mousedown", "mousemove", "mouseup", "click", "wheel", "contextmenu"]) {
     pad.addEventListener(

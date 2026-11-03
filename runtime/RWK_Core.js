@@ -273,10 +273,16 @@
     if (ms > 0) toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
   }
 
+  // Questions on screen (choose): the game waits for the answer, as it does
+  // while the ⚙ menu is open, so a tap that a game plugin still sees cannot
+  // walk the party to where the button was.
+  let questions = 0;
+
   // options: [{ label, value, primary, cancel }] -> Promise<value>
   // Back (the phone's key or swipe) picks the cancel option, or the only one;
   // a real choice (no cancel) stays on screen until it is answered.
   function choose(title, message, options) {
+    questions++;
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
       overlay.className = "rwk-modal";
@@ -291,6 +297,9 @@
       const answer = (opt) => {
         if (!overlay.isConnected) return;
         overlay.remove();
+        questions--;
+        Input.clear();
+        if (window.TouchInput) TouchInput.clear();
         syncBackEntry();
         resolve(opt.value);
       };
@@ -312,10 +321,66 @@
     });
   }
 
-  // Keeps taps on a toolkit element away from the game's TouchInput.
+  // Keeps taps on a toolkit element away from the game's TouchInput, and from
+  // game plugins that listen on the document for mouse, touch or pointer events.
+  const SHIELDED = ["mousedown", "mouseup", "mousemove", "touchstart", "touchmove", "touchend", "touchcancel", "wheel",
+    "pointerdown", "pointerup", "pointermove", "pointercancel", "click", "dblclick", "contextmenu"];
+  const TAP_SLOP = 10; // px a finger may move and still tap
   function shield(node) {
-    for (const type of ["mousedown", "mouseup", "mousemove", "touchstart", "touchmove", "touchend", "wheel"]) {
-      node.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+    node.setAttribute("data-rwk-ui", "");
+    for (const type of SHIELDED) node.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+    // A game plugin listening on window ahead of the toolkit can cancel the
+    // touch (preventDefault on touchstart, as the engine does on its canvas):
+    // the browser then sends no click and the button seems dead. Tap it here.
+    let tap = null;
+    node.addEventListener(
+      "touchstart",
+      (e) => {
+        const t = e.changedTouches[0];
+        tap = e.defaultPrevented && e.touches.length === 1 && t ? { target: e.target, x: t.clientX, y: t.clientY } : null;
+      },
+      { passive: true }
+    );
+    node.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.changedTouches[0];
+        if (tap && t && Math.hypot(t.clientX - tap.x, t.clientY - tap.y) > TAP_SLOP) tap = null;
+      },
+      { passive: true }
+    );
+    node.addEventListener("touchcancel", () => (tap = null), { passive: true });
+    node.addEventListener(
+      "touchend",
+      () => {
+        const target = tap && tap.target;
+        tap = null;
+        if (target && target.isConnected) activate(target);
+      },
+      { passive: true }
+    );
+  }
+
+  // What the browser does with a tap it was not allowed to turn into a click.
+  function activate(target) {
+    const control = target.closest && target.closest("button, input, select, textarea");
+    if (control && control.disabled) return;
+    if (control && control.matches("input, select, textarea")) control.focus();
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+  }
+
+  // A plugin that hands document or window events to TouchInput itself still
+  // reaches it: the engine ignores a press or a move that starts on the toolkit
+  // (releases go through, so a press that began on the game always ends).
+  const fromToolkit = (e) => !!(e && e.target && e.target.closest && e.target.closest("[data-rwk-ui]"));
+  if (window.TouchInput) {
+    for (const name of ["_onMouseDown", "_onMouseMove", "_onWheel", "_onTouchStart", "_onTouchMove", "_onPointerDown"]) {
+      const handler = TouchInput[name];
+      if (typeof handler !== "function") continue;
+      TouchInput[name] = function (event) {
+        if (fromToolkit(event)) return;
+        return handler.apply(this, arguments);
+      };
     }
   }
 
@@ -551,7 +616,7 @@
   let pausedVideo = null;
   const _updateScene = SceneManager.updateScene;
   SceneManager.updateScene = function () {
-    if (!menu) _updateScene.apply(this, arguments);
+    if (!menu && !questions) _updateScene.apply(this, arguments);
   };
 
   function pause() {
