@@ -228,7 +228,7 @@
         "Load the " + what,
         (info ? info + "\n\n" : "") + "Progress since then is lost.",
         [
-          { label: "Cancel", value: false },
+          { label: "Cancel", value: false, cancel: true },
           { label: "Load", value: true, primary: true },
         ]
       );

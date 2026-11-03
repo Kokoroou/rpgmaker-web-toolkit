@@ -36,6 +36,7 @@ class Node {
     if (!this.parentNode) return;
     this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
     this.parentNode = null;
+    for (const fn of observers) queueMicrotask(fn);
   }
   get isConnected() {
     let n = this;
@@ -80,6 +81,15 @@ class Node {
 
 let doc;
 let win;
+let observers = [];
+class MutationObserver {
+  constructor(fn) {
+    this.fn = fn;
+  }
+  observe() {
+    observers.push(this.fn);
+  }
+}
 
 function dispatch(target, event) {
   event.target = target;
@@ -102,7 +112,32 @@ function dispatch(target, event) {
   return !event.defaultPrevented;
 }
 
+// history with real async back(): popstate comes later, as in a browser.
+function fakeHistory() {
+  const w = win; // a back() still pending when the test ends must not reach the next one's window
+  const h = {
+    entries: [null],
+    get state() {
+      return this.entries[this.entries.length - 1];
+    },
+    pushState(state) {
+      this.entries.push(state);
+    },
+    back() {
+      setTimeout(() => this.pop(), 0);
+    },
+    // The player's Back key (or our back() landing).
+    pop() {
+      if (this.entries.length > 1) this.entries.pop();
+      for (const l of w.listeners.popstate || []) l.fn({ type: "popstate" });
+    },
+  };
+  return h;
+}
+const tick = () => new Promise((r) => setTimeout(r, 5));
+
 function load() {
+  observers = [];
   win = new Node("window");
   doc = new Node("#document");
   doc.documentElement = new Node("html");
@@ -141,7 +176,8 @@ function load() {
     innerHeight: 600,
     isSecureContext: false,
     TouchInput,
-    history: { pushState() {}, back() {}, state: null },
+    MutationObserver,
+    history: fakeHistory(),
     screen: {},
     caches: undefined,
   });
@@ -157,6 +193,7 @@ function load() {
     TouchInput,
     Input: { keyMapper: {}, clear() {} },
     MouseEvent,
+    MutationObserver,
     history: win.history,
     screen: win.screen,
     localStorage: { getItem: () => null, setItem() {} },
@@ -261,4 +298,57 @@ test("TouchInput ignores presses that start on the toolkit, whoever hands them o
   assert.deepEqual(game.touches, []);
   TouchInput._onTouchStart({ type: "touchstart", target: canvas });
   assert.deepEqual(game.touches, ["touchstart"]);
+});
+
+test("Back closes the window on top: a question with a cancel, then the panel under it", async () => {
+  const { RWK } = load();
+  const h = win.history;
+  const panel = doc.body.appendChild(new Node("div"));
+  let closed = 0;
+  RWK.onBack(panel, () => (closed++, panel.remove()));
+  assert.equal(h.entries.length, 2, "one history entry while a window is open");
+  const answer = RWK.choose("Use cheats?", "", [{ label: "Cancel", value: false, cancel: true }, { label: "Use cheats", value: true }]);
+  assert.equal(h.entries.length, 2, "still one entry for two windows");
+  h.pop(); // the player swipes back
+  assert.equal(await answer, false, "the question is cancelled");
+  assert.equal(closed, 0, "the panel under it stays");
+  assert.equal(h.entries.length, 2, "and keeps an entry for the next Back");
+  h.pop();
+  assert.equal(closed, 1);
+  assert.equal(h.entries.length, 1, "no entry left: the next Back leaves the game as usual");
+});
+
+test("Back does not answer a real choice, and closing a window by hand drops its entry", async () => {
+  const { RWK } = load();
+  const h = win.history;
+  let picked = null;
+  RWK.choose("Saves differ", "", [{ label: "Keep this device's", value: "local" }, { label: "Use the cloud's", value: "cloud" }]).then((v) => (picked = v));
+  h.pop();
+  await tick();
+  assert.equal(picked, null, "still asking");
+  assert.equal(h.entries.length, 2, "the entry is back");
+  question().buttons[1].dispatchEvent({ type: "click" });
+  await tick();
+  assert.equal(picked, "cloud");
+  assert.equal(h.entries.length, 1, "answered: its entry is gone (history.back)");
+
+  // A panel closed by its own button: the entry goes with it.
+  const panel = doc.body.appendChild(new Node("div"));
+  RWK.onBack(panel, () => panel.remove());
+  assert.equal(h.entries.length, 2);
+  panel.remove();
+  await tick();
+  assert.equal(h.entries.length, 1, "closed by hand: its entry is gone");
+
+  // A question that opens right after the ⚙ menu closed, before that back() lands.
+  const menu = doc.body.appendChild(new Node("div"));
+  RWK.onBack(menu, () => menu.remove());
+  menu.remove();
+  await Promise.resolve(); // the observer ran: back() is on its way
+  RWK.choose("OK?", "", [{ label: "OK", value: 1 }]);
+  await tick();
+  assert.equal(h.entries.length, 2, "the question has its own entry once our back() went through");
+  h.pop();
+  await tick();
+  assert.equal(doc.body.children.some((c) => c.className === "rwk-modal"), false, "Back answers a question with one button");
 });

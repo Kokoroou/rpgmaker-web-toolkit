@@ -212,6 +212,7 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
+    RWK.onBack(overlay, close);
   }
 
   function slotRow(id, closePanel, refreshPanel) {
@@ -293,7 +294,7 @@
           (has ? "\nThe save in that slot is replaced." : "") +
           "\n\nThe game restarts afterwards: progress not saved yet is lost.",
         [
-          { label: "Cancel", value: false },
+          { label: "Cancel", value: false, cancel: true },
           { label: "Import", value: true, primary: true },
         ]
       );

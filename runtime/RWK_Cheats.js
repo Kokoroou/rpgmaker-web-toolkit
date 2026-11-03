@@ -614,6 +614,7 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
+    RWK.onBack(overlay, close);
 
     const _updateScene = SceneManager.updateScene;
     SceneManager.updateScene = function () {};
@@ -640,7 +641,7 @@
         "Use cheats?",
         "Cheats change the game as its creator made it, and the changes stay in your saves.\n" +
           "Save first if you may want to go back.",
-        [{ label: "Cancel", value: false }, { label: "Use cheats", value: true, primary: true }]
+        [{ label: "Cancel", value: false, cancel: true }, { label: "Use cheats", value: true, primary: true }]
       );
       if (!ok) return;
       RWK.storage.set(OK_KEY, true);

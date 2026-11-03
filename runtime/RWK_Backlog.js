@@ -149,6 +149,7 @@
     overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
     document.body.appendChild(overlay);
+    RWK.onBack(overlay, close);
     list.scrollTop = list.scrollHeight; // newest at the bottom
     list.focus({ preventScroll: true });
 
