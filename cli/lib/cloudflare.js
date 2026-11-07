@@ -436,6 +436,15 @@ export function userHash(email) {
   return crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 32);
 }
 
+// Who may make MakerLens links from the game (⚙ → Share): the Cloudflare account's
+// email and `lens.owners`; "lens": false turns the feature off. -> hashes (worker/lens.js)
+export function lensOwnersOf(cfg, email) {
+  if (cfg.lens === false) return [];
+  const extra = cfg.lens && Array.isArray(cfg.lens.owners) ? cfg.lens.owners : [];
+  const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
+  return [...new Set(emails.map(userHash))];
+}
+
 export function listSaveFiles(saveDir, engine) {
   const ext = engineOf(engine).saveExtension;
   return fs

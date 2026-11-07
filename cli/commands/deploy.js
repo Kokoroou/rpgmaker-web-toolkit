@@ -16,8 +16,8 @@ import {
   probeAccess,
   saveGameConfigs,
   saveLiveSettings,
+  lensOwnersOf,
   syncOverflow,
-  userHash,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { AccessApiError, enableAccess, enableLensBypass } from "../lib/access-api.js";
@@ -413,15 +413,6 @@ async function retireWorkers(cfg) {
 
 const ACCESS_TOKEN_HINT =
   'Give the API token the "Access: Apps and Policies → Edit" and "Access: Organizations, Identity Providers, and Groups → Read" permissions (see the guide, "Run without questions"), or run the command once in a terminal.';
-
-// Who may make MakerLens links from the game (⚙ → Share): the Cloudflare account's
-// email and `lens.owners`; "lens": false turns the feature off. -> hashes (worker/lens.js)
-export function lensOwnersOf(cfg, email) {
-  if (cfg.lens === false) return [];
-  const extra = cfg.lens && Array.isArray(cfg.lens.owners) ? cfg.lens.owners : [];
-  const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
-  return [...new Set(emails.map(userHash))];
-}
 
 // The Bypass application for /_lens (worker/lens.js): MakerLens links carry their
 // own token, which the Worker checks. Not fatal: the rest of the game works without it.
