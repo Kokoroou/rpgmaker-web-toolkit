@@ -42,12 +42,12 @@ test("slug suggestion and validation", () => {
 });
 
 test("overflow routes: exact, folder fallback, everything", () => {
-  assert.deepEqual(overflowRoutes([]), ["/api/*"]);
-  assert.deepEqual(overflowRoutes(["img/parallaxes/A.png_"]), ["/api/*", "/img/parallaxes/A.png_"]);
+  assert.deepEqual(overflowRoutes([]), ["/api/*", "/_lens/*"]);
+  assert.deepEqual(overflowRoutes(["img/parallaxes/A.png_"]), ["/api/*", "/_lens/*", "/img/parallaxes/A.png_"]);
   const cjk = overflowRoutes(["img/p/大图.png_"]);
   assert.ok(cjk.includes("/img/p/大图.png_") && cjk.includes("/img/p/%E5%A4%A7%E5%9B%BE.png_"));
   const many = Array.from({ length: 120 }, (_, i) => `img/parallaxes/f${i}.png_`);
-  assert.deepEqual(overflowRoutes(many), ["/api/*", "/img/parallaxes/*"]);
+  assert.deepEqual(overflowRoutes(many), ["/api/*", "/_lens/*", "/img/parallaxes/*"]);
   assert.equal(overflowRoutes(["root-file.bin".repeat(1)].concat(many.map((m) => m.replace("img/parallaxes/", "")))), true);
 });
 
@@ -690,12 +690,12 @@ test("per-player settings reach the Worker, which then serves js/plugins.js", ()
     const file = writeWorkerProject({ buildDir, slug: "g", bucket, overflowRels: [], auth: {}, locked: false, toolkitRoot: path.join(import.meta.dirname, ".."), playerSettings });
     return { buildDir, config: JSON.parse(fs.readFileSync(file, "utf8")) };
   };
-  assert.deepEqual(project(undefined, null).config.assets.run_worker_first, ["/api/*"]);
+  assert.deepEqual(project(undefined, null).config.assets.run_worker_first, ["/api/*", "/_lens/*"]);
   const none = project(undefined);
-  assert.deepEqual(none.config.assets.run_worker_first, ["/api/*", "/js/plugins.js"], "the settings in R2 may change it");
+  assert.deepEqual(none.config.assets.run_worker_first, ["/api/*", "/_lens/*", "/js/plugins.js"], "the settings in R2 may change it");
   assert.equal(fs.readFileSync(path.join(none.buildDir, "player-settings.json"), "utf8"), "{}");
   const some = project({ abc: { backlog: false } });
-  assert.deepEqual(some.config.assets.run_worker_first, ["/api/*", "/js/plugins.js"]);
+  assert.deepEqual(some.config.assets.run_worker_first, ["/api/*", "/_lens/*", "/js/plugins.js"]);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(some.buildDir, "player-settings.json"), "utf8")), { abc: { backlog: false } });
   assert.match(fs.readFileSync(path.join(some.buildDir, "worker.js"), "utf8"), /createWorker\(\{ overflow, playerSettings \}\)/);
 });

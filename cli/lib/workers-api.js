@@ -34,8 +34,8 @@ export const WORKERS_API = {
 // The same Worker as writeWorkerProject() + `wrangler deploy`, plus the newer
 // toolkit for the Worker to serve (worker/toolkit.js). Modules go up
 // unbundled: the API resolves their relative imports. -> merge patch body
-export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, toolkit, translate = null }) {
-  const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory, translate });
+export function keepAssetsPatch({ slug, gameId = slug, bucket, overflowRels, auth, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, toolkit, translate = null, lensOwners = [] }) {
+  const vars = workerVars({ gameId, auth, locked: false, indexable, saveHistory, translate, lensOwners });
   const bindings = Object.entries(vars).map(([name, text]) => ({ name, type: "plain_text", text }));
   if (bucket) bindings.push({ name: "BUCKET", type: "r2_bucket", bucket_name: bucket });
   if (translate && bucket) bindings.push({ name: "AI", type: "ai" });

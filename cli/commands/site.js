@@ -149,7 +149,7 @@ export function purgeObjects(listed, gameId) {
   const own = (item) => {
     const parts = item.key.split("/");
     if (parts[0] === "saves" || parts[0] === "history") return parts[2] === gameId && parts.length > 3;
-    return item.key.startsWith(`assets/${gameId}/`);
+    return item.key.startsWith(`assets/${gameId}/`) || item.key.startsWith(`rwk/lens/${gameId}/`);
   };
   const singles = [`rwk/players/${gameId}.json`, settingsKey(gameId)].map((key) => ({ key, size: 0 }));
   return listed.filter(own).concat(singles);
@@ -165,7 +165,7 @@ async function listPurge(fingerprint, configs, session, d) {
   if (!token) throw new CliError("Not logged in to Cloudflare.", { hint: "Run the command in a terminal once to log in, or set CLOUDFLARE_API_TOKEN." });
   const where = { token, accountId: session.account.id, bucket: DEFAULT_BUCKET };
   const listed = [];
-  for (const prefix of ["saves/", "history/", `assets/${gameId}/`]) listed.push(...(await d.listObjects({ ...where, prefix })));
+  for (const prefix of ["saves/", "history/", `assets/${gameId}/`, `rwk/lens/${gameId}/`]) listed.push(...(await d.listObjects({ ...where, prefix })));
   return { where, objects: purgeObjects(listed, gameId) };
 }
 

@@ -307,7 +307,7 @@ export function overflowRoutes(rels, extra = []) {
   const variants = (p) => [...new Set([`/${p}`, encodeURI(`/${p}`)])];
   const fits = (rules) => rules.length <= MAX_RULES && rules.every((r) => r.length <= MAX_LEN);
 
-  const always = ["/api/*", ...extra];
+  const always = ["/api/*", "/_lens/*", ...extra];
   const exact = [...always, ...new Set(rels.flatMap(variants))];
   if (fits(exact)) return exact;
 
@@ -328,7 +328,7 @@ export const COMPATIBILITY_DATE = "2026-09-01";
 // The Worker's environment variables (worker/index.js reads them).
 // saveHistory: from saveHistoryConfig() (stage.js); translate: null (no
 // Workers AI binding) or { model, dailyChars, on } (limits.js, worker/translate.js)
-export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null }) {
+export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [] }) {
   const vars = {
     GAME_ID: gameId,
     AUTH_MODE: auth.mode || "locked",
@@ -339,13 +339,15 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory, trans
     RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
   };
   if (translate) vars.RWK_TRANSLATE = JSON.stringify(translate);
+  // Who may make MakerLens links from the game (worker/lens.js): hashes of emails.
+  if (lensOwners.length) vars.RWK_LENS_OWNERS = JSON.stringify(lensOwners);
   return vars;
 }
 
 // playerSettings: from playerOverrides() (stage.js). With a bucket or any
 // player settings, the Worker also serves js/plugins.js, to put the settings
 // from R2 (worker/settings.js) and each player's own in it.
-export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [] }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -371,7 +373,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
-    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate }),
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
@@ -432,6 +434,15 @@ export async function probeAccess(url) {
 
 export function userHash(email) {
   return crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 32);
+}
+
+// Who may make MakerLens links from the game (⚙ → Share): the Cloudflare account's
+// email and `lens.owners`; "lens": false turns the feature off. -> hashes (worker/lens.js)
+export function lensOwnersOf(cfg, email) {
+  if (cfg.lens === false) return [];
+  const extra = cfg.lens && Array.isArray(cfg.lens.owners) ? cfg.lens.owners : [];
+  const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
+  return [...new Set(emails.map(userHash))];
 }
 
 export function listSaveFiles(saveDir, engine) {
