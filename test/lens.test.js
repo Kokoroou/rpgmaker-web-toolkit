@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { LENS_MANIFEST, lensAllowed, lensKey, sha256Hex } from "../worker/lens.js";
-import { lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
+import { lensOwnersForUpgrade, lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
 import { lensManifest } from "../cli/lib/stage.js";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
@@ -216,6 +216,13 @@ test("lens owners: the Cloudflare email and lens.owners, off with lens: false", 
   const vars = workerVars({ gameId: "g", auth: { mode: "access" }, locked: false, indexable: false, saveHistory: false, lensOwners: ["abc"] });
   assert.equal(vars.RWK_LENS_OWNERS, '["abc"]');
   assert.ok(!("RWK_LENS_OWNERS" in workerVars({ gameId: "g", auth: {}, locked: false, indexable: false, saveHistory: false })));
+});
+
+test("upgrade: a game deployed before links gets its owner from the account that upgrades", () => {
+  assert.deepEqual(lensOwnersForUpgrade({}, "me@example.com"), [userHash("me@example.com")], "no owners stored yet: the upgrading account");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: ["abc"] }, "other@example.com"), ["abc"], "what the deploy stored is kept");
+  assert.deepEqual(lensOwnersForUpgrade({ lens: false }, "me@example.com"), [], "switched off stays off");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [] }, "me@example.com"), [], "a stored empty list (off at deploy) is not overridden");
 });
 
 test("purge removes the link records too", () => {

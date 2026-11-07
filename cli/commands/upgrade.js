@@ -6,7 +6,7 @@
 // creator's current policy and is otherwise not read.
 
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
+import { apiToken, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
@@ -35,7 +35,7 @@ export async function upgrade(input) {
     log.info(c.dim(game.root));
   }
 
-  const { account } = await connect(loadSettings());
+  const { email, account } = await connect(loadSettings());
   const bucket = DEFAULT_BUCKET;
 
   log.step("Finding the game");
@@ -78,6 +78,7 @@ export async function upgrade(input) {
   };
   const overflowRels = await loadOverflowRels(bucket, storageIdOf(cfg));
 
+  const lensOwners = lensOwnersForUpgrade(cfg, email);
   log.step("Updating the Worker (the game files stay as uploaded)");
   const patch = keepAssetsPatch({
     slug: cfg.slug,
@@ -90,7 +91,7 @@ export async function upgrade(input) {
     saveHistory: toolkit.config.saveHistory,
     playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
-    lensOwners: Array.isArray(cfg.lensOwners) ? cfg.lensOwners : [],
+    lensOwners,
     translate: translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE })),
   });
   const token = await apiToken();
@@ -103,7 +104,7 @@ export async function upgrade(input) {
   await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch });
   log.ok(`Worker "${cfg.slug}" updated`);
   // liveSettings only once the policy is known; the version in any case, for rwk status.
-  const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION };
+  const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION, lensOwners };
   if (JSON.stringify(updated) !== stored) {
     configs[fingerprint] = updated;
     await saveGameConfigs(bucket, configs);

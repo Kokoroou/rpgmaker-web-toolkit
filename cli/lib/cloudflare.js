@@ -445,6 +445,13 @@ export function lensOwnersOf(cfg, email) {
   return [...new Set(emails.map(userHash))];
 }
 
+// The owners for rwk upgrade: what the last deploy stored, or, for a game deployed
+// before MakerLens links, worked out from the account that runs the upgrade.
+export function lensOwnersForUpgrade(cfg, email) {
+  if (Array.isArray(cfg.lensOwners)) return cfg.lensOwners;
+  return lensOwnersOf(cfg, email);
+}
+
 export function listSaveFiles(saveDir, engine) {
   const ext = engineOf(engine).saveExtension;
   return fs
