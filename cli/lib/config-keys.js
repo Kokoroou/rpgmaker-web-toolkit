@@ -6,7 +6,7 @@
 import { UsageError } from "./ui.js";
 
 // What the toolkit writes itself; neither --set nor the guided editor changes them.
-export const IDENTITY_KEYS = ["slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion"];
+export const IDENTITY_KEYS = ["slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion", "lensOwners"];
 
 const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 

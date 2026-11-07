@@ -17,6 +17,8 @@
 // CORS is `*` without credentials on purpose: no cookie is involved, so the
 // token is the control, not the caller's origin.
 
+import { userHash } from "./auth.js";
+
 export const LENS_PREFIX = "/_lens/";
 export const LENS_MANIFEST = "rwk-lens.json";
 export const LENS_MAX_HOURS = 30 * 24;
@@ -28,6 +30,7 @@ const CACHE_MS = 60 * 1000;
 const cache = new Map(); // `${GAME_ID}/${id}` -> { at, secretHash, exp }
 
 export const lensKey = (gameId, id) => `rwk/lens/${gameId}/${id}.json`;
+export const LENS_MAX_LINKS = 20;
 
 // Whether a path of the web build may be read through a lens token.
 export function lensAllowed(rel) {
@@ -129,4 +132,93 @@ export async function handleLens(request, env, path, { overflowSet, serveOverflo
   }
 
   return fail("Not found", 404);
+}
+
+//---------------------------------------------------------------------------
+// The owner's side: /api/lens, behind Access like the rest of /api/. Only the
+// emails in RWK_LENS_OWNERS (hashes, set at deploy: the creator and `lens.owners`)
+// may make, list or stop links, so a player who was invited to play cannot hand
+// the game to someone who was not.
+//
+//   GET    /api/lens          { owner: true, links: [{ id, label, exp, created }] }  (403 for others)
+//   POST   /api/lens          { hours, label } -> { id, token, exp }  (the token is shown once)
+//   DELETE /api/lens/<id>     stops a link
+//---------------------------------------------------------------------------
+
+const ID = /^[0-9a-f]{12}$/;
+
+export async function isLensOwner(env, user) {
+  if (env.AUTH_MODE !== "access" || !env.BUCKET) return false;
+  let owners = [];
+  try {
+    owners = JSON.parse(env.RWK_LENS_OWNERS || "[]");
+  } catch {
+    owners = [];
+  }
+  return Array.isArray(owners) && owners.includes(await userHash(user.email));
+}
+
+const jsonReply = (data, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+
+function randomText(bytes) {
+  const raw = crypto.getRandomValues(new Uint8Array(bytes));
+  return btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function records(env) {
+  const prefix = `rwk/lens/${env.GAME_ID}/`;
+  const listed = await env.BUCKET.list({ prefix });
+  const out = [];
+  for (const object of listed.objects) {
+    const id = object.key.slice(prefix.length).replace(/\.json$/, "");
+    if (!ID.test(id)) continue;
+    try {
+      const obj = await env.BUCKET.get(object.key);
+      const data = obj && JSON.parse(new TextDecoder().decode(await obj.arrayBuffer()));
+      if (data && typeof data.exp === "number") out.push({ id, label: String(data.label || ""), exp: data.exp, created: data.created || 0 });
+    } catch {
+      // An unreadable record is not a link.
+    }
+  }
+  return out.sort((a, b) => b.created - a.created);
+}
+
+export async function handleLensApi(request, env, user, rest) {
+  if (!(await isLensOwner(env, user))) return jsonReply({ owner: false, error: "Only the game's owner can share it" }, 403);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (rest === "" && request.method === "GET") {
+    const links = (await records(env)).filter((l) => l.exp > now);
+    return jsonReply({ owner: true, links, maxHours: LENS_MAX_HOURS, defaultHours: LENS_DEFAULT_HOURS });
+  }
+
+  if (rest === "" && request.method === "POST") {
+    if (!(request.headers.get("content-type") || "").includes("application/json")) return jsonReply({ error: "Send JSON" }, 415);
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      return jsonReply({ error: "Send JSON" }, 400);
+    }
+    const hours = body.hours === undefined ? LENS_DEFAULT_HOURS : Number(body.hours);
+    if (!Number.isInteger(hours) || hours < 1 || hours > LENS_MAX_HOURS) return jsonReply({ error: `hours must be 1 to ${LENS_MAX_HOURS}` }, 400);
+    if ((await records(env)).filter((l) => l.exp > now).length >= LENS_MAX_LINKS) {
+      return jsonReply({ error: `At most ${LENS_MAX_LINKS} links at a time: stop one first` }, 409);
+    }
+    const id = [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const secret = randomText(24);
+    const exp = now + hours * 3600;
+    const label = typeof body.label === "string" ? body.label.trim().slice(0, 60) : "";
+    await env.BUCKET.put(lensKey(env.GAME_ID, id), JSON.stringify({ h: await sha256Hex(secret), exp, label, created: now }), { httpMetadata: { contentType: "application/json" } });
+    return jsonReply({ id, token: `${id}.${secret}`, exp, label });
+  }
+
+  if (ID.test(rest) && request.method === "DELETE") {
+    await env.BUCKET.delete(lensKey(env.GAME_ID, rest));
+    cache.delete(`${env.GAME_ID}/${rest}`);
+    return new Response(null, { status: 204 });
+  }
+
+  return jsonReply({ error: "Not found" }, 404);
 }

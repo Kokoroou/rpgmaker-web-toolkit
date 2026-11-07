@@ -76,18 +76,6 @@ export const COMMANDS = [
     examples: ["rwk saves export my-game --email me@example.com", "rwk saves export my-game --out ./backup"],
   },
   {
-    name: "lens",
-    summary: "Make a read-only link to look at the game's files and events in MakerLens, without making the game public",
-    targets: ["link", "name"],
-    options: {
-      hours: "How long the link works, 1 to 720 (default 24)",
-      label: "A note to tell this link apart in --list (who it is for)",
-      revoke: "Stop a link now: its id, as --list shows it",
-    },
-    switches: { list: "List the links of this game (id, note, expiry) and change nothing" },
-    examples: ["rwk lens my-game", "rwk lens my-game --hours 72 --label alice", "rwk lens my-game --list", "rwk lens my-game --revoke 1a2b3c4d5e6f"],
-  },
-  {
     name: "logs",
     summary: "Show the site's Worker logs as they happen, until Ctrl+C",
     targets: ["link", "name"],
@@ -135,7 +123,7 @@ export const FLAGS = [
   ["-V, --version", "Show the toolkit version"],
 ];
 
-const OPTION_VALUES = { hours: "hours", label: "note", revoke: "id", name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
+const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
@@ -212,7 +200,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, list, help, version, account, name, to, email, out, get, set, hours, label, revoke }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, name, to, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -228,7 +216,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         verbose: { type: "boolean" },
         "dry-run": { type: "boolean" },
         purge: { type: "boolean" },
-        list: { type: "boolean" },
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
@@ -239,9 +226,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         out: { type: "string" },
         get: { type: "string" },
         set: { type: "string", multiple: true },
-        hours: { type: "string" },
-        label: { type: "string" },
-        revoke: { type: "string" },
       },
     });
   } catch (err) {
@@ -259,7 +243,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     noColor: !!values["no-color"],
     dryRun: !!values["dry-run"],
     purge: !!values.purge,
-    list: !!values.list,
     help: !!values.help,
     version: !!values.version,
     account: values.account,
@@ -269,9 +252,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     out: values.out,
     get: values.get,
     set: values.set,
-    hours: values.hours,
-    label: values.label,
-    revoke: values.revoke,
   };
   // --json implies --yes: a script reads the result. No terminal on stdin means nobody to answer.
   const unattended = flags.json || flags.yes || !stdinIsTTY;
@@ -297,14 +277,14 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  for (const option of ["name", "to", "email", "out", "get", "set", "hours", "label", "revoke"]) {
+  for (const option of ["name", "to", "email", "out", "get", "set"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
   }
   if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
-  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["list", flags.list]]) {
+  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;

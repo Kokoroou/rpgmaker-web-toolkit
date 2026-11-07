@@ -57,6 +57,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Cheats          cheats, off by default: party, gold and items, win a battle, switches and variables, movement
                                  (god mode: Game_Actor.setHp; walk through walls: Game_Player.isDebugThrough)
+             RWK_Lens            ⚙ → Share → MakerLens link: the owner makes and stops read-only links (/api/lens)
              RWK_Offline         ⚙ → Play offline: downloads every file in the Service Worker's list into its cache, resumable
              RWK_Report          problem report: latest errors, audio state, files that failed to load
            worker/         One Worker shared by every game
@@ -66,6 +67,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              players.js          counts the emails that save, for the deploy's reminder
              toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
+             lens.js             /_lens/* read-only files for MakerLens (share token) and /api/lens for the owner
              translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
 ```
 
@@ -130,14 +132,15 @@ Before the Worker overwrites or deletes a save, it copies the old one to `histor
 
 ## Look at the game in MakerLens
 
-`rwk lens my-game` makes a link that opens the game in [MakerLens Assets and Events](https://makerlens.kokoroou.workers.dev/) while the game stays private behind Access.
+The game's owner can open the game in [MakerLens Assets and Events](https://makerlens.kokoroou.workers.dev/) while it stays private behind Access, from the game itself: **⚙ → Share → MakerLens link**. The entry shows only for the owner's emails.
 
-- **The link.** `https://makerlens.kokoroou.workers.dev/assets/#game=<site>&t=<token>`. The token is after the `#`, so the browser never sends it to MakerLens or in a Referer; it goes only to your game's Worker, as `Authorization: Bearer`.
-- **The token.** `<id>.<secret>`. R2 keeps only the SHA-256 of the secret and the expiry (`rwk/lens/<game>/<id>.json`); `--revoke` deletes the record (the Worker remembers a valid token for up to a minute). It lasts 24 hours unless `--hours` says otherwise, 30 days at most.
-- **What it opens.** Three routes of the Worker, `/_lens/ping`, `/_lens/manifest` (names and sizes from `rwk-lens.json`, written at each deploy) and `/_lens/file/<path>`, which serves only `data/`, `img/`, `audio/` and `js/plugins.js`. It never opens the save API, other players' data or the other files. Large files from R2 work, with `Range`.
-- **Access.** `/_lens` is the one path left outside the sign-in: `rwk lens` creates a second Access application on `<site>/_lens` with a Bypass policy (the most specific path wins; the rest of the site stays protected). The token check in the Worker is then the only gate there. Without the API token's Access permissions, the command prints the dashboard steps.
-- **CORS** is `*` without credentials: no cookie is involved, so the token, not the caller's origin, is what protects the files.
-- The game must have been deployed with a toolkit that has this (the file list is made at deploy): run `rwk deploy` once after updating. `rwk upgrade` alone cannot add it, because the game folder is gone.
+- **Who is an owner.** The email of the Cloudflare account that deployed, plus the emails in the config's `"lens": { "owners": ["a@example.com"] }`. A player who was invited to play is not an owner, so cannot hand the game to someone who was not. `"lens": false` turns it off. Owners are written to the Worker at deploy as hashes (`RWK_LENS_OWNERS`); a public game (no Access) has none.
+- **The link.** `https://makerlens.kokoroou.workers.dev/assets/#game=<site>&t=<token>`, for Assets and for Events. The token is after the `#`, so the browser never sends it to MakerLens or in a Referer; it goes only to your game's Worker, as `Authorization: Bearer`. It is shown once, when the link is made.
+- **The token.** `<id>.<secret>`. R2 keeps only the SHA-256 of the secret, the expiry and the note (`rwk/lens/<game>/<id>.json`). The owner picks 1 hour to 30 days (a day by default), has up to 20 links at a time, and stops one from the same panel: the record is deleted and the Worker forgets that token at once.
+- **What it opens.** Three routes, `/_lens/ping`, `/_lens/manifest` (names and sizes from `rwk-lens.json`, written at each deploy) and `/_lens/file/<path>`, which serves only `data/`, `img/`, `audio/` and `js/plugins.js` (large files from R2 too, with `Range`). It never opens the save API, the owner's API or any other file.
+- **Access.** `/_lens` is the one path left outside the sign-in: `rwk deploy` creates a second Access application on `<site>/_lens` with a Bypass policy (the most specific path wins; the rest of the site stays protected). The token check in the Worker is then the only gate there. If the API token cannot make it, deploy prints the dashboard steps, and the panel warns when a new link cannot get through.
+- **CORS** on `/_lens` is `*` without credentials: no cookie is involved, so the token, not the caller's origin, is what protects the files. The owner's API (`/api/lens`) needs the Access login and a JSON body, so another site cannot make links.
+- A game deployed before this needs `rwk deploy` once more (it adds the file list, the owner list and the bypass); `rwk upgrade` alone adds the entry and the owner list but not the file list.
 
 ## Security
 

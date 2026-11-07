@@ -17,9 +17,10 @@ import {
   saveGameConfigs,
   saveLiveSettings,
   syncOverflow,
+  userHash,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
-import { AccessApiError, enableAccess } from "../lib/access-api.js";
+import { AccessApiError, enableAccess, enableLensBypass } from "../lib/access-api.js";
 import { analyzeGame, collectFiles, nonAsciiPaths, storageIdOf, suggestSlug, takenNames, validateSlug } from "../lib/game.js";
 import { editorCommand, openUrlCommand } from "../lib/platform.js";
 import { loadLimits } from "../lib/limits.js";
@@ -167,7 +168,9 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     saveHistory: runtimeConfigOf(game.engine, cfg).saveHistory,
     playerSettings,
     translate: translateWorker(cfg, policy, limits),
+    lensOwners: lensOwnersOf(cfg, email),
   };
+  cfg.lensOwners = worker.lensOwners; // for rwk upgrade, which has no folder to ask
   // Written before the Worker, which reads it from R2 and puts it over the build's own.
   const publishSettings = () => saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
   await publishSettings();
@@ -194,7 +197,9 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     } else {
       log.warn("The site is still locked. Run this command again to finish setting up access protection.");
     }
-  } else if (cfg.auth.mode === "access" && cfg.url) {
+  }
+  if (cfg.auth.mode === "access" && cfg.url && isAuthReady(cfg.auth)) await ensureLensBypass(cfg, account);
+  if (authReady && cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);
     if (probe.protected) log.ok("Cloudflare Access is protecting the site");
     else log.warn(c.yellow("Cloudflare Access is NO LONGER protecting the site! Check the dashboard (Worker → Access)."));
@@ -408,6 +413,29 @@ async function retireWorkers(cfg) {
 
 const ACCESS_TOKEN_HINT =
   'Give the API token the "Access: Apps and Policies → Edit" and "Access: Organizations, Identity Providers, and Groups → Read" permissions (see the guide, "Run without questions"), or run the command once in a terminal.';
+
+// Who may make MakerLens links from the game (⚙ → Share): the Cloudflare account's
+// email and `lens.owners`; "lens": false turns the feature off. -> hashes (worker/lens.js)
+export function lensOwnersOf(cfg, email) {
+  if (cfg.lens === false) return [];
+  const extra = cfg.lens && Array.isArray(cfg.lens.owners) ? cfg.lens.owners : [];
+  const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
+  return [...new Set(emails.map(userHash))];
+}
+
+// The Bypass application for /_lens (worker/lens.js): MakerLens links carry their
+// own token, which the Worker checks. Not fatal: the rest of the game works without it.
+async function ensureLensBypass(cfg, account) {
+  if (!cfg.lensOwners || !cfg.lensOwners.length) return;
+  const token = await apiToken();
+  if (!token) return;
+  try {
+    await enableLensBypass({ token, accountId: account.id, slug: cfg.slug, url: cfg.url });
+  } catch (err) {
+    if (!(err instanceof AccessApiError)) throw err;
+    log.warn(`MakerLens links need an Access bypass for ${new URL(cfg.url).hostname}/_lens and it could not be made: ${err.message}\n${ACCESS_TOKEN_HINT}\nOr in Zero Trust → Access controls → Applications add a self-hosted application on ${new URL(cfg.url).hostname}/_lens with a Bypass policy (Include: Everyone).`);
+  }
+}
 
 // Creates the Access application and its policy through the API.
 // -> true when cfg.auth is set; false when it could not be done (the reason is logged).

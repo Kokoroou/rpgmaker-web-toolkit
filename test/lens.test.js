@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { LENS_MANIFEST, lensAllowed, lensKey, sha256Hex } from "../worker/lens.js";
-import { lens, newToken, parseHours, probeLens, viewerLinks } from "../cli/commands/lens.js";
-import { COMMANDS, parseCommandLine } from "../cli/lib/args.js";
+import { lensOwnersOf } from "../cli/commands/deploy.js";
+import { userHash, workerVars } from "../cli/lib/cloudflare.js";
+import { userHash as workerUserHash } from "../worker/auth.js";
 import { lensManifest } from "../cli/lib/stage.js";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
 import { purgeObjects } from "../cli/commands/site.js";
@@ -96,6 +97,8 @@ test("lens worker: a token never opens the save API or the game itself", async (
   const headers = await issue(env);
   assert.equal((await call("/api/saves", { headers })).status, 401, "the save API still wants the Access login");
   assert.equal((await call("/api/me", { headers })).status, 401);
+  assert.equal((await call("/api/lens", { headers })).status, 401, "nor the owner's API");
+  assert.equal((await call("/api/lens", { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: "{}" })).status, 401);
 });
 
 test("lens worker: large files come from R2 with Range", async () => {
@@ -127,90 +130,93 @@ test("lens routes always go through the Worker", () => {
   assert.ok(overflowRoutes(["a/b.bin"]).includes("/_lens/*"));
 });
 
-test("rwk lens: arguments and links", () => {
-  assert.ok(COMMANDS.some((cmd) => cmd.name === "lens"));
-  const cli = parseCommandLine(["lens", "my-game", "--hours", "72", "--label", "alice"], { stdinIsTTY: true });
-  assert.deepEqual([cli.spec.name, cli.target, cli.flags.hours, cli.flags.label], ["lens", "my-game", "72", "alice"]);
-  assert.equal(parseCommandLine(["lens", "my-game", "--list"], { stdinIsTTY: true }).flags.list, true);
-  assert.throws(() => parseCommandLine(["status", "my-game", "--hours", "2"], { stdinIsTTY: true }), (err) => err.exitCode === 64);
-  assert.throws(() => parseCommandLine(["status", "my-game", "--list"], { stdinIsTTY: true }), (err) => err.exitCode === 64);
 
-  assert.equal(parseHours(undefined), 24);
-  assert.equal(parseHours("720"), 720);
-  for (const bad of ["0", "721", "1.5", "abc"]) assert.throws(() => parseHours(bad), /--hours/);
+// ---- the owner's side: /api/lens
 
-  const { id, secret } = newToken();
-  assert.match(id, /^[0-9a-f]{12}$/);
-  assert.ok(secret.length >= 32);
-  const links = viewerLinks("https://my-game.alice.workers.dev/some/path", `${id}.${secret}`);
-  assert.equal(links.assets, `https://makerlens.kokoroou.workers.dev/assets/#game=https%3A%2F%2Fmy-game.alice.workers.dev&t=${id}.${secret}`);
-  assert.ok(links.events.startsWith("https://makerlens.kokoroou.workers.dev/events/#game="));
-  assert.ok(!links.assets.includes("?"), "nothing in the query: the token stays in the fragment");
-});
-
-test("probeLens tells what is wrong", async () => {
-  const reply = (...statuses) => async () => new Response("", { status: statuses.shift() });
-  assert.equal(await probeLens("https://g.workers.dev", "t", reply(200, 200)), "ok");
-  assert.equal(await probeLens("https://g.workers.dev", "t", reply(200, 404)), "manifest");
-  assert.equal(await probeLens("https://g.workers.dev", "t", reply(302)), "access");
-  assert.equal(await probeLens("https://g.workers.dev", "t", reply(404)), "old");
-  assert.match(await probeLens("https://g.workers.dev", "t", async () => Promise.reject(new Error("boom"))), /error: boom/);
-});
-
-function fakeDeps(over = {}) {
-  const store = new Map();
-  const calls = { bypass: 0 };
-  return {
-    store,
-    calls,
-    deps: {
-      connect: async () => ({ account: { id: "acc", name: "A" } }),
-      loadSettings: () => ({}),
-      findSite: async () => ({ slug: "my-game", url: "https://my-game.a.workers.dev", title: "G", engine: "MZ", auth: { mode: "access" } }),
-      apiToken: async () => "tok",
-      saveLensToken: async (bucket, gameId, id, record) => store.set(lensKey(gameId, id), record),
-      enableLensBypass: async () => void calls.bypass++,
-      probeLens: async () => "ok",
-      listObjects: async ({ prefix }) => [...store.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key, size: 1 })),
-      getObject: async ({ key }) => Buffer.from(JSON.stringify(store.get(key))),
-      deleteObject: async ({ key }) => void store.delete(key),
-      now: () => 1_700_000_000_000,
-      ...over,
-    },
-  };
+async function ownerEnv() {
+  const owners = JSON.stringify([userHash("me@example.com")]);
+  const { env, call } = setup({ RWK_LENS_OWNERS: owners });
+  return { env, call };
 }
 
-test("rwk lens: creates a link, lists it, revokes it", async () => {
-  const { store, calls, deps } = fakeDeps();
-  const made = await lens("my-game", { hours: "48", label: "alice" }, deps);
-  assert.equal(calls.bypass, 1, "Access gets its bypass for /_lens");
-  assert.equal(store.size, 1);
-  const [key, record] = [...store][0];
-  assert.match(key, /^rwk\/lens\/my-game\/[0-9a-f]{12}\.json$/);
-  assert.equal(record.exp, 1_700_000_000 + 48 * 3600);
-  assert.equal(record.label, "alice");
-  const token = made.links.assets.split("&t=")[1];
-  assert.equal(record.h, await sha256Hex(token.split(".")[1]), "only the hash of the secret is stored");
-  assert.ok(!JSON.stringify(record).includes(token.split(".")[1]));
+// These call the handler with a user object: the Access JWT check itself is in worker.test.js.
+import { handleLensApi, isLensOwner } from "../worker/lens.js";
 
-  const listed = await lens("my-game", { list: true }, deps);
-  assert.deepEqual(listed.links.map((l) => [l.id, l.label, l.expired]), [[made.linkId, "alice", false]]);
+const as = (email) => ({ email });
+const post = (body, type = "application/json") => new Request(BASE + "/api/lens", { method: "POST", headers: { "content-type": type }, body: JSON.stringify(body) });
 
-  await assert.rejects(lens("my-game", { revoke: "ffffffffffff" }, deps), /No link ffffffffffff/);
-  await assert.rejects(lens("my-game", { revoke: "nope" }, deps), /not a link id/);
-  await lens("my-game", { revoke: made.linkId }, deps);
-  assert.equal(store.size, 0);
+test("lens api: only the owner's email may use it, and a public game has no owner", async () => {
+  const { env } = await ownerEnv();
+  assert.equal(await isLensOwner(env, as("me@example.com")), true);
+  assert.equal(await isLensOwner(env, as("ME@Example.com ")), true, "case and spaces do not matter");
+  assert.equal(await isLensOwner(env, as("friend@example.com")), false);
+  const none = makeEnv({ AUTH_MODE: "none", RWK_LENS_OWNERS: JSON.stringify([userHash("me@example.com")]) });
+  assert.equal(await isLensOwner(none, as("me@example.com")), false);
+  assert.equal(await isLensOwner(makeEnv({ AUTH_MODE: "access" }), as("me@example.com")), false, "no owners set: off");
+  assert.equal(userHash("me@example.com"), await workerUserHash("me@example.com"), "the CLI and the Worker hash alike");
+
+  const denied = await handleLensApi(new Request(BASE + "/api/lens"), env, as("friend@example.com"), "");
+  assert.equal(denied.status, 403);
+  assert.equal((await denied.json()).owner, false);
 });
 
-test("rwk lens: a public game needs no bypass; an Access failure only warns", async () => {
-  const open = fakeDeps({ findSite: async () => ({ slug: "g", url: "https://g.a.workers.dev", auth: { mode: "none" } }) });
-  await lens("g", {}, open.deps);
-  assert.equal(open.calls.bypass, 0);
+test("lens api: make a link, use it, list it, stop it", async () => {
+  const { env, call } = await ownerEnv();
+  const owner = as("me@example.com");
 
-  const { AccessApiError } = await import("../cli/lib/access-api.js");
-  const denied = fakeDeps({ enableLensBypass: async () => Promise.reject(new AccessApiError("no permission", { denied: true })) });
-  const made = await lens("my-game", {}, denied.deps);
-  assert.ok(made.links.events, "the link is still made");
+  const made = await handleLensApi(post({ hours: 48, label: "  alice  " }), env, owner, "");
+  assert.equal(made.status, 200);
+  const { id, token, exp, label } = await made.json();
+  assert.match(id, /^[0-9a-f]{12}$/);
+  assert.match(token, /^[0-9a-f]{12}\.[A-Za-z0-9_-]{32}$/);
+  assert.equal(label, "alice");
+  assert.ok(Math.abs(exp - (Date.now() / 1000 + 48 * 3600)) < 5);
+
+  const stored = JSON.parse(new TextDecoder().decode(await (await env.BUCKET.get(lensKey(env.GAME_ID, id))).arrayBuffer()));
+  assert.equal(stored.h, await sha256Hex(token.split(".")[1]), "only the hash of the secret is kept");
+  assert.ok(!JSON.stringify(stored).includes(token.split(".")[1]));
+
+  // The new token opens the game's files through /_lens.
+  const ping = await call("/_lens/ping", { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(ping.status, 200);
+
+  const listed = await (await handleLensApi(new Request(BASE + "/api/lens"), env, owner, "")).json();
+  assert.deepEqual(listed.links.map((l) => [l.id, l.label]), [[id, "alice"]]);
+  assert.ok(!JSON.stringify(listed).includes(token), "the list never carries a key");
+
+  const stopped = await handleLensApi(new Request(BASE + `/api/lens/${id}`, { method: "DELETE" }), env, owner, id);
+  assert.equal(stopped.status, 204);
+  assert.equal((await (await handleLensApi(new Request(BASE + "/api/lens"), env, owner, "")).json()).links.length, 0);
+  assert.equal((await call("/_lens/ping", { headers: { authorization: `Bearer ${token}` } })).status, 401, "stopped at once, not after a minute");
+});
+
+test("lens api: a player cannot make, list or stop links; bad input is refused", async () => {
+  const { env } = await ownerEnv();
+  const friend = as("friend@example.com");
+  assert.equal((await handleLensApi(post({ hours: 1 }), env, friend, "")).status, 403);
+  assert.equal((await handleLensApi(new Request(BASE + "/api/lens/aabbccddeeff", { method: "DELETE" }), env, friend, "aabbccddeeff")).status, 403);
+
+  const owner = as("me@example.com");
+  for (const hours of [0, 721, 1.5, "x"]) assert.equal((await handleLensApi(post({ hours }), env, owner, "")).status, 400, String(hours));
+  assert.equal((await handleLensApi(post({ hours: 1 }, "text/plain"), env, owner, "")).status, 415, "a form from another site cannot send this");
+  assert.equal((await handleLensApi(new Request(BASE + "/api/lens/not-an-id", { method: "DELETE" }), env, owner, "not-an-id")).status, 404);
+});
+
+test("lens api: at most 20 links at a time", async () => {
+  const { env } = await ownerEnv();
+  const owner = as("me@example.com");
+  for (let i = 0; i < 20; i++) assert.equal((await handleLensApi(post({ hours: 1 }), env, owner, "")).status, 200);
+  assert.equal((await handleLensApi(post({ hours: 1 }), env, owner, "")).status, 409);
+});
+
+test("lens owners: the Cloudflare email and lens.owners, off with lens: false", () => {
+  assert.deepEqual(lensOwnersOf({}, "Me@Example.com"), [userHash("me@example.com")]);
+  assert.equal(lensOwnersOf({ lens: { owners: ["me@example.com", "co@example.com", "nonsense"] } }, "me@example.com").length, 2);
+  assert.deepEqual(lensOwnersOf({ lens: false }, "me@example.com"), []);
+  assert.deepEqual(lensOwnersOf({}, undefined), []);
+  const vars = workerVars({ gameId: "g", auth: { mode: "access" }, locked: false, indexable: false, saveHistory: false, lensOwners: ["abc"] });
+  assert.equal(vars.RWK_LENS_OWNERS, '["abc"]');
+  assert.ok(!("RWK_LENS_OWNERS" in workerVars({ gameId: "g", auth: {}, locked: false, indexable: false, saveHistory: false })));
 });
 
 test("purge removes the link records too", () => {

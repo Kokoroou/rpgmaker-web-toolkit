@@ -13,7 +13,7 @@
 // everyone's settings and playerSettings, so an edit needs no redeploy.
 
 import { AuthError, identify, userHash } from "./auth.js";
-import { LENS_PREFIX, handleLens } from "./lens.js";
+import { LENS_PREFIX, handleLens, handleLensApi } from "./lens.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
 import { liveSettings } from "./settings.js";
 import { patchConfig, serveToolkit } from "./toolkit.js";
@@ -72,6 +72,8 @@ async function handleApi(request, env, path, whoIs) {
     if (path === "/api/history") return handleHistory(request, env, user, "");
     if (path.startsWith("/api/history/")) return handleHistory(request, env, user, path.slice("/api/history/".length));
     if (path === "/api/translate") return handleTranslate(request, env, user);
+    if (path === "/api/lens") return handleLensApi(request, env, user, "");
+    if (path.startsWith("/api/lens/")) return handleLensApi(request, env, user, path.slice("/api/lens/".length));
     return json({ error: "Not found" }, 404);
   } catch (err) {
     if (err instanceof AuthError) return json({ error: err.message }, err.status);

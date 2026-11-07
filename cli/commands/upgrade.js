@@ -90,6 +90,7 @@ export async function upgrade(input) {
     saveHistory: toolkit.config.saveHistory,
     playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
+    lensOwners: Array.isArray(cfg.lensOwners) ? cfg.lensOwners : [],
     translate: translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE })),
   });
   const token = await apiToken();

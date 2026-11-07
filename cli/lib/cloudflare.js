@@ -9,7 +9,6 @@ import path from "node:path";
 import LZString from "lz-string";
 import { engineOf } from "./engines.js";
 import { CliError, NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
-import { lensKey } from "../../worker/lens.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
@@ -208,11 +207,6 @@ export async function saveLiveSettings(bucket, gameId, settings) {
   await r2PutJson(bucket, settingsKey(gameId), settings);
 }
 
-// A MakerLens share link's record (worker/lens.js): { h, exp, label, created }
-export async function saveLensToken(bucket, gameId, id, record) {
-  await r2PutJson(bucket, lensKey(gameId, id), record);
-}
-
 // { [sha256(email)]: first save time }, kept by the Worker (worker/players.js).
 export async function loadPlayers(bucket, slug) {
   const raw = await r2Get(bucket, `rwk/players/${slug}.json`);
@@ -334,7 +328,7 @@ export const COMPATIBILITY_DATE = "2026-09-01";
 // The Worker's environment variables (worker/index.js reads them).
 // saveHistory: from saveHistoryConfig() (stage.js); translate: null (no
 // Workers AI binding) or { model, dailyChars, on } (limits.js, worker/translate.js)
-export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null }) {
+export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [] }) {
   const vars = {
     GAME_ID: gameId,
     AUTH_MODE: auth.mode || "locked",
@@ -345,13 +339,15 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory, trans
     RWK_SAVE_HISTORY: saveHistory ? JSON.stringify(saveHistory) : "off",
   };
   if (translate) vars.RWK_TRANSLATE = JSON.stringify(translate);
+  // Who may make MakerLens links from the game (worker/lens.js): hashes of emails.
+  if (lensOwners.length) vars.RWK_LENS_OWNERS = JSON.stringify(lensOwners);
   return vars;
 }
 
 // playerSettings: from playerOverrides() (stage.js). With a bucket or any
 // player settings, the Worker also serves js/plugins.js, to put the settings
 // from R2 (worker/settings.js) and each player's own in it.
-export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [] }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -377,7 +373,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
-    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate }),
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
