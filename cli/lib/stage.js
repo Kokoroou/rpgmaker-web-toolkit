@@ -14,6 +14,7 @@ import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.j
 import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
+import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Report"];
 
@@ -320,6 +321,15 @@ export function serviceWorkerSource(files, generated = new Set()) {
     .replace("/*RWK_BUILD_ID*/", buildId);
 }
 
+// The files MakerLens may list and read through a share link (worker/lens.js):
+// { title, engine, files: { rel: size } }, written to the build as rwk-lens.json.
+// Only names and sizes, no content; the Worker serves it with a valid token only.
+export function lensManifest(game, files) {
+  const list = {};
+  for (const f of [...files].sort((a, b) => (a.rel < b.rel ? -1 : 1))) if (lensAllowed(f.rel)) list[f.rel] = f.size;
+  return JSON.stringify({ v: 1, title: game.title, engine: game.engine, files: list });
+}
+
 // Width and height of a PNG file's content, or null.
 export function pngSize(buffer) {
   if (buffer.length < 24 || buffer.readUInt32BE(0) !== 0x89504e47 || buffer.toString("ascii", 12, 16) !== "IHDR") return null;
@@ -349,6 +359,8 @@ export function generatedFiles(game, gameConfig, files = []) {
 
   const pluginsJs = fs.readFileSync(resolveCI(game.root, "js", "plugins.js"), "utf8");
   out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
+
+  out.set(LENS_MANIFEST, lensManifest(game, files));
 
   if (runtimeConfig.cache) out.set("rwk-sw.js", serviceWorkerSource(files, new Set(out.keys())));
 

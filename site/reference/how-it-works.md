@@ -128,6 +128,17 @@ At boot, before the engine reads a save, the plugin keeps the newer of each loca
 
 Before the Worker overwrites or deletes a save, it copies the old one to `history/`: at most once per 15 minutes per save, unless another device or a delete replaces it. It then drops copies past `saveHistory` (`keep` per save, `days` old). Restoring copies one back over the save, after keeping the save it replaces.
 
+## Look at the game in MakerLens
+
+`rwk lens my-game` makes a link that opens the game in [MakerLens Assets and Events](https://makerlens.kokoroou.workers.dev/) while the game stays private behind Access.
+
+- **The link.** `https://makerlens.kokoroou.workers.dev/assets/#game=<site>&t=<token>`. The token is after the `#`, so the browser never sends it to MakerLens or in a Referer; it goes only to your game's Worker, as `Authorization: Bearer`.
+- **The token.** `<id>.<secret>`. R2 keeps only the SHA-256 of the secret and the expiry (`rwk/lens/<game>/<id>.json`); `--revoke` deletes the record (the Worker remembers a valid token for up to a minute). It lasts 24 hours unless `--hours` says otherwise, 30 days at most.
+- **What it opens.** Three routes of the Worker, `/_lens/ping`, `/_lens/manifest` (names and sizes from `rwk-lens.json`, written at each deploy) and `/_lens/file/<path>`, which serves only `data/`, `img/`, `audio/` and `js/plugins.js`. It never opens the save API, other players' data or the other files. Large files from R2 work, with `Range`.
+- **Access.** `/_lens` is the one path left outside the sign-in: `rwk lens` creates a second Access application on `<site>/_lens` with a Bypass policy (the most specific path wins; the rest of the site stays protected). The token check in the Worker is then the only gate there. Without the API token's Access permissions, the command prints the dashboard steps.
+- **CORS** is `*` without credentials: no cookie is involved, so the token, not the caller's origin, is what protects the files.
+- The game must have been deployed with a toolkit that has this (the file list is made at deploy): run `rwk deploy` once after updating. `rwk upgrade` alone cannot add it, because the game folder is gone.
+
 ## Security
 
 - **Cloudflare Access** blocks requests at Cloudflare's edge; the Worker also checks the login's signature to learn the email.

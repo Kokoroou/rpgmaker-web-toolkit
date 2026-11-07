@@ -9,6 +9,7 @@ import path from "node:path";
 import LZString from "lz-string";
 import { engineOf } from "./engines.js";
 import { CliError, NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
+import { lensKey } from "../../worker/lens.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
 
@@ -207,6 +208,11 @@ export async function saveLiveSettings(bucket, gameId, settings) {
   await r2PutJson(bucket, settingsKey(gameId), settings);
 }
 
+// A MakerLens share link's record (worker/lens.js): { h, exp, label, created }
+export async function saveLensToken(bucket, gameId, id, record) {
+  await r2PutJson(bucket, lensKey(gameId, id), record);
+}
+
 // { [sha256(email)]: first save time }, kept by the Worker (worker/players.js).
 export async function loadPlayers(bucket, slug) {
   const raw = await r2Get(bucket, `rwk/players/${slug}.json`);
@@ -307,7 +313,7 @@ export function overflowRoutes(rels, extra = []) {
   const variants = (p) => [...new Set([`/${p}`, encodeURI(`/${p}`)])];
   const fits = (rules) => rules.length <= MAX_RULES && rules.every((r) => r.length <= MAX_LEN);
 
-  const always = ["/api/*", ...extra];
+  const always = ["/api/*", "/_lens/*", ...extra];
   const exact = [...always, ...new Set(rels.flatMap(variants))];
   if (fits(exact)) return exact;
 

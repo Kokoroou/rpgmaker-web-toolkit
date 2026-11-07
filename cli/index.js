@@ -4,6 +4,7 @@ import { analyze } from "./commands/analyze.js";
 import { deploy } from "./commands/deploy.js";
 import { doctor } from "./commands/doctor.js";
 import { editConfig } from "./commands/config.js";
+import { lens } from "./commands/lens.js";
 import { exportSaves } from "./commands/saves-export.js";
 import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
@@ -82,6 +83,8 @@ async function main() {
       return status(target);
     case "saves export":
       return exportSaves(target, { email: flags.email, out: flags.out });
+    case "lens":
+      return lens(target, { hours: flags.hours, label: flags.label, revoke: flags.revoke, list: flags.list });
     case "logs":
       return logs(target);
     case "open":

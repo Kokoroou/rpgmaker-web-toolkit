@@ -35,6 +35,7 @@ const DONE = {
   "config": "config saved",
   status: "status",
   "saves export": "saves downloaded",
+  lens: "MakerLens link",
   logs: "logs",
   open: "opened",
   list: "sites",

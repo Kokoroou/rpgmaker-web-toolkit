@@ -199,6 +199,7 @@ test("delete --purge: lists first, then deletes the Worker, the R2 objects and t
     "list saves/ tok acc",
     "list history/ tok acc",
     "list assets/my-game/ tok acc",
+    "list rwk/lens/my-game/ tok acc",
     "ask",
     "worker new-name",
     "delete saves/p1/my-game/file1",

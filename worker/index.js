@@ -13,6 +13,7 @@
 // everyone's settings and playerSettings, so an edit needs no redeploy.
 
 import { AuthError, identify, userHash } from "./auth.js";
+import { LENS_PREFIX, handleLens } from "./lens.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
 import { liveSettings } from "./settings.js";
 import { patchConfig, serveToolkit } from "./toolkit.js";
@@ -44,6 +45,7 @@ export function createWorker({ overflow = [], toolkit = null, playerSettings = {
       if (env.RWK_LOCKED === "1") return lockedPage();
 
       if (path.startsWith("/api/")) return handleApi(request, env, path, whoIs);
+      if (path.startsWith(LENS_PREFIX)) return handleLens(request, env, path, { overflowSet, serveOverflow });
 
       const rel = path.slice(1);
       let res = null;

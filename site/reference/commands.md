@@ -48,6 +48,7 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks. `--dry-run` checks the name and changes nothing | folder | [Update](/setup/updating#change-the-site-address) |
 | `& $rwk status my-game` | Whether the site is up, whether Access is in front of it, how many emails have saves, and which toolkit version it runs (recorded from this version on) | link, name | |
 | `& $rwk saves export my-game --email me@example.com` | Downloads that player's cloud saves into `my-game-saves/` (`--out <folder>` to choose), as `.rmmzsave` / `.rpgsave` files. Needs the token permission *Workers R2 Storage → Read* when you use `CLOUDFLARE_API_TOKEN` | link, name | |
+| `& $rwk lens my-game` | Makes a read-only link to look at the game's pictures, audio and events in [MakerLens](https://makerlens.kokoroou.workers.dev/) without making the game public. `--hours <1-720>` (default 24) sets how long it works, `--label <note>` tells links apart, `--list` shows the links, `--revoke <id>` stops one. See [Look at the game in MakerLens](/reference/how-it-works#look-at-the-game-in-makerlens) | link, name | |
 | `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
 | `& $rwk open my-game` | Opens the site in the browser | link, name | |
 | `& $rwk list` | Lists the games published in this Cloudflare account | none | |

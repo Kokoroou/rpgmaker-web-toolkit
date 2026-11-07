@@ -89,3 +89,28 @@ export async function enableAccess({ token, accountId, slug, url, emails }) {
   log.ok(`Access application created for ${host}`);
   return { teamDomain, aud: app.aud, created: true };
 }
+
+// MakerLens share links (worker/lens.js) are checked by the Worker itself, so
+// they need a way past Access: a second application on <host>/_lens with a
+// Bypass policy. Access picks the most specific path, so the rest of the
+// site stays behind the sign-in. Run again, it reuses what exists.
+export async function enableLensBypass({ token, accountId, slug, url }) {
+  const host = new URL(url).hostname;
+  const name = `${slug}-lens`;
+  const body = { name, decision: "bypass", include: [{ everyone: {} }] };
+  const policies = await call(token, "GET", `/accounts/${accountId}/access/policies?per_page=100`);
+  const existing = (policies || []).find((p) => p.name === name);
+  const policyId = existing ? (await call(token, "PUT", `/accounts/${accountId}/access/policies/${existing.id}`, body), existing.id) : (await call(token, "POST", `/accounts/${accountId}/access/policies`, body)).id;
+
+  const domain = `${host}/_lens`;
+  const apps = await call(token, "GET", `/accounts/${accountId}/access/apps?per_page=100`);
+  const found = (apps || []).find((a) => a.domain === domain);
+  const app = { name, domain, type: "self_hosted", session_duration: "24h", app_launcher_visible: false, policies: [{ id: policyId, precedence: 1 }] };
+  if (found) {
+    await call(token, "PUT", `/accounts/${accountId}/access/apps/${found.id}`, app);
+    return { created: false };
+  }
+  await call(token, "POST", `/accounts/${accountId}/access/apps`, app);
+  log.ok(`Access bypass created for ${domain} (MakerLens links only)`);
+  return { created: true };
+}
