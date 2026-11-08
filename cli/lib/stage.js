@@ -16,7 +16,7 @@ import { applyPolicy, isIndexable } from "./policy.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
 
-export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Lens", "RWK_Report"];
+export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Lens", "RWK_Download", "RWK_Report"];
 
 // Shown in the in-game problem report (RWK_Report).
 export const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
