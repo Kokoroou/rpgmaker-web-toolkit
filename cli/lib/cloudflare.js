@@ -328,7 +328,7 @@ export const COMPATIBILITY_DATE = "2026-09-01";
 // The Worker's environment variables (worker/index.js reads them).
 // saveHistory: from saveHistoryConfig() (stage.js); translate: null (no
 // Workers AI binding) or { model, dailyChars, on } (limits.js, worker/translate.js)
-export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [] }) {
+export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [], downloadOwners = [] }) {
   const vars = {
     GAME_ID: gameId,
     AUTH_MODE: auth.mode || "locked",
@@ -341,13 +341,15 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory, trans
   if (translate) vars.RWK_TRANSLATE = JSON.stringify(translate);
   // Who may make MakerLens links from the game (worker/lens.js): hashes of emails.
   if (lensOwners.length) vars.RWK_LENS_OWNERS = JSON.stringify(lensOwners);
+  // Who may download the web build as a ZIP (worker/download.js): hashes of emails.
+  if (downloadOwners.length) vars.RWK_DOWNLOAD_OWNERS = JSON.stringify(downloadOwners);
   return vars;
 }
 
 // playerSettings: from playerOverrides() (stage.js). With a bucket or any
 // player settings, the Worker also serves js/plugins.js, to put the settings
 // from R2 (worker/settings.js) and each player's own in it.
-export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [] }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [], downloadOwners = [] }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -373,7 +375,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
-    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners }),
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners, downloadOwners }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
@@ -450,6 +452,23 @@ export function lensOwnersOf(cfg, email) {
 export function lensOwnersForUpgrade(cfg, email) {
   if (Array.isArray(cfg.lensOwners)) return cfg.lensOwners;
   return lensOwnersOf(cfg, email);
+}
+
+// Who may download the web build as a ZIP (GET /api/download): the Cloudflare
+// account's email and `download.owners`; "download": false turns it off.
+// -> hashes (worker/download.js)
+export function downloadOwnersOf(cfg, email) {
+  if (cfg.download === false) return [];
+  const extra = cfg.download && Array.isArray(cfg.download.owners) ? cfg.download.owners : [];
+  const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
+  return [...new Set(emails.map(userHash))];
+}
+
+// The owners for rwk upgrade: what the last deploy stored, or derived from the
+// account that runs the upgrade (same logic as lens).
+export function downloadOwnersForUpgrade(cfg, email) {
+  if (Array.isArray(cfg.downloadOwners)) return cfg.downloadOwners;
+  return downloadOwnersOf(cfg, email);
 }
 
 export function listSaveFiles(saveDir, engine) {
