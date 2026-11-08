@@ -14,10 +14,35 @@
 // its release, so the game's Input cannot stay down. The game works as before
 // everywhere else. Toolkit listeners that do want those events mark
 // themselves with `fn.__rwkUI = true`.
+//
+// It also gives the page the `process` object a browser lacks, which NW.js
+// (Game.exe) always has. A game plugin that reads `process.versions` at the top
+// level then throws in a browser, and the rest of that file never runs: the
+// plugins after it on the same file are gone. With the object here they load
+// as they do on the desktop. It is deliberately NOT a Node.js process: no
+// `require`, and an empty `versions` without `node-webkit`, so the engine's
+// `Utils.isNwjs()` and every `if (!Utils.isNwjs()) return` branch still see a
+// browser (a plugin that thought otherwise would call `require('fs')`).
 //=============================================================================
 
 (() => {
   "use strict";
+
+  // Before the game's plugins are read: they run at load time.
+  if (typeof window.process === "undefined") {
+    window.process = {
+      versions: {}, // no "node-webkit": NW.js-only branches stay off
+      platform: "",
+      arch: "",
+      env: {},
+      argv: [],
+      browser: true,
+      title: "browser",
+      version: "",
+      cwd: () => "/",
+      nextTick: (fn, ...args) => setTimeout(() => fn(...args), 0),
+    };
+  }
 
   const MARK = "[data-rwk-ui]";
 
