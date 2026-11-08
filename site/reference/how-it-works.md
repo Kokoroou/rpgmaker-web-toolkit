@@ -40,7 +40,7 @@ These pictures are drawn by `site/diagrams/build.mjs` (run `node site/diagrams/b
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
            runtime/        Scripts injected into the web build
-             rwk-guard.js        loaded from index.html before the game's plugins: the game's own listeners skip taps and keys
+             rwk-guard.js        loaded from index.html before the game's plugins: the game's own listeners skip taps and keys, and the page gets the `process` object NW.js has
                                  meant for the toolkit's buttons and dialogs
              RWK_Core            config, device id, toasts, dialogs, ⚙ menu, web build label
              RWK_Language        ⚙ → Language: points data/ requests (XMLHttpRequest) at data-<code>/ files, file by file
@@ -70,6 +70,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              toolkit.js          the toolkit's part of js/plugins.js, and the guard in index.html; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
              lens.js             /_lens/* read-only files for MakerLens (share token) and /api/lens for the owner
+             download.js         /api/download: the build's ZIP from R2, for the host only
              translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
 ```
 
@@ -80,12 +81,14 @@ The game folder is never written to. Each run:
 1. Picks the files: the standard RPG Maker folders, plus `include`, minus `exclude`.
 2. **Hard-links** them into `<game drive>:\.rwk-build\` (no extra disk space; copies on another drive).
 3. Adds the plugins to the build's copy of `js/plugins.js`, loads `js/rwk-guard.js` from `index.html` before them, and marks the page with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
+   The guard also gives the page a `process` object, which NW.js (the game's own `Game.exe`) always has. A game plugin that reads `process.versions` at the top level throws in a browser, and the rest of its file never runs — a plugin that draws a HUD, or patches the menu, silently disappears. The object is not a Node.js one: no `require`, and no `versions["node-webkit"]`, so `Utils.isNwjs()` stays false and the plugins that open files on the desktop still skip that part in a browser.
    Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Help** → **Game files on this device**. Turn it off with [`cache`](/reference/config).
 
    The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
-5. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
-6. Deletes the build folder.
+5. Makes the build's ZIP (`cli/lib/zip.js`) and uploads it to R2, unless the files it would hold are the ones the archive in R2 was made from. It is what the host downloads in ⚙ → **Share** → **Download game**.
+6. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
+7. Deletes the build folder.
 
 ## Settings per player
 
@@ -113,6 +116,8 @@ Static files are **Workers Static Assets** (free, unmetered bandwidth). One R2 b
 rwk/games.json                       settings of every game (keyed by fingerprint)
 assets/<slug>/<path>                 files over 25 MiB
 assets/<slug>/.rwk-manifest.json     hashes of those files
+assets/<slug>/rwk.zip                the whole web build, for the host's ⚙ → Share → Download game
+assets/<slug>/rwk.zip.json           what that archive holds, so a deploy with no change skips it
 saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
 history/<sha256(email)>/<slug>/<name>/<time>
                                      older copies of those saves (not config and global)
@@ -125,6 +130,8 @@ rwk/translate/usage/<day>.json       characters sent to Workers AI that day (UTC
 `<slug>` is the site name the game was first deployed under (`storageId` after a [rename](/setup/updating#change-the-site-address)), so a rename moves nothing.
 
 Saves are stored under a hash of the email, never the email itself.
+
+The archive is made by the CLI at deploy (`cli/lib/zip.js`), not by the Worker: reading a game's thousands of files from inside a Worker would use one subrequest per file, and the free plan allows 50 outside Cloudflare and 1,000 to its own services per request. It is one object, served with `Range`, so a dropped download resumes instead of starting again. A game deployed before this existed has no archive (the entry stays hidden) until it is deployed again. It follows the files in R2: a very large build counts against the free plan's 10 GB.
 
 ## Save sync
 

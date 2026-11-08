@@ -11,6 +11,7 @@ import { engineOf } from "./engines.js";
 import { CliError, NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
 import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
+import { writeZip } from "./zip.js";
 
 //---------------------------------------------------------------------------
 // Account
@@ -294,6 +295,80 @@ function hashFile(file) {
       .on("error", reject)
       .on("end", () => resolve(hash.digest("hex")));
   });
+}
+
+//---------------------------------------------------------------------------
+// The build as one ZIP, for the host's "Download game" (worker/download.js).
+// It is made here and uploaded, instead of streamed file by file by the Worker:
+// a game has thousands of files and the free plan allows few subrequests.
+//---------------------------------------------------------------------------
+
+const BUILD_ZIP_KEY = (slug) => `assets/${slug}/rwk.zip`;
+// What the current archive holds, so a later deploy can skip making and
+// uploading a 1.5 GB archive for the same build.
+const BUILD_ZIP_META_KEY = (slug) => `assets/${slug}/rwk.zip.json`;
+
+// What the archive would hold: every file's path, size and date. A deploy that
+// changes nothing else gets the same signature, and keeps the archive it made.
+export function zipSignature(entries) {
+  const hash = crypto.createHash("sha256");
+  for (const entry of entries) {
+    const st = fs.statSync(entry.abs);
+    hash.update(`${entry.rel}\0${st.size}\0${Math.floor(st.mtimeMs)}\n`);
+  }
+  return hash.digest("hex");
+}
+
+// What the archive holds: what the site serves as static assets (assets), plus
+// the large files kept in R2 (overflow). Generated files (js/plugins.js, the
+// toolkit's plugins) are in `assets` at their staged path.
+// -> [{ rel, abs }], the order the archive keeps (sorted by path).
+export function zipEntries(publicDir, assets, overflow = []) {
+  const entries = new Map();
+  for (const file of assets) entries.set(file.rel, path.join(publicDir, ...file.rel.split("/")));
+  // The toolkit's own generated files are not in `assets`: take them from the build.
+  for (const rel of walkBuild(publicDir)) if (!entries.has(rel)) entries.set(rel, path.join(publicDir, ...rel.split("/")));
+  for (const file of overflow) entries.set(file.rel, file.abs);
+  return [...entries]
+    .map(([rel, abs]) => ({ rel, abs }))
+    .sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+}
+
+function walkBuild(dir, rel = "") {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const next = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...walkBuild(path.join(dir, entry.name), next));
+    else out.push(next);
+  }
+  return out;
+}
+
+// Makes assets/<slug>/rwk.zip from `entries` and uploads it, unless the archive
+// in R2 was made from the same files (then nothing is made or uploaded).
+// zipPath: where to write it, next to the build; it is deleted after the upload.
+// -> { bytes, entries, uploaded }
+export async function uploadBuildZip({ bucket, slug, entries, zipPath, io = {} }) {
+  const { make = writeZip, put = r2Put, putJson = r2PutJson, get = r2Get, bar = progressLine() } = io;
+  const signature = zipSignature(entries);
+  let previous = null;
+  try {
+    const raw = await get(bucket, BUILD_ZIP_META_KEY(slug));
+    previous = raw ? JSON.parse(raw.toString("utf8")) : null;
+  } catch {
+    previous = null; // an unreadable record only costs a new upload
+  }
+  if (previous && previous.signature === signature && previous.bytes) {
+    bar.end();
+    return { ...previous, uploaded: false };
+  }
+
+  if (bar.live) bar.update(`${sym.up} ZIP · ${entries.length} files`);
+  const made = await make(zipPath, entries);
+  bar.end();
+  await put(bucket, BUILD_ZIP_KEY(slug), zipPath, "application/zip");
+  await putJson(bucket, BUILD_ZIP_META_KEY(slug), { signature, ...made });
+  return { ...made, uploaded: true };
 }
 
 // run_worker_first rules: exact paths when they fit, else the parent folder.
