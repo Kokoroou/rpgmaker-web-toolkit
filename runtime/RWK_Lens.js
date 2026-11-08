@@ -97,7 +97,11 @@
     }
     const overlay = el("div", { className: "rwk-modal" });
     const box = el("div", { className: "rwk-modal-box rwk-lens" });
-    const close = () => overlay.remove();
+    let done = null;
+    const close = () => {
+      overlay.remove();
+      if (done) done();
+    };
 
     const intro = el("p", {
       textContent:
@@ -121,10 +125,12 @@
     const actions = el("div", { className: "rwk-modal-actions" }, closeBtn);
     box.append(el("h2", { textContent: "MakerLens link" }), intro, form, fresh, list, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
+    done = RWK.panel(overlay, { close });
+    // The note comes first, and Enter in it makes the link.
+    note.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !make.disabled) make.click();
+    });
 
     async function refresh() {
       const res = await api("");

@@ -335,10 +335,12 @@
       b.addEventListener("click", onClick);
       return b;
     };
+    let done = null;
     const close = () => {
       overlay.remove();
       style.remove();
       panel = null;
+      if (done) done();
     };
 
     const render = () => {
@@ -394,12 +396,10 @@
       note.textContent = [running, ...bits].filter(Boolean).join("\n");
     };
 
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
     panel = { render };
-    render();
+    render(); // fills the buttons before the frame puts the focus on one
+    done = RWK.panel(overlay, { close });
     if (!active) scan();
   }
 

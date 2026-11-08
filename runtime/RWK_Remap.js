@@ -142,7 +142,7 @@
   //---------------------------------------------------------------------------
 
   let overlay = null;
-  let restoreUpdate = null;
+  let detach = null; // takes the panel off RWK.panel()'s frame
   let capturing = null; // { stop }
 
   function injectStyle() {
@@ -195,8 +195,17 @@
         if (e.repeat || ["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
         done(e.key === "Escape" ? null : e.keyCode);
       };
+      // The key comes from the panel's own button, which rwk-guard.js would
+      // keep from the game; this listener is the toolkit's, so it still runs.
+      onKey.__rwkUI = true;
       window.addEventListener("keydown", onKey, true);
-      capturing = { stop: () => window.removeEventListener("keydown", onKey, true) };
+      const release = RWK.ownKeys(onKey);
+      capturing = {
+        stop: () => {
+          window.removeEventListener("keydown", onKey, true);
+          release();
+        },
+      };
     } else {
       // The first button that goes down after the panel started listening.
       const pressed = () => {
@@ -296,41 +305,20 @@
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-label", "Keys and buttons");
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
-    render();
-
-    const _updateScene = SceneManager.updateScene;
-    SceneManager.updateScene = function () {};
-    restoreUpdate = () => (SceneManager.updateScene = _updateScene);
+    render(); // the box gets its rows before the frame picks the first control
+    detach = RWK.panel(overlay, { box, close });
   }
 
   function close() {
     if (!overlay) return;
     stopCapture();
-    overlay.remove();
+    const node = overlay;
     overlay = null;
-    if (restoreUpdate) restoreUpdate();
-    restoreUpdate = null;
-    Input.clear();
-    if (window.TouchInput) TouchInput.clear();
+    node.remove();
+    if (detach) detach();
+    detach = null;
   }
-
-  // While open (and not listening) the keys belong to the panel; Esc closes it.
-  window.addEventListener(
-    "keydown",
-    (e) => {
-      if (!overlay || capturing) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      e.stopPropagation();
-    },
-    true
-  );
 
   RWK.tools.add({
     icon: RWK.icons.keys,

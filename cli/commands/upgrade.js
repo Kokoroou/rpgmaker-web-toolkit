@@ -10,7 +10,7 @@ import { apiToken, downloadOwnersForUpgrade, lensOwnersForUpgrade, loadGameConfi
 import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
-import { RUNTIME_PLUGINS, TOOLKIT_VERSION, liveSettingsOf, runtimeConfigOf, runtimeSources, translateWorker } from "../lib/stage.js";
+import { RUNTIME_PLUGINS, TOOLKIT_VERSION, guardSource, liveSettingsOf, runtimeConfigOf, runtimeSources, translateWorker } from "../lib/stage.js";
 import { loadLimits } from "../lib/limits.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, ask, c, confirm, log } from "../lib/ui.js";
@@ -73,6 +73,7 @@ export async function upgrade(input) {
   const toolkit = {
     names: RUNTIME_PLUGINS,
     plugins: runtimeSources(),
+    guard: guardSource(),
     config: runtimeConfigOf(cfg.engine, gameConfig),
     keepOff: cfg.policy === undefined,
   };

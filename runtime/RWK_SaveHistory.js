@@ -117,7 +117,11 @@
     const note = document.createElement("p");
     note.textContent = "Loading…";
     list.appendChild(note);
-    const close = () => overlay.remove();
+    let done = null;
+    const close = () => {
+      overlay.remove();
+      if (done) done();
+    };
 
     const actions = document.createElement("div");
     actions.className = "rwk-modal-actions";
@@ -127,10 +131,8 @@
     actions.appendChild(closeBtn);
     box.append(h, p, list, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
+    done = RWK.panel(overlay, { close });
 
     sync
       .history()

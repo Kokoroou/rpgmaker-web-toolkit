@@ -45,6 +45,7 @@ Waves 0, 1, A and B are done (details in [CHANGELOG.md](../CHANGELOG.md)):
 | Cheats panel in tabs, with search and browse | 0.5.0 |
 | Engine table (`cli/lib/engines.js`): one description per engine instead of `engine === "MZ"` checks | next |
 | Settings menu redesign, steps 2–5: clearer groups, a page per group with summaries, the phone's Back key, switch and segmented rows, search above 15 rows | next |
+| Toolkit buttons and dialogs inside games whose plugins swallow `click` / `touchend` (the 2026-11 review's first finding, R7): `rwk-guard.js` loads before the game's plugins and keeps their listeners from seeing toolkit events, toolkit layers sit above the game, and one `RWK.panel()` frame pauses the game and gives every dialog Esc / Enter / Tab and the focus; the "hostile game" matrix runs in `test/guard.test.js` | next |
 | CLI follow-ups: toolkit version in `status`, GitHub Actions annotations, `doctor` checks R2 and the workers.dev subdomain, `config --get` / `--set`, `--dry-run` for `rename` and `saves import`, `upgrade` from a game folder, `deploy --name`, `delete --purge` | next |
 
 "next" is merged on `main` and goes out with the next release; "guide" ships with the docs site, not in a release. `storage.persist()` is asked for by the save flow (`RWK_SafeSaves`). Still open from the finished waves: the "Try to continue" / "Back to a safe map" buttons and the ffmpeg audio fallback (see [Later](#later)).

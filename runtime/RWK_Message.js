@@ -145,9 +145,12 @@
   // Held Ctrl skips, unless Skip is off or the game's plugins use the key for something else.
   const free = canSkip && (!Input.keyMapper[17] || Input.keyMapper[17] === "control");
   const releaseCtrl = () => (ctrlHeld = false);
-  window.addEventListener("keydown", (e) => {
-    if (free && e.keyCode === 17 && !RWK.tools.isOpen()) ctrlHeld = true;
-  });
-  window.addEventListener("keyup", (e) => e.keyCode === 17 && releaseCtrl());
+  const onKey = (e) => {
+    if (free && e.keyCode === 17 && !RWK.dialogsOpen()) ctrlHeld = true;
+  };
+  const onCtrlUp = (e) => e.keyCode === 17 && releaseCtrl();
+  onKey.__rwkUI = onCtrlUp.__rwkUI = true; // the toolkit's own: rwk-guard.js lets them through
+  window.addEventListener("keydown", onKey);
+  window.addEventListener("keyup", onCtrlUp);
   window.addEventListener("blur", releaseCtrl);
 })();

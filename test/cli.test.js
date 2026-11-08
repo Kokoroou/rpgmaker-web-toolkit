@@ -141,6 +141,33 @@ test("readPolicy looks in the web root and the game folder", () => {
   assert.equal(bad.problems.length, 1);
 });
 
+test("web build: the guard runs before the game's plugins", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(
+    path.join(root, "index.html"),
+    '<html><head></head><body><script src="js/libs/pixi.js"></script>\n<script src="js/plugins.js"></script>\n<script src="js/main.js"></script></body></html>'
+  );
+  const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: { enabled: false } });
+  const html = out.get("index.html");
+  assert.ok(out.has("js/rwk-guard.js"), "the guard is written to the build");
+  assert.match(out.get("js/rwk-guard.js"), /__rwkGuard/);
+  assert.ok(html.indexOf("js/rwk-guard.js") < html.indexOf('src="js/plugins.js"'), "and loads before the game's plugins");
+  assert.ok(html.indexOf("js/libs/pixi.js") < html.indexOf("js/rwk-guard.js"), "after the engine's libraries");
+});
+
+// A page without the plugins.js script still gets the guard, in its head.
+test("web build: the guard goes in the head of a page that loads its scripts another way", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head><title>G</title></head><body></body></html>");
+  const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: { enabled: false } });
+  assert.match(out.get("index.html"), /<script src="js\/rwk-guard\.js"><\/script>/);
+  assert.ok(out.get("index.html").indexOf("rwk-guard.js") < out.get("index.html").indexOf("</head>"));
+});
+
 test("web build: search engines are kept out unless a public site asks to be listed", () => {
   const root = tmp();
   fs.mkdirSync(path.join(root, "js"));

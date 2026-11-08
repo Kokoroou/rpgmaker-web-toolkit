@@ -270,7 +270,7 @@
   //---------------------------------------------------------------------------
 
   let overlay = null;
-  let restoreUpdate = null;
+  let detach = null; // takes the panel off RWK.panel()'s frame
   const chosen = {}; // the tab last picked in each row of tabs, kept while the game runs
 
   function injectStyle() {
@@ -611,24 +611,17 @@
     const actions = el("div", { className: "rwk-modal-actions" }, [button("Close", close)]);
     box.append(el("h2", { textContent: "Cheats" }), body, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
-
-    const _updateScene = SceneManager.updateScene;
-    SceneManager.updateScene = function () {};
-    restoreUpdate = () => (SceneManager.updateScene = _updateScene);
+    detach = RWK.panel(overlay, { box, close });
   }
 
   function close() {
     if (!overlay) return;
-    overlay.remove();
+    const node = overlay;
     overlay = null;
-    if (restoreUpdate) restoreUpdate();
-    restoreUpdate = null;
-    Input.clear();
-    if (window.TouchInput) TouchInput.clear();
+    node.remove();
+    if (detach) detach();
+    detach = null;
   }
 
   async function start() {
@@ -648,20 +641,6 @@
     }
     open();
   }
-
-  // While open the keys belong to the panel (typing in its boxes); Esc closes it.
-  window.addEventListener(
-    "keydown",
-    (e) => {
-      if (!overlay) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-      e.stopPropagation();
-    },
-    true
-  );
 
   RWK.tools.add({
     icon: RWK.icons.wand,

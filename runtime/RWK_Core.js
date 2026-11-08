@@ -60,13 +60,14 @@
 
   const style = document.createElement("style");
   style.textContent = `
-.rwk-toast{position:fixed;left:12px;bottom:12px;z-index:60;max-width:min(80vw,420px);padding:6px 12px;
+.rwk-toast{position:fixed;left:12px;bottom:12px;z-index:2147483600;max-width:min(80vw,420px);padding:6px 12px;
   border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font:13px/1.4 system-ui,sans-serif;
   pointer-events:none;opacity:0;transition:opacity .25s}
 .rwk-toast.show{opacity:1}
 .rwk-toast.warn{background:rgba(150,90,0,.9)}
 .rwk-toast.error{background:rgba(160,20,20,.92)}
-.rwk-modal{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;
+/* The toolkit sits over anything the game draws, however high its own layers are. */
+.rwk-modal{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.6);padding:16px;font:15px/1.5 system-ui,sans-serif}
 .rwk-modal-box{background:#1d1d22;color:#eee;border-radius:12px;padding:18px 20px;max-width:440px;width:100%;
   box-shadow:0 10px 40px rgba(0,0,0,.5)}
@@ -273,16 +274,93 @@
     if (ms > 0) toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
   }
 
-  // Questions on screen (choose): the game waits for the answer, as it does
-  // while the ⚙ menu is open, so a tap that a game plugin still sees cannot
-  // walk the party to where the button was.
-  let questions = 0;
+  //---------------------------------------------------------------------------
+  // One frame for every dialog the toolkit opens (a question, the ⚙ menu and
+  // the panels of the other plugins): the game pauses, focus moves inside, Esc
+  // closes or cancels, Enter presses the primary button, Tab cycles inside,
+  // and no key or tap meant for the dialog reaches the game.
+  //---------------------------------------------------------------------------
+
+  const dialogs = []; // open toolkit dialogs, newest last: { node, box, close, open }
+  // A panel that listens for the next key itself (RWK_Remap) says so: the
+  // frame then leaves the keys alone until release() runs.
+  let keyOwner = null;
+  function ownKeys(fn) {
+    keyOwner = fn;
+    return () => {
+      if (keyOwner === fn) keyOwner = null;
+    };
+  }
+
+  const isField = (node) => !!node && /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName);
+
+  // A listener of the toolkit's own on window, document or body that must still
+  // see the events the game's listeners skip (rwk-guard.js marks it).
+  const ui = (fn) => ((fn.__rwkUI = true), fn);
+
+  function controlsIn(box) {
+    const out = [];
+    const walk = (node) => {
+      if (node.disabled || node.hidden) return;
+      if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(node.tagName)) out.push(node);
+      for (const child of node.children) walk(child);
+    };
+    walk(box);
+    return out;
+  }
+
+  // The dialog's own choice of control gets the focus; otherwise the primary
+  // button, so Enter answers the question and Tab walks the rest.
+  function focusInside(dialog) {
+    const controls = controlsIn(dialog.box);
+    const chosen = dialog.focus && dialog.focus();
+    const target = chosen || controls.find((n) => n.getAttribute("data-rwk-primary") !== null) || controls[0] || dialog.box;
+    if (target.tabIndex === undefined) target.tabIndex = -1;
+    target.focus();
+  }
+
+  function detachDialog(dialog) {
+    const i = dialogs.indexOf(dialog);
+    if (i < 0) return;
+    dialogs.splice(i, 1);
+    dialog.open = false;
+    const top = dialogs[dialogs.length - 1];
+    if (top) focusInside(top);
+    const root = document.documentElement;
+    if (!dialogs.length && root && root.removeAttribute) root.removeAttribute("data-rwk-dialog");
+    resume();
+    syncBackEntry();
+  }
+
+  // node: the .rwk-modal overlay, with its box already inside; close: what Esc,
+  // the Back key and a tap on the dimmed page do (null when the dialog must be
+  // answered); key: (event) -> true when the dialog used the key itself.
+  // -> a function that takes the dialog off the frame, once: call it from
+  // whatever closes the dialog (its own button, Esc, Back).
+  function panel(node, { box, close = null, key = null, focus = null } = {}) {
+    box = box || node.children[0];
+    const dialog = { node, box, close, key, focus, open: true };
+    box.setAttribute("role", box.getAttribute("role") || "dialog");
+    box.setAttribute("aria-modal", "true");
+    node.setAttribute("data-rwk-ui", "");
+    // rwk-guard.js: the keys are the dialog's, wherever the focus went.
+    const root = document.documentElement;
+    if (root && root.setAttribute) root.setAttribute("data-rwk-dialog", "");
+    dialogs.push(dialog);
+    pause();
+    document.body.appendChild(node);
+    onBack(node, () => close && close());
+    node.addEventListener("click", (e) => e.target === node && close && close());
+    focusInside(dialog);
+    return () => {
+      if (dialog.open) detachDialog(dialog);
+    };
+  }
 
   // options: [{ label, value, primary, cancel }] -> Promise<value>
-  // Back (the phone's key or swipe) picks the cancel option, or the only one;
-  // a real choice (no cancel) stays on screen until it is answered.
+  // Esc and Back pick the cancel option (or the only one); a real choice (no
+  // cancel) stays on screen until it is answered.
   function choose(title, message, options) {
-    questions++;
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
       overlay.className = "rwk-modal";
@@ -294,30 +372,30 @@
       p.textContent = message;
       const actions = document.createElement("div");
       actions.className = "rwk-modal-actions";
+      const cancel = options.find((o) => o.cancel) || (options.length === 1 && options[0]) || null;
+      let done = null;
       const answer = (opt) => {
-        if (!overlay.isConnected) return;
+        if (!done) return;
+        const finish = done;
+        done = null;
         overlay.remove();
-        questions--;
-        Input.clear();
-        if (window.TouchInput) TouchInput.clear();
-        syncBackEntry();
+        finish();
         resolve(opt.value);
       };
       for (const opt of options) {
         const b = document.createElement("button");
         b.textContent = opt.label;
-        if (opt.primary) b.className = "primary";
+        if (opt.primary) {
+          b.className = "primary";
+          b.setAttribute("data-rwk-primary", "");
+        }
         b.addEventListener("click", () => answer(opt));
         actions.appendChild(b);
       }
       box.append(h, p, actions);
       overlay.appendChild(box);
       shield(overlay);
-      document.body.appendChild(overlay);
-      onBack(overlay, () => {
-        const cancel = options.find((o) => o.cancel) || (options.length === 1 && options[0]);
-        if (cancel) answer(cancel);
-      });
+      done = panel(overlay, { box, close: cancel ? () => answer(cancel) : null });
     });
   }
 
@@ -436,7 +514,7 @@
 .rwk-tools-list .rwk-seg button{flex:1;justify-content:center;min-height:44px;padding:6px 8px;border:0;border-radius:7px;
   background:none;text-align:center}
 .rwk-tools-list .rwk-seg button[aria-checked="true"]{background:#3b82f6;color:#fff}
-.rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:55;display:flex;align-items:center;justify-content:center;
+.rwk-tools-btn{position:fixed;left:6px;top:6px;z-index:2147482000;display:flex;align-items:center;justify-content:center;
   width:30px;height:30px;padding:0;border-radius:50%;
   border:1px solid rgba(255,255,255,.3);background:rgba(20,20,28,.5);color:#fff;font-size:15px;cursor:pointer;
   opacity:.2;transition:opacity .2s}
@@ -614,20 +692,25 @@
   }
 
   // Paused: the scene stops updating (keys and taps read meanwhile are
-  // dropped) and movies stop until the menu closes. The music keeps playing.
+  // dropped) and movies stop while any toolkit window is open. The music
+  // keeps playing.
+  let pauses = 0;
   let pausedVideo = null;
   const _updateScene = SceneManager.updateScene;
   SceneManager.updateScene = function () {
-    if (!menu && !questions) _updateScene.apply(this, arguments);
+    if (!pauses) _updateScene.apply(this, arguments);
   };
 
   function pause() {
+    if (pauses++ > 0) return;
     const video = document.querySelector("video");
     pausedVideo = video && !video.paused ? video : null;
     if (pausedVideo) pausedVideo.pause();
   }
 
   function resume() {
+    if (pauses > 0 && --pauses > 0) return;
+    pauses = 0;
     if (pausedVideo) Promise.resolve(pausedVideo.play()).catch(() => {});
     pausedVideo = null;
     Input.clear();
@@ -636,11 +719,16 @@
 
   function closeTools() {
     if (!menu) return;
+    const done = menuDone;
     menu.remove();
     menu = null;
     menuBack = null;
-    resume();
-    syncBackEntry();
+    menuDone = null;
+    if (done) done();
+    else {
+      resume();
+      syncBackEntry();
+    }
   }
 
   // The phone's Back key and back swipe (and the browser's): a history entry
@@ -709,6 +797,7 @@
 
   // Esc and the back button: up one level from a group's page, then close.
   let menuBack = null;
+  let menuDone = null; // takes the menu off the dialog frame (panel())
   function backOrClose() {
     if (!(menuBack && menuBack())) closeTools();
   }
@@ -932,44 +1021,83 @@
 
     box.append(head, body);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && closeTools());
     shield(overlay);
-    pause();
-    document.body.appendChild(overlay);
-    onBack(overlay, backOrClose);
+    // The close button is the first control the frame could pick; the search
+    // box or the first row is what a player wants to reach.
+    menuDone = panel(overlay, {
+      box,
+      close: backOrClose,
+      focus: () => (search.hidden ? list.querySelector("button") : search) || closeBtn,
+    });
   }
 
   // F1 opens the menu (unless one of the game's plugins uses that key). While
-  // it is open, keys go to the menu instead of the game, and Esc closes it.
+  // any toolkit dialog is open, the keys belong to the one on top: Esc closes
+  // or cancels it, Enter presses its primary button, Tab stays inside it, and
+  // the game never sees the key.
+  function moveFocus(box, step) {
+    const controls = controlsIn(box);
+    if (!controls.length) return;
+    const i = controls.indexOf(document.activeElement);
+    controls[(i + step + controls.length) % controls.length].focus();
+  }
+
+  function pressPrimary(box) {
+    const controls = controlsIn(box);
+    const primary = controls.find((n) => n.tagName === "BUTTON" && n.getAttribute("data-rwk-primary") !== null);
+    if (primary) return primary.click();
+    // No primary: Enter presses the button the focus is on, as a browser would.
+    const focused = document.activeElement;
+    if (focused && focused.tagName === "BUTTON" && controls.includes(focused)) focused.click();
+  }
+
   window.addEventListener(
     "keydown",
-    (e) => {
-      if (menu) {
-        e.stopPropagation();
-        const seg = document.activeElement && document.activeElement.closest(".rwk-seg");
-        if (e.key === "Escape") {
+    ui((e) => {
+      const top = dialogs[dialogs.length - 1];
+      if (!top) {
+        if (e.key === "F1" && entry && !Input.keyMapper[112]) {
           e.preventDefault();
-          backOrClose();
-        } else if (seg && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-          // Arrows pick the option next to the focused one, as in a radio group.
-          e.preventDefault();
-          const options = [...seg.children];
-          const i = options.indexOf(document.activeElement) + (e.key === "ArrowLeft" ? -1 : 1);
-          if (options[i]) {
-            options[i].click();
-            // The click redrew the menu; keep the focus on the option just picked.
-            const redrawn = document.activeElement && document.activeElement.closest(".rwk-seg");
-            if (redrawn && redrawn.children[i]) redrawn.children[i].focus();
-          }
-        } else if (e.key === "F1") {
-          e.preventDefault();
-          closeTools();
+          openTools();
         }
-      } else if (e.key === "F1" && entry && !Input.keyMapper[112]) {
-        e.preventDefault();
-        openTools();
+        return;
       }
-    },
+      // A key aimed somewhere else (the focus left the box) dies here, so the
+      // game's own menu cannot open behind the dialog. A key aimed at the
+      // dialog's controls still reaches them: a field's listener (Enter in the
+      // MakerLens note) has to see it. The game's listeners skip these keys
+      // anyway (rwk-guard.js: any dialog open on <html>), and the engine does
+      // not eat Backspace or the arrows in the dialog's own fields.
+      if (!(e.target && e.target.closest && e.target.closest("[data-rwk-ui]"))) e.stopPropagation();
+      if (keyOwner) return; // a panel listening for the next key (RWK_Remap)
+      if (top.key && top.key(e)) return; // a panel with keys of its own (RWK_Backlog)
+      const focused = document.activeElement;
+      const field = isField(focused);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (top.close) top.close();
+      } else if (e.key === "Enter" && !field) {
+        e.preventDefault();
+        pressPrimary(top.box);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        moveFocus(top.box, e.shiftKey ? -1 : 1);
+      } else if (e.key === "F1" && top.node === menu) {
+        e.preventDefault();
+        backOrClose();
+      } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && focused && focused.closest(".rwk-seg")) {
+        // Arrows pick the option next to the focused one, as in a radio group.
+        e.preventDefault();
+        const options = [...focused.closest(".rwk-seg").children];
+        const i = options.indexOf(focused) + (e.key === "ArrowLeft" ? -1 : 1);
+        if (options[i]) {
+          options[i].click();
+          // The click redrew the menu; keep the focus on the option just picked.
+          const redrawn = document.activeElement && document.activeElement.closest(".rwk-seg");
+          if (redrawn && redrawn.children[i]) redrawn.children[i].focus();
+        }
+      }
+    }),
     true
   );
 
@@ -1054,10 +1182,15 @@
     storage,
     toast,
     choose,
+    panel,
+    ownKeys,
     shield,
     onBack,
     icons,
     tools: { add: addTool, remove: removeTool, mount, open: openTools, close: closeTools, isOpen: () => !!menu },
+    // True while any toolkit dialog is up (the ⚙ menu or a question such as
+    // the cheats confirmation), so a shortcut never fires behind it.
+    dialogsOpen: () => dialogs.length > 0,
     fullscreen: { toggle: toggleFullscreen, isOn: isFullscreen, tool: fullscreenTool },
   };
 })();

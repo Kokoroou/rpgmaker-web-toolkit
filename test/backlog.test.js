@@ -22,7 +22,7 @@ function load(backlog = { max: 100 }) {
   const messages = { speaker: "", text: "" };
   const calls = [];
   const window = {
-    RWK: { config: { backlog }, tools: { add: (t) => added.push(t), isOpen: () => false }, icons: { list: "<svg/>" } },
+    RWK: { config: { backlog }, tools: { add: (t) => added.push(t), isOpen: () => false }, dialogsOpen: () => false, icons: { list: "<svg/>" } },
     addEventListener() {},
   };
   const context = {

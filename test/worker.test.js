@@ -280,6 +280,40 @@ test("upgrade: the Worker serves the newer toolkit over the deployed files", asy
   assert.equal(res.status, 404, "no plugins.js: left to static assets");
 });
 
+test("upgrade: the guard reaches the page of a build made before it existed", async () => {
+  const { createWorker } = await import("../worker/index.js");
+  const oldPage = '<html><head></head><body><script src="js/libs/pixi.js"></script>\n<script src="js/plugins.js"></script></body></html>';
+  const assets = {
+    fetch: async (req) => {
+      const rel = new URL(req.url).pathname;
+      if (rel === "/index.html") return new Response(oldPage);
+      return new Response("static " + rel);
+    },
+  };
+  const toolkit = { names: ["RWK_Core"], plugins: { RWK_Core: "core" }, guard: "// guard", config: {}, keepOff: true };
+  const worker = createWorker({ toolkit });
+  const get = (path, init) => worker.fetch(new Request(BASE + path, init), makeEnv({ ASSETS: assets }));
+
+  const guard = await get("/js/rwk-guard.js");
+  assert.equal(await guard.text(), "// guard", "the new guard is served");
+  assert.match(guard.headers.get("content-type"), /javascript/);
+
+  for (const path of ["/", "/index.html"]) {
+    const res = await get(path);
+    const html = await res.text();
+    assert.ok(html.includes('<script src="js/rwk-guard.js"></script>\n<script src="js/plugins.js">'), `${path} gets the guard first`);
+    assert.equal(res.headers.get("x-robots-tag"), "noindex, nofollow");
+  }
+  assert.equal(await (await get("/js/rwk-guard.js", { method: "POST" })).text(), "static /js/rwk-guard.js", "only GET / HEAD");
+
+  // A page that already has it, or a build with no guard to serve, is static.
+  const withGuard = { fetch: async () => new Response(oldPage.replace("<body>", '<body><script src="js/rwk-guard.js"></script>\n')) };
+  const node = createWorker({ toolkit });
+  assert.equal((await node.fetch(new Request(BASE + "/"), makeEnv({ ASSETS: withGuard }))).headers.get("x-robots-tag"), null);
+  const older = createWorker({ toolkit: { ...toolkit, guard: undefined } });
+  assert.equal((await older.fetch(new Request(BASE + "/"), makeEnv({ ASSETS: assets }))).headers.get("x-robots-tag"), null);
+});
+
 test("upgrade: toolkit part of plugins.js", async () => {
   const { appendToolkit, mergeConfig, splitToolkit, toolkitRoutes } = await import("../worker/toolkit.js");
   assert.deepEqual(splitToolkit("var $plugins = [];\n"), { game: "var $plugins = [];\n", config: null }, "not a toolkit build");
@@ -293,7 +327,7 @@ test("upgrade: toolkit part of plugins.js", async () => {
   assert.deepEqual(mergeConfig(next, deployed, true), { saveTools: false, quickSave: false, sync: { enabled: false }, media: deployed.media });
   assert.deepEqual(mergeConfig({ media: { oggOnly: true } }, deployed, false).media, { oggOnly: true });
 
-  assert.deepEqual(toolkitRoutes({ plugins: { RWK_Core: "", RWK_Dash: "" } }), ["/js/plugins.js", "/js/plugins/RWK_Core.js", "/js/plugins/RWK_Dash.js"]);
+  assert.deepEqual(toolkitRoutes({ plugins: { RWK_Core: "", RWK_Dash: "" } }), ["/js/plugins.js", "/", "/index.html", "/js/rwk-guard.js", "/js/plugins/RWK_Core.js", "/js/plugins/RWK_Dash.js"]);
 });
 
 test("per-player settings: each player's js/plugins.js, /api/config and save history", async () => {

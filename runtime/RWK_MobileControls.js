@@ -121,7 +121,7 @@
   const opacity = cfg.opacity ?? 0.2;
   const style = document.createElement("style");
   style.textContent = `
-.rwk-pad{position:fixed;inset:0;z-index:50;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
+.rwk-pad{position:fixed;inset:0;z-index:2147481000;pointer-events:none;--u:48px;--bg:rgba(20,20,28,${opacity});
   color:rgba(255,255,255,.85);font:600 calc(var(--u)*.3)/1 system-ui,sans-serif;text-shadow:0 1px 2px #000;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 .rwk-pad *{box-sizing:border-box}
@@ -769,6 +769,9 @@
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => pad.classList.add("idle"), IDLE_MS);
   };
+  // The toolkit's own press wakes the controls too (rwk-guard.js keeps the
+  // ones on its elements away from the game's listeners, not from this one).
+  wake.__rwkUI = true;
   window.addEventListener("pointerdown", wake, true);
   wake();
 

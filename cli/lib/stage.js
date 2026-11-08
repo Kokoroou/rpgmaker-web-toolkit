@@ -13,7 +13,7 @@ import { userHash } from "./cloudflare.js";
 import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
 import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
-import { appendToolkit } from "../../worker/toolkit.js";
+import { GUARD_REL, appendToolkit, guardInto } from "../../worker/toolkit.js";
 import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Lens", "RWK_Download", "RWK_Report"];
@@ -341,6 +341,12 @@ export function runtimeSources() {
   return Object.fromEntries(RUNTIME_PLUGINS.map((name) => [name, fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", `${name}.js`), "utf8")]));
 }
 
+// The script that runs before the game's plugins (runtime/rwk-guard.js): it
+// keeps the game's own listeners away from the toolkit's buttons and dialogs.
+export function guardSource() {
+  return fs.readFileSync(path.join(TOOLKIT_ROOT, "runtime", "rwk-guard.js"), "utf8");
+}
+
 // Files the toolkit adds to / overrides in the web build.
 // files: from collectFiles(), for the MV phone audio / movie check.
 export function generatedFiles(game, gameConfig, files = []) {
@@ -360,6 +366,10 @@ export function generatedFiles(game, gameConfig, files = []) {
   const pluginsJs = fs.readFileSync(resolveCI(game.root, "js", "plugins.js"), "utf8");
   out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
 
+  // Runs before the game's plugins: a plugin that eats the toolkit's clicks
+  // or captures its pointers no longer can (worker/toolkit.js: guardInto).
+  out.set(GUARD_REL, guardSource());
+
   out.set(LENS_MANIFEST, lensManifest(game, files));
 
   if (runtimeConfig.cache) out.set("rwk-sw.js", serviceWorkerSource(files, new Set(out.keys())));
@@ -367,7 +377,8 @@ export function generatedFiles(game, gameConfig, files = []) {
   // Lets the game's creator, and anyone reading a bug report, tell this
   // build apart from an official release.
   const indexable = isIndexable(gameConfig);
-  const indexHtml = fs.readFileSync(resolveCI(game.root, "index.html"), "utf8");
+  const originalHtml = fs.readFileSync(resolveCI(game.root, "index.html"), "utf8");
+  let indexHtml = guardInto(originalHtml);
   if (!indexHtml.includes("rwk.webmanifest")) {
     const head =
       '<link rel="manifest" href="rwk.webmanifest" crossorigin="use-credentials">\n' +
@@ -375,8 +386,9 @@ export function generatedFiles(game, gameConfig, files = []) {
       '<meta name="theme-color" content="#000000">\n' +
       '<meta name="generator" content="rpgmaker-web-toolkit">\n' +
       (indexable ? "" : '<meta name="robots" content="noindex, nofollow">\n');
-    out.set("index.html", indexHtml.replace(/<\/head>/i, `${head}</head>`));
+    indexHtml = indexHtml.replace(/<\/head>/i, `${head}</head>`);
   }
+  if (indexHtml !== originalHtml) out.set("index.html", indexHtml);
   // Static asset responses never reach the Worker, so the header comes from
   // the assets' _headers file.
   out.set("robots.txt", indexable ? "User-agent: *\nAllow: /\n" : "User-agent: *\nDisallow: /\n");

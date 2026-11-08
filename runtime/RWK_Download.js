@@ -28,7 +28,7 @@
       "Download the complete web build of this game as a ZIP archive? This includes all game data, media, and scripts.",
       [
         { label: "Download", value: true, primary: true },
-        { label: "Cancel", value: false },
+        { label: "Cancel", value: false, cancel: true },
       ]
     );
     if (!ok) return;

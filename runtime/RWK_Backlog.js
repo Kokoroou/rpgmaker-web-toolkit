@@ -78,7 +78,7 @@
   //---------------------------------------------------------------------------
 
   let overlay = null;
-  let restoreUpdate = null;
+  let detach = null; // takes the panel off RWK.panel()'s frame
 
   function injectStyle() {
     if (document.getElementById("rwk-backlog-style")) return;
@@ -146,40 +146,37 @@
     actions.appendChild(closeBtn);
     box.append(h, list, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
+    // Esc or L close it; arrows and Page Up / Down scroll the list.
+    detach = RWK.panel(overlay, {
+      box,
+      close,
+      key: (e) => {
+        if (e.keyCode !== LOG_KEY) return false;
+        e.preventDefault();
+        close();
+        return true;
+      },
+    });
     list.scrollTop = list.scrollHeight; // newest at the bottom
     list.focus({ preventScroll: true });
-
-    const _updateScene = SceneManager.updateScene;
-    SceneManager.updateScene = function () {};
-    restoreUpdate = () => (SceneManager.updateScene = _updateScene);
   }
 
   function close() {
     if (!overlay) return;
-    overlay.remove();
+    const node = overlay;
     overlay = null;
-    if (restoreUpdate) restoreUpdate();
-    restoreUpdate = null;
-    Input.clear();
-    if (window.TouchInput) TouchInput.clear();
+    node.remove();
+    if (detach) detach();
+    detach = null;
   }
 
-  // While open the keys belong to the panel: Esc or L close it, arrows and
-  // Page Up / Down scroll its list; the game sees none of them.
+  // L opens the log (unless the game's plugins use that key); while it is open
+  // RWK.panel() keeps the game from seeing any key at all.
   window.addEventListener(
     "keydown",
     (e) => {
-      if (overlay) {
-        if (e.key === "Escape" || e.keyCode === LOG_KEY) {
-          e.preventDefault();
-          close();
-        }
-        e.stopPropagation();
-      } else if (e.keyCode === LOG_KEY && !e.ctrlKey && !e.altKey && !e.metaKey && !Input.keyMapper[LOG_KEY] && !RWK.tools.isOpen()) {
+      if (!overlay && e.keyCode === LOG_KEY && !e.ctrlKey && !e.altKey && !e.metaKey && !Input.keyMapper[LOG_KEY] && !RWK.dialogsOpen()) {
         const tag = document.activeElement && document.activeElement.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
