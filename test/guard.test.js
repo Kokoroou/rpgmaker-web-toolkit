@@ -182,7 +182,7 @@ const HOSTILE = {
 };
 
 // -> { RWK, clicks, keys, TouchInput, game }
-function load(hostile = "none") {
+function load(hostile = "none", page = {}) {
   win = new Node("window");
   doc = new Node("#document");
   doc.documentElement = new Node("html");
@@ -242,6 +242,8 @@ function load(hostile = "none") {
     screen: {},
     caches: undefined,
   });
+  // What the page already had before the guard ran (a real process, on a desktop).
+  if (page.process) win.process = page.process;
   const context = {
     window: win,
     document: doc,
@@ -274,7 +276,7 @@ function load(hostile = "none") {
   }
   win.addEventListener("keydown", (e) => keys.push(e.key), { capture: true });
   vm.runInNewContext(coreSource, context);
-  return { RWK: win.RWK, game, TouchInput, SceneManager, canvas, captured, seen, keys };
+  return { RWK: win.RWK, game, TouchInput, SceneManager, canvas, captured, seen, keys, win };
 }
 
 const touch = (type, x = 10, y = 10) => ({
@@ -590,4 +592,41 @@ test("layers: every toolkit layer sits above a game's own z-index", () => {
     // toasts); all of them are over any z-index a game plugin would use.
     assert.ok(zIndexOf(source, selector) >= 2147481000, `${selector} is above the game`);
   }
+});
+
+//---------------------------------------------------------------------------
+// The `process` a browser lacks, which NW.js (Game.exe) always has.
+//---------------------------------------------------------------------------
+
+const loadWithProcess = (page = {}) => {
+  const { win } = load("none", page);
+  return { process: win.process, win };
+};
+
+test("process: the guard gives the page one, before the game's plugins load", () => {
+  // A game plugin that reads process.versions at the top level throws in a
+  // browser, and the rest of that file (its later plugins) never runs.
+  const { process } = loadWithProcess();
+  assert.equal(typeof process, "object");
+  assert.equal(Object.keys(process.versions).length, 0, "no node-webkit: the NW.js-only branches stay off");
+  assert.equal(process.platform, "");
+  assert.doesNotThrow(() => process.versions["node-webkit"] >= "0.13.0");
+  assert.equal(typeof process.nextTick, "function");
+  assert.equal(typeof process.cwd, "function");
+});
+
+test("process: no require, so the engine still sees a browser", () => {
+  // Utils.isNwjs() is `typeof require === 'function' && typeof process === 'object'`.
+  // The guard adds no require: every `if (!Utils.isNwjs()) return` branch still
+  // returns (the ones that would call require('fs') otherwise).
+  const { process, win } = loadWithProcess();
+  assert.equal(typeof win.require, "undefined", "the page still has no require");
+  assert.equal(typeof process === "object" && typeof win.require === "function", false, "so Utils.isNwjs() is false");
+});
+
+test("process: a real process the page already has is kept, not replaced", () => {
+  const real = { versions: { "node-webkit": "0.60.0" }, keep: true };
+  const { process } = loadWithProcess({ process: real });
+  assert.equal(process, real);
+  assert.equal(process.versions["node-webkit"], "0.60.0");
 });
