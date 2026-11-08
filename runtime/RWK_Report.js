@@ -195,15 +195,17 @@
     copyBtn.addEventListener("click", () => copy(text, textarea));
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "Close";
-    const close = () => overlay.remove();
+    let done = null;
+    const close = () => {
+      overlay.remove();
+      if (done) done();
+    };
     closeBtn.addEventListener("click", close);
     actions.append(closeBtn, copyBtn);
     box.append(h, p, textarea, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
+    done = RWK.panel(overlay, { close });
   }
 
   // The engine's error screen gets a copy button next to RWK_Core's note.

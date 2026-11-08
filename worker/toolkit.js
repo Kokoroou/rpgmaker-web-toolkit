@@ -6,6 +6,20 @@
 
 export const TOOLKIT_MARKER = "// ---- rpgmaker-web-toolkit (web build only) ----";
 
+// The script that runs before the game's plugins (runtime/rwk-guard.js), and
+// the tag index.html gets for it. Served by the Worker on `rwk upgrade` too,
+// so games deployed before it existed get it as well.
+export const GUARD_REL = "js/rwk-guard.js";
+const GUARD_TAG = `<script src="${GUARD_REL}"></script>`;
+
+// index.html with the guard in front of the game's plugins.
+export function guardInto(html) {
+  if (html.includes(GUARD_REL)) return html;
+  const plugins = /<script[^>]*\ssrc=["']js\/plugins\.js["'][^>]*>\s*<\/script>/i;
+  if (plugins.test(html)) return html.replace(plugins, (tag) => `${GUARD_TAG}\n${tag}`);
+  return html.replace(/<\/head>/i, `${GUARD_TAG}\n</head>`);
+}
+
 // Features a game creator's policy can turn off (cli/lib/policy.js).
 const FEATURES = ["saveTools", "itemBatch", "fastForward", "messageMode", "alwaysDash", "backlog", "remap", "quickSave", "autoSave", "cheats", "offline", "translate"];
 
@@ -79,15 +93,31 @@ export function mergeConfig(next, deployed, keepOff) {
 
 // Paths the Worker must see before static assets (run_worker_first).
 export function toolkitRoutes(toolkit) {
-  return ["/js/plugins.js", ...Object.keys(toolkit.plugins).map((name) => `/js/plugins/${name}.js`)];
+  // "/" as well: a browser asking for the start page does not match the
+  // "/index.html" rule, and would get the page without the guard.
+  return ["/js/plugins.js", "/", "/index.html", `/${GUARD_REL}`, ...Object.keys(toolkit.plugins).map((name) => `/js/plugins/${name}.js`)];
 }
 
-// toolkit: { names, plugins: { name: source }, config, keepOff }
+// toolkit: { names, plugins: { name: source }, config, keepOff, guard }
 // -> Response, or null to fall through to static assets
 export async function serveToolkit(request, env, rel, toolkit) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   let body;
-  if (rel === "js/plugins.js") {
+  let type = "text/javascript; charset=utf-8";
+  if (rel === GUARD_REL) {
+    if (!toolkit.guard) return null;
+    body = toolkit.guard;
+  } else if (rel === "index.html" || rel === "") {
+    // Upgrade: the deployed page gets the guard in front of the game's plugins.
+    if (!toolkit.guard) return null;
+    const original = await env.ASSETS.fetch(new Request(new URL("/index.html", request.url), { method: "GET" }));
+    if (!original.ok) return null;
+    const html = await original.text();
+    const patched = guardInto(html);
+    if (patched === html) return null;
+    body = patched;
+    type = "text/html; charset=utf-8";
+  } else if (rel === "js/plugins.js") {
     // Without the browser's conditional headers, so the original always has a body.
     const original = await env.ASSETS.fetch(new Request(request.url));
     if (!original.ok) return null; // served as a plain static asset
@@ -99,6 +129,6 @@ export async function serveToolkit(request, env, rel, toolkit) {
     body = toolkit.plugins[m[1]];
   }
   return new Response(request.method === "HEAD" ? null : body, {
-    headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" },
+    headers: { "content-type": type, "cache-control": "no-cache" },
   });
 }

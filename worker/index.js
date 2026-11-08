@@ -48,7 +48,8 @@ export function createWorker({ overflow = [], toolkit = null, playerSettings = {
       if (path.startsWith("/api/")) return handleApi(request, env, path, whoIs);
       if (path.startsWith(LENS_PREFIX)) return handleLens(request, env, path, { overflowSet, serveOverflow });
 
-      const rel = path.slice(1);
+      // The site's start page, also under the "/" and "/index.html" the browser asks for.
+      const rel = path === "/" || path === "/index.html" ? "index.html" : path.slice(1);
       let res = null;
       if (toolkit) res = await serveToolkit(request, env, rel, toolkit);
       if (!res && overflowSet.has(rel) && env.BUCKET) res = await serveOverflow(request, env, rel);

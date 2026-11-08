@@ -16,6 +16,7 @@ function load(name, config, { stored = {}, globals = {} } = {}) {
       engine: "MZ",
       storage: { get: (key, fallback = null) => (key in stored ? stored[key] : fallback), set: (key, value) => (stored[key] = value) },
       tools: { add: (t) => tools.push(t), isOpen: () => false },
+      dialogsOpen: () => false,
       toast() {},
       icons: {},
     },

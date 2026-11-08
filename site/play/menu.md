@@ -55,4 +55,4 @@ When the menu has more than 15 settings, a search box sits above the groups. Typ
 
 The phone's Back button (or back swipe) also closes the panels the menu opens (Cheats, Saves, Keys and buttons…) and answers **Cancel** to a question. A question with no Cancel, such as which copy of a save to keep, stays until you pick an answer.
 
-On a keyboard, <kbd>Tab</kbd> moves through the rows and <kbd>Enter</kbd> picks one.
+On a keyboard, <kbd>Tab</kbd> moves through the rows and <kbd>Enter</kbd> picks one. Every panel (Cheats, Saves, Older saves, Play offline, Report a problem, Keys and buttons, MakerLens link) and every question works the same way: <kbd>Esc</kbd> closes it or answers Cancel, <kbd>Enter</kbd> presses its main button, and <kbd>Tab</kbd> stays inside it. The game is paused while any of them is open, and none of their keys reach it.

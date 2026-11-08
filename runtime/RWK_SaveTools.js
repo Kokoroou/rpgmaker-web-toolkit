@@ -196,7 +196,11 @@
       .join(" ");
     const list = document.createElement("div");
     list.className = "rwk-saves-list";
-    const close = () => overlay.remove();
+    let done = null;
+    const close = () => {
+      overlay.remove();
+      if (done) done();
+    };
 
     const fill = () => {
       list.textContent = "";
@@ -209,10 +213,8 @@
     actions.appendChild(button("Close", close));
     box.append(h, p, list, actions);
     overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => e.target === overlay && close());
     RWK.shield(overlay);
-    document.body.appendChild(overlay);
-    RWK.onBack(overlay, close);
+    done = RWK.panel(overlay, { close });
   }
 
   function slotRow(id, closePanel, refreshPanel) {

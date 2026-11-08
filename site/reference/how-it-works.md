@@ -39,7 +39,9 @@ These pictures are drawn by `site/diagrams/build.mjs` (run `node site/diagrams/b
 
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
-           runtime/        Plugins injected into the web build (appended to the build's js/plugins.js)
+           runtime/        Scripts injected into the web build
+             rwk-guard.js        loaded from index.html before the game's plugins: the game's own listeners skip taps and keys
+                                 meant for the toolkit's buttons and dialogs
              RWK_Core            config, device id, toasts, dialogs, ⚙ menu, web build label
              RWK_Language        ⚙ → Language: points data/ requests (XMLHttpRequest) at data-<code>/ files, file by file
              RWK_Translate       live translation, off by default: messages wait in Window_Message.canStart for /api/translate,
@@ -65,7 +67,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              auth.js             verifies Cloudflare Access logins (JWT)
              saves.js            save API, with ETag overwrite protection, and save history
              players.js          counts the emails that save, for the deploy's reminder
-             toolkit.js          the toolkit's part of js/plugins.js; serves a newer toolkit after upgrade
+             toolkit.js          the toolkit's part of js/plugins.js, and the guard in index.html; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
              lens.js             /_lens/* read-only files for MakerLens (share token) and /api/lens for the owner
              translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
@@ -77,7 +79,7 @@ The game folder is never written to. Each run:
 
 1. Picks the files: the standard RPG Maker folders, plus `include`, minus `exclude`.
 2. **Hard-links** them into `<game drive>:\.rwk-build\` (no extra disk space; copies on another drive).
-3. Adds the plugins to the build's copy of `js/plugins.js` and marks `index.html` with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
+3. Adds the plugins to the build's copy of `js/plugins.js`, loads `js/rwk-guard.js` from `index.html` before them, and marks the page with `<meta name="generator" content="rpgmaker-web-toolkit">`. Unless a public site asked to be listed: a `noindex` meta tag, `X-Robots-Tag: noindex` and a `robots.txt`.
    Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Help** → **Game files on this device**. Turn it off with [`cache`](/reference/config).
 
    The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.

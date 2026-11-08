@@ -48,7 +48,7 @@
   SceneManager.updateScene = function () {
     _updateScene.apply(this, arguments);
     for (let i = factor(); i > 1; i--) {
-      if (RWK.tools.isOpen() || this.isSceneChanging() || !sceneStarted(this)) break;
+      if (RWK.dialogsOpen() || this.isSceneChanging() || !sceneStarted(this)) break;
       this.updateInputData();
       if (this.updateEffekseer) this.updateEffekseer(); // MZ battle animations
       _updateScene.apply(this, arguments);
@@ -149,8 +149,8 @@
   // ` toggles and a held Tab fast-forwards, unless the game's plugins use those keys.
   const free = (code, name) => !Input.keyMapper[code] || Input.keyMapper[code] === name;
   let tabHeld = false;
-  window.addEventListener("keydown", (e) => {
-    if (RWK.tools.isOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
+  const onKey = (e) => {
+    if (RWK.dialogsOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.keyCode === 192 && !e.repeat && free(192)) {
       setToggled(!toggled);
     } else if (e.keyCode === 9 && free(9, "tab")) {
@@ -160,12 +160,18 @@
         hold(true);
       }
     }
-  });
+  };
+  // The toolkit's own: rwk-guard.js lets them through, even when the key
+  // arrives while a dialog has the focus (the release must not be missed).
+  onKey.__rwkUI = true;
+  window.addEventListener("keydown", onKey);
   const releaseTab = () => {
     if (!tabHeld) return;
     tabHeld = false;
     hold(false);
   };
-  window.addEventListener("keyup", (e) => e.keyCode === 9 && releaseTab());
+  const onTabUp = (e) => e.keyCode === 9 && releaseTab();
+  onTabUp.__rwkUI = true;
+  window.addEventListener("keyup", onTabUp);
   window.addEventListener("blur", releaseTab);
 })();

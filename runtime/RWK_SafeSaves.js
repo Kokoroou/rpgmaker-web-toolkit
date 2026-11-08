@@ -247,8 +247,8 @@
     RWK.tools.add({ quick: true, keepOpen: true, icon: icons.folderOpen, label: "Quick load", onSelect: () => askLoad(QUICK, "quick save") });
 
     const free = (code) => !Input.keyMapper[code];
-    window.addEventListener("keydown", (e) => {
-      if (RWK.tools.isOpen() || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+    const onKey = (e) => {
+      if (RWK.dialogsOpen() || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
       if (e.keyCode === 117 && free(117)) {
         e.preventDefault();
         saveTo(QUICK);
@@ -256,7 +256,9 @@
         e.preventDefault();
         askLoad(QUICK, "quick save");
       }
-    });
+    };
+    onKey.__rwkUI = true; // the toolkit's own: rwk-guard.js lets it through
+    window.addEventListener("keydown", onKey);
   }
 
   //---------------------------------------------------------------------------
@@ -281,7 +283,8 @@
     };
 
     setInterval(() => {
-      if (!RWK.tools.isOpen() && Date.now() - lastAuto >= AUTO_MS) autosave();
+      // Not while a toolkit dialog is up: the game is paused behind it.
+      if (!RWK.dialogsOpen() && Date.now() - lastAuto >= AUTO_MS) autosave();
     }, AUTO_CHECK_MS);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "hidden") return;
