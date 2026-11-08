@@ -19,6 +19,8 @@ import {
   lensOwnersOf,
   downloadOwnersOf,
   syncOverflow,
+  uploadBuildZip,
+  zipEntries,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
 import { AccessApiError, enableAccess, enableLensBypass } from "../lib/access-api.js";
@@ -153,6 +155,27 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     log.step("Large files on R2");
     r2 = await syncOverflow({ bucket, slug: storageIdOf(cfg), files: overflow });
     log.ok(`Uploaded ${r2.uploaded}, unchanged ${r2.unchanged}, removed ${r2.removed}`);
+  }
+
+  //-------------------------------------------------------------------------
+  // The whole build as one ZIP, for the host's ⚙ → Share → Download game. Made
+  // here, because a Worker cannot read a game's thousands of files to stream
+  // them (the free plan allows far fewer subrequests than a game has files).
+  const downloadOwners = downloadOwnersOf(cfg, email);
+  let zip = null;
+  if (downloadOwners.length) {
+    log.step("Download archive (ZIP)");
+    const zipPath = path.join(buildDir, "build.zip");
+    try {
+      zip = await uploadBuildZip({ bucket, slug: storageIdOf(cfg), entries: zipEntries(publicDir, assets, overflow), zipPath });
+      log.ok(`${zip.uploaded ? "" : "Unchanged: "}${zip.entries} files, ${formatBytes(zip.bytes)}`);
+    } catch (err) {
+      // The site works without it: only the host's download entry is missing.
+      log.warn(`Could not make the download ZIP: ${err.message}`);
+      log.info(c.dim("The game itself is unaffected; the ZIP is made at the next deploy."));
+    } finally {
+      fs.rmSync(zipPath, { force: true });
+    }
   }
 
   //-------------------------------------------------------------------------

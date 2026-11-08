@@ -1,51 +1,62 @@
 // Tests for the host-download-zip feature: GET /api/download
+//
+// The ZIP is made at deploy (cli/lib/zip.js) and kept in R2; the Worker only
+// serves that one object, with Range, because a game has far more files than
+// the free plan allows subrequests.
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { handleDownload, isDownloadOwner } from "../worker/download.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
-import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, workerVars } from "../cli/lib/cloudflare.js";
+import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, uploadBuildZip, zipEntries, workerVars } from "../cli/lib/cloudflare.js";
+import { writeZip } from "../cli/lib/zip.js";
 import { RUNTIME_PLUGINS } from "../cli/lib/stage.js";
-import fs from "node:fs";
-import path from "node:path";
 import { makeEnv } from "./helpers.js";
-import { LENS_MANIFEST } from "../worker/lens.js";
 
 const BASE = "https://game.example.workers.dev";
-
-// Minimal lens manifest and R2 overflow manifest for the tests.
-const LENS_FILES = { "data/Map001.json": 10, "img/pictures/a.png_": 5, "js/plugins.js": 20 };
-const OVERFLOW_MANIFEST = { "img/big.png_": { sha256: "abc", size: 100 } };
-
-// Assets binding: serves the lens manifest and static files.
-function makeAssets(extraFiles = {}) {
-  const files = {
-    [LENS_MANIFEST]: JSON.stringify({ v: 1, title: "Test", engine: "MZ", files: LENS_FILES }),
-    "data/Map001.json": "{}",
-    "img/pictures/a.png_": "PNG",
-    "js/plugins.js": "plugins",
-    ...extraFiles,
-  };
-  return {
-    fetch: async (req) => {
-      const rel = decodeURIComponent(new URL(req.url).pathname.slice(1));
-      return rel in files ? new Response(files[rel]) : new Response("nf", { status: 404 });
-    },
-  };
-}
+const ZIP_KEY = "assets/test-game/rwk.zip";
 
 function ownerEnv(overrides = {}) {
   const hash = userHash("host@example.com");
   return makeEnv({
     AUTH_MODE: "access",
     RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]),
-    ASSETS: makeAssets(),
     ...overrides,
   });
 }
 
 const as = (email) => ({ email });
+
+// A real, small archive in the env's bucket.
+async function putZip(env, files = { "data/Map001.json": "{}", "index.html": "<html>" }) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-dl-"));
+  try {
+    const entries = Object.entries(files).map(([rel, text]) => {
+      const abs = path.join(dir, rel.replace(/\//g, "_"));
+      fs.writeFileSync(abs, text);
+      return { rel, abs };
+    });
+    const out = path.join(dir, "build.zip");
+    await writeZip(out, entries);
+    const bytes = fs.readFileSync(out);
+    // The in-memory bucket keeps an ArrayBuffer as it is (a Buffer would be
+    // turned into its text).
+    await env.BUCKET.put(ZIP_KEY, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    return bytes;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// The names in a ZIP's local file headers.
+function namesOf(bytes) {
+  const text = new TextDecoder("latin1").decode(bytes);
+  return [...text.matchAll(/PK\x03\x04/g)].length;
+}
 
 // ---------------------------------------------------------------------------
 // isDownloadOwner
@@ -77,7 +88,7 @@ test("download: non-owner gets 403", async () => {
 
 test("download: without a bucket returns 503", async () => {
   const hash = userHash("host@example.com");
-  const env = makeEnv({ AUTH_MODE: "access", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]), BUCKET: undefined, ASSETS: makeAssets() });
+  const env = makeEnv({ AUTH_MODE: "access", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]), BUCKET: undefined });
   const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
   assert.equal(res.status, 503);
 });
@@ -90,84 +101,62 @@ test("download: only GET and HEAD are allowed", async () => {
   assert.equal(head.status, 200);
 });
 
-test("download: ?check=1 returns owner status without streaming zip", async () => {
+test("download: ?check=1 says whether the archive is there, without sending it", async () => {
   const env = ownerEnv();
-  const res = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.owner, true);
-  assert.equal(body.gameId, "test-game");
+  const before = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
+  assert.equal(before.status, 200);
+  assert.deepEqual(await before.json(), { owner: true, gameId: "test-game", ready: false }, "a game deployed before the archive existed");
+
+  await putZip(env);
+  const after = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
+  assert.equal((await after.json()).ready, true);
 });
 
 // ---------------------------------------------------------------------------
-// handleDownload – ZIP content
+// handleDownload – the archive
 // ---------------------------------------------------------------------------
 
-test("download: returns a valid ZIP for the owner, static files only", async () => {
+test("download: serves the deploy's ZIP as one file", async () => {
   const env = ownerEnv();
+  const zip = await putZip(env);
   const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
   assert.equal(res.status, 200);
-  assert.match(res.headers.get("content-type"), /zip/);
-  assert.match(res.headers.get("content-disposition"), /attachment/);
-  assert.match(res.headers.get("content-disposition"), /game-test-game\.zip/);
+  assert.equal(res.headers.get("content-type"), "application/zip");
+  assert.match(res.headers.get("content-disposition"), /attachment; filename="game-test-game\.zip"/);
   assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("accept-ranges"), "bytes");
+  assert.equal(Number(res.headers.get("content-length")), zip.length);
 
   const bytes = new Uint8Array(await res.arrayBuffer());
-  // ZIP local file header signature: PK\x03\x04
-  assert.equal(bytes[0], 0x50);
-  assert.equal(bytes[1], 0x4b);
-  assert.equal(bytes[2], 0x03);
-  assert.equal(bytes[3], 0x04);
-  // End of central directory signature somewhere near the end: PK\x05\x06
-  const eocd = findSignature(bytes, [0x50, 0x4b, 0x05, 0x06]);
-  assert.ok(eocd >= 0, "EOCD signature found");
+  assert.deepEqual([...bytes], [...zip], "the archive is sent byte for byte");
+  assert.equal(namesOf(bytes), 2, "both entries");
 });
 
-test("download: ZIP includes overflow files from R2", async () => {
+test("download: a Range request resumes instead of starting over", async () => {
   const env = ownerEnv();
-  // Put the overflow manifest and the actual overflow file in R2.
-  await env.BUCKET.put(`assets/test-game/.rwk-manifest.json`, JSON.stringify(OVERFLOW_MANIFEST));
-  await env.BUCKET.put(`assets/test-game/img/big.png_`, "BIGPNG");
-
-  const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
-  assert.equal(res.status, 200);
-  const bytes = new Uint8Array(await res.arrayBuffer());
-
-  // Check that "img/big.png_" appears in the ZIP as a file name.
-  const str = new TextDecoder("latin1").decode(bytes);
-  assert.ok(str.includes("img/big.png_"), "overflow file name appears in ZIP");
+  const zip = await putZip(env);
+  const res = await handleDownload(new Request(BASE + "/api/download", { headers: { range: "bytes=10-19" } }), env, as("host@example.com"));
+  assert.equal(res.status, 206);
+  assert.equal(res.headers.get("content-range"), `bytes 10-19/${zip.length}`);
+  const part = new Uint8Array(await res.arrayBuffer());
+  assert.deepEqual([...part], [...zip.subarray(10, 20)]);
 });
 
-test("download: ZIP skips files not in the lens manifest and handles missing files gracefully", async () => {
-  // Lens manifest references a file that ASSETS cannot serve (simulates a missing file).
-  const badAssets = {
-    fetch: async (req) => {
-      const rel = decodeURIComponent(new URL(req.url).pathname.slice(1));
-      if (rel === LENS_MANIFEST) return new Response(JSON.stringify({ v: 1, files: { "data/ok.json": 3, "data/missing.json": 5 } }));
-      if (rel === "data/ok.json") return new Response("{}");
-      return new Response("nope", { status: 404 });
-    },
-  };
-  const hash = userHash("host@example.com");
-  const env = makeEnv({ AUTH_MODE: "access", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]), ASSETS: badAssets });
-  const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
-  assert.equal(res.status, 200);
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  const str = new TextDecoder("latin1").decode(bytes);
-  assert.ok(str.includes("data/ok.json"), "present file is in ZIP");
-  // "data/missing.json" is skipped but no error is thrown.
-  assert.equal(findSignature(bytes, [0x50, 0x4b, 0x05, 0x06]) >= 0, true, "ZIP ends correctly");
+test("download: an unchanged copy answers 304", async () => {
+  const env = ownerEnv();
+  await putZip(env);
+  const first = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
+  const etag = first.headers.get("etag");
+  assert.ok(etag);
+  const second = await handleDownload(new Request(BASE + "/api/download", { headers: { "if-none-match": etag } }), env, as("host@example.com"));
+  assert.equal(second.status, 304);
 });
 
-test("download: without a lens manifest the ZIP is empty but valid", async () => {
-  const hash = userHash("host@example.com");
-  const noManifestAssets = { fetch: async () => new Response("nope", { status: 404 }) };
-  const env = makeEnv({ AUTH_MODE: "access", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]), ASSETS: noManifestAssets });
+test("download: a build without an archive says how to make one", async () => {
+  const env = ownerEnv();
   const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
-  assert.equal(res.status, 200);
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  // An empty ZIP is just EOCD (22 bytes: PK\x05\x06 + 18 bytes of zeroes).
-  assert.equal(findSignature(bytes, [0x50, 0x4b, 0x05, 0x06]), 0);
+  assert.equal(res.status, 404);
+  assert.match((await res.json()).error, /rwk deploy/);
 });
 
 // ---------------------------------------------------------------------------
@@ -176,19 +165,87 @@ test("download: without a lens manifest the ZIP is empty but valid", async () =>
 
 test("download: worker routes /api/download to the handler", async () => {
   const hash = userHash("host@example.com");
-  const env = makeEnv({
-    AUTH_MODE: "none", // AUTH_MODE none -> user is "public", not the owner
-    RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]),
-    ASSETS: makeAssets(),
-  });
-  const worker = createWorker();
-  const res = await worker.fetch(new Request(BASE + "/api/download"), env);
-  // "public" is not in download owners -> 403
-  assert.equal(res.status, 403);
+  const env = makeEnv({ AUTH_MODE: "none", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]) });
+  const res = await createWorker().fetch(new Request(BASE + "/api/download"), env);
+  assert.equal(res.status, 403, "\"public\" is not in download owners");
 });
 
 // ---------------------------------------------------------------------------
-// CLI helpers: downloadOwnersOf / downloadOwnersForUpgrade / workerVars
+// What the archive holds
+// ---------------------------------------------------------------------------
+
+test("zipEntries: the build's files, the toolkit's generated ones, and the R2 overflow", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-entries-"));
+  try {
+    for (const rel of ["index.html", "js/plugins.js", "js/plugins/RWK_Core.js", "img/a.png"]) {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dir, rel), "x");
+    }
+    const overflow = [{ rel: "movies/all.webm", abs: "C:/game/www/movies/all.webm" }];
+    // `assets` is the list handed to the assets binding: the game's files and the
+    // generated ones (stage.js), which are already in the build folder.
+    const assets = [{ rel: "index.html" }, { rel: "img/a.png" }, { rel: "js/plugins.js" }, { rel: "js/plugins/RWK_Core.js" }];
+    const entries = zipEntries(dir, assets, overflow);
+    assert.deepEqual(entries.map((e) => e.rel), ["img/a.png", "index.html", "js/plugins.js", "js/plugins/RWK_Core.js", "movies/all.webm"]);
+    assert.equal(entries[0].abs, path.join(dir, "img", "a.png"), "POSIX paths become the local ones");
+    assert.equal(entries[4].abs, overflow[0].abs, "the R2 file keeps its own path");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("zipEntries: a file the staging left out is not invented", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-entries-"));
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), "x");
+    const entries = zipEntries(dir, [{ rel: "index.html" }], []);
+    assert.deepEqual(entries.map((e) => e.rel), ["index.html"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("build zip: made and uploaded once, then kept while the build is the same", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-upload-"));
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), "one");
+    const entries = zipEntries(dir, [{ rel: "index.html" }]);
+    const r2 = new Map();
+    let made = 0;
+    const io = {
+      make: async (out, list) => {
+        made++;
+        await writeZip(out, list);
+        return { entries: list.length, bytes: 123 };
+      },
+      put: async (bucket, key, file) => r2.set(key, fs.readFileSync(file)),
+      putJson: async (bucket, key, data) => r2.set(key, JSON.stringify(data)),
+      get: async (bucket, key) => (r2.has(key) ? Buffer.from(r2.get(key)) : null),
+      bar: { update() {}, end() {} },
+    };
+    const zipPath = path.join(dir, "build.zip");
+
+    const first = await uploadBuildZip({ bucket: "b", slug: "g", entries, zipPath, io });
+    assert.equal(first.uploaded, true);
+    assert.ok(r2.has("assets/g/rwk.zip"), "the archive is in R2");
+    assert.ok(r2.has("assets/g/rwk.zip.json"), "and a record of what it holds");
+
+    const second = await uploadBuildZip({ bucket: "b", slug: "g", entries, zipPath, io });
+    assert.equal(second.uploaded, false, "the same build is not uploaded again");
+    assert.equal(second.entries, 1);
+    assert.equal(made, 1, "the archive was made once");
+
+    fs.writeFileSync(path.join(dir, "index.html"), "two");
+    const third = await uploadBuildZip({ bucket: "b", slug: "g", entries: zipEntries(dir, [{ rel: "index.html" }]), zipPath, io });
+    assert.equal(third.uploaded, true, "a changed file makes a new archive");
+    assert.equal(made, 2);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// CLI helpers: owners, worker vars, plugin
 // ---------------------------------------------------------------------------
 
 test("download owners: downloadOwnersOf derives hashes from the account email and owners list", () => {
@@ -222,15 +279,3 @@ test("download plugin: RWK_Download is included in RUNTIME_PLUGINS and registers
   assert.ok(code.includes('group: "share"'));
   assert.ok(code.includes("/api/download"));
 });
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function findSignature(bytes, sig) {
-  outer: for (let i = 0; i <= bytes.length - sig.length; i++) {
-    for (let j = 0; j < sig.length; j++) if (bytes[i + j] !== sig[j]) continue outer;
-    return i;
-  }
-  return -1;
-}

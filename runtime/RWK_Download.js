@@ -36,17 +36,20 @@
     RWK.toast("Starting download…", "info", 3000);
     const a = document.createElement("a");
     a.href = "/api/download";
+    a.download = "";
     document.body.appendChild(a);
     a.click();
     a.remove();
   }
 
-  // Only the owner sees the entry: the Worker answers 403 to everyone else
+  // Only the owner sees the entry, and only when the deploy made the archive:
+  // the Worker answers 403 to everyone else, and `ready: false` for a game
+  // deployed before the archive was part of the build.
   fetch("/api/download?check=1", { credentials: "same-origin" })
     .then(async (res) => {
       if (!res.ok) return;
       const data = await res.json().catch(() => null);
-      if (!data || !data.owner) return;
+      if (!data || !data.owner || !data.ready) return;
       RWK.tools.add({
         icon: RWK.icons.download,
         group: "share",
