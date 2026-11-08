@@ -6,6 +6,9 @@ import { createWorker } from "../worker/index.js";
 import { handleDownload, isDownloadOwner } from "../worker/download.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
 import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, workerVars } from "../cli/lib/cloudflare.js";
+import { RUNTIME_PLUGINS } from "../cli/lib/stage.js";
+import fs from "node:fs";
+import path from "node:path";
 import { makeEnv } from "./helpers.js";
 import { LENS_MANIFEST } from "../worker/lens.js";
 
@@ -79,10 +82,21 @@ test("download: without a bucket returns 503", async () => {
   assert.equal(res.status, 503);
 });
 
-test("download: only GET is allowed", async () => {
+test("download: only GET and HEAD are allowed", async () => {
   const env = ownerEnv();
-  const res = await handleDownload(new Request(BASE + "/api/download", { method: "POST" }), env, as("host@example.com"));
-  assert.equal(res.status, 405);
+  const post = await handleDownload(new Request(BASE + "/api/download", { method: "POST" }), env, as("host@example.com"));
+  assert.equal(post.status, 405);
+  const head = await handleDownload(new Request(BASE + "/api/download", { method: "HEAD" }), env, as("host@example.com"));
+  assert.equal(head.status, 200);
+});
+
+test("download: ?check=1 returns owner status without streaming zip", async () => {
+  const env = ownerEnv();
+  const res = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.owner, true);
+  assert.equal(body.gameId, "test-game");
 });
 
 // ---------------------------------------------------------------------------
@@ -200,6 +214,13 @@ test("download owners: workerVars includes RWK_DOWNLOAD_OWNERS when non-empty, o
   const withOwners = workerVars({ ...base, downloadOwners: ["abc"] });
   assert.equal(withOwners.RWK_DOWNLOAD_OWNERS, '["abc"]');
   assert.ok(!("RWK_DOWNLOAD_OWNERS" in workerVars(base)));
+});
+
+test("download plugin: RWK_Download is included in RUNTIME_PLUGINS and registers under share group", () => {
+  assert.ok(RUNTIME_PLUGINS.includes("RWK_Download"));
+  const code = fs.readFileSync(path.join(import.meta.dirname, "..", "runtime", "RWK_Download.js"), "utf8");
+  assert.ok(code.includes('group: "share"'));
+  assert.ok(code.includes("/api/download"));
 });
 
 // ---------------------------------------------------------------------------

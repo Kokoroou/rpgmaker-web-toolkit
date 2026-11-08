@@ -6,7 +6,7 @@
 // creator's current policy and is otherwise not read.
 
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
+import { apiToken, downloadOwnersForUpgrade, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";

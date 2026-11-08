@@ -33,7 +33,18 @@ export async function isDownloadOwner(env, user) {
 export async function handleDownload(request, env, user) {
   if (!env.BUCKET) return jsonErr("Download needs the R2 bucket", 503);
   if (!(await isDownloadOwner(env, user))) return jsonErr("Only the game's owner can download it", 403);
-  if (request.method !== "GET") return jsonErr("Method not allowed", 405);
+  if (request.method !== "GET" && request.method !== "HEAD") return jsonErr("Method not allowed", 405);
+
+  const url = new URL(request.url);
+  if (url.searchParams.get("check") === "1" || request.method === "HEAD") {
+    return new Response(request.method === "HEAD" ? null : JSON.stringify({ owner: true, gameId: env.GAME_ID }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      },
+    });
+  }
 
   // 1. Discover static files via the lens manifest (already deployed to ASSETS).
   let lensFiles = {}; // rel -> size

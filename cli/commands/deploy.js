@@ -17,6 +17,7 @@ import {
   saveGameConfigs,
   saveLiveSettings,
   lensOwnersOf,
+  downloadOwnersOf,
   syncOverflow,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
@@ -169,8 +170,10 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     playerSettings,
     translate: translateWorker(cfg, policy, limits),
     lensOwners: lensOwnersOf(cfg, email),
+    downloadOwners: downloadOwnersOf(cfg, email),
   };
   cfg.lensOwners = worker.lensOwners; // for rwk upgrade, which has no folder to ask
+  cfg.downloadOwners = worker.downloadOwners; // likewise
   // Written before the Worker, which reads it from R2 and puts it over the build's own.
   const publishSettings = () => saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(game.engine, cfg, policy));
   await publishSettings();
