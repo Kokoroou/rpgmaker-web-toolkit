@@ -34,12 +34,67 @@
   // The path of a build file, encoded as the site serves it (same as RWK_Offline).
   const keyOf = (rel) => location.origin + "/" + pathSegments(rel).map(encodeURIComponent).join("/");
 
+  // Where Workers Assets ends up serving a *.html file: a request for one is
+  // redirected to the page without its extension (/credits.html -> /credits),
+  // and a page's own index.html to its folder (/dir/index.html -> /dir/, the
+  // start page index.html -> /). -> that pathname, or null for any other file.
+  function htmlTarget(rel) {
+    if (!String(rel).toLowerCase().endsWith(".html")) return null;
+    const noExt = rel.slice(0, -".html".length);
+    if (noExt === "index") return "/";
+    if (noExt.endsWith("/index")) return "/" + noExt.slice(0, -"index".length);
+    return "/" + noExt;
+  }
+
+  // Whether a fetch was answered with Access's login page instead of the file.
+  // Access redirects a signed-out visitor too, so a redirect alone does not
+  // say: the answer is Access's unless it landed on the page the .html file
+  // above is served as (that redirect is the site's own, and is not a sign-out).
+  function signedOut(res, rel) {
+    if (res.type !== "basic") return true;
+    if (!res.redirected) return false;
+    const target = htmlTarget(rel);
+    try {
+      const url = new URL(res.url);
+      return !(target && url.origin === location.origin && trimSlash(url.pathname) === trimSlash(target));
+    } catch {
+      return true; // no url to check: treat it as no answer
+    }
+  }
+
+  const trimSlash = (pathname) => (pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname);
+
   // A build path as its parts, or none for one that could leave the folder (a
   // backslash is how Windows spells a separator, never part of a build path).
   function pathSegments(rel) {
     const text = String(rel || "");
     if (text.includes("\\")) return [];
     return text.split("/").filter((part) => part && part !== "." && part !== "..");
+  }
+
+  // A name a filesystem accepts for the new folder: the characters Windows,
+  // macOS and Linux refuse (or that would break a path) become a dash, and the
+  // leading and trailing dots and spaces (which Windows drops, so the folder a
+  // second run looks for would not be the one made) go.
+  function folderNameFrom(title) {
+    const text = String(title || "")
+      .replace(/[\\/:*?"<>|\x00-\x1f]/g, "-")
+      .replace(/\s+/g, " ")
+      .slice(0, 120)
+      .replace(/^[.\s]+|[.\s]+$/g, "");
+    return text || "Game web build";
+  }
+
+  // The game's own name, for the folder the build is written into: the engine's
+  // database title once loaded, else the page's title.
+  function gameFolderName() {
+    let title = "";
+    try {
+      if (window.$dataSystem && window.$dataSystem.gameTitle) title = window.$dataSystem.gameTitle;
+    } catch (e) {
+      // no database yet: the page's title below
+    }
+    return folderNameFrom(title || (document && document.title) || "");
   }
 
   // What is left to write: a file already in the folder with the same size is
@@ -133,7 +188,7 @@
     try {
       const res = await fetch(keyOf(item.rel), { signal: run.signal });
       // Not a login page Access redirected to, nor a partial or failed answer.
-      if (res.redirected || res.type !== "basic") throw Object.assign(new Error("Signed out"), { signin: true });
+      if (signedOut(res, item.rel)) throw Object.assign(new Error("Signed out"), { signin: true });
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
       writable = await handle.createWritable();
       let body = res.body;
@@ -222,12 +277,15 @@
   }
 
   //---------------------------------------------------------------------------
-  // State shown in the menu and the panel, kept up to date by the download.
+  // State shown in the menu, the panel and the pill, kept up to date by the
+  // download.
   //---------------------------------------------------------------------------
 
-  let active = null; // the running download: { run, controller, dirFor }
+  let active = null; // the running download: { run, controller, dirFor, folder }
   let latest = null; // the last finished run, for the panel
+  let latestFolder = ""; // the folder the last finished run wrote into
   let panel = null; // the open panel: { render }
+  let pill = null; // the small progress pill shown while the panel is hidden
 
   const percent = (run) => (run.bytesTotal ? Math.min(100, Math.floor((run.bytes / run.bytesTotal) * 100)) : Math.floor((run.done / Math.max(1, run.total)) * 100));
 
@@ -242,7 +300,7 @@
     else if (run.reason === "offline") RWK.toast("Connection lost. Start the download again to continue where it stopped.", "warn", 6000);
     else if (run.reason === "signin") RWK.toast("You are signed out. Reload the page, sign in, then start again.", "warn", 6000);
     else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download. Start again to retry them.`, "warn", 6000);
-    else RWK.toast(`Game saved to the folder: ${run.done} file(s), ${megabytes(run.bytes)}.`, "info", 5000);
+    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.`, "info", 5000);
   }
 
   // Reads the build's file list and the folder, asks, then writes. The folder
@@ -266,8 +324,20 @@
       return;
     }
 
+    // A folder of its own inside the one picked, named after the game, so the
+    // build never mixes with whatever else is there. A second run into the same
+    // place finds the folder and continues in it.
+    const name = gameFolderName();
+    let gameDir;
+    try {
+      gameDir = await root.getDirectoryHandle(name, { create: true });
+    } catch (e) {
+      RWK.toast(`Could not make the folder "${name}": ` + (e.message || e), "error", 5000);
+      return;
+    }
+
     RWK.toast("Checking the folder…", "info", 2000);
-    const { dirFor } = dirCacheFor(root);
+    const { dirFor } = dirCacheFor(gameDir);
     let plan;
     try {
       plan = folderPlan(files, await existingSizes(dirFor, files));
@@ -276,11 +346,11 @@
       return;
     }
     if (!plan.todo.length) {
-      RWK.toast("Everything is already in that folder.", "info", 4000);
+      RWK.toast(`Everything is already in "${name}".`, "info", 4000);
       return;
     }
 
-    const lines = [`Save ${plan.todo.length} file(s), ${megabytes(plan.bytes)}, into the folder you chose?`];
+    const lines = [`Save ${plan.todo.length} file(s), ${megabytes(plan.bytes)}, into the folder "${name}"?`];
     if (plan.skipped) lines.push(`${plan.skipped} file(s) are already there and are skipped.`);
     lines.push("Keep this page open while it runs. You can stop it and start again later: files already written are skipped.");
     const ok = await RWK.choose("Download game (folder)", lines.join("\n"), [
@@ -296,21 +366,25 @@
       if (now - last < PROGRESS_MS) return;
       last = now;
       if (panel) panel.render();
+      if (pill) pill.render();
     };
     const run = newRun(plan.todo, controller.signal, plan.skipped, onProgress);
-    active = { controller, run, dirFor };
+    active = { controller, run, dirFor, folder: name };
     openPanel();
     download(dirFor, plan.todo, run).then(
       (result) => {
         active = null;
         latest = result;
+        latestFolder = name;
         if (panel) panel.render();
+        if (pill) pill.render();
         outcome(result);
       },
       (e) => {
         active = null;
         RWK.toast("Download stopped: " + (e.message || e), "error", 5000);
         if (panel) panel.render();
+        if (pill) pill.render();
       }
     );
   }
@@ -319,6 +393,11 @@
   // or Chrome refuses it: the click's permission is gone.
   function downloadFolder() {
     if (active) {
+      openPanel();
+      return;
+    }
+    if (latest && latest.reason !== null) {
+      // A run that stopped (paused, offline, failed): the panel says so.
       openPanel();
       return;
     }
@@ -342,14 +421,35 @@
   }
 
   //---------------------------------------------------------------------------
-  // The panel.
+  // The panel and the pill. The panel is the window with the bar; the pill is
+  // the small "Saving… 42%" tag it leaves at the top-left when the host hides
+  // it, so the download stays in sight with the toolkit out of the way. When
+  // the last file arrives the pill holds 100% for a few seconds, then goes.
   //---------------------------------------------------------------------------
+
+  const PILL_HIDE_MS = 5000; // how long the finished pill stays
 
   const STYLE = `
 .rwk-dl-bar{height:10px;border-radius:5px;background:#33333b;overflow:hidden;margin:0 0 8px}
 .rwk-dl-bar i{display:block;height:100%;width:0;background:#3b6fd8;transition:width .2s}
 .rwk-dl-note{margin:0 0 14px;font-size:13px;opacity:.75;white-space:pre-line}
+.rwk-modal-actions button.rwk-dl-danger{background:#b3261e;border-color:#b3261e;color:#fff}
+.rwk-dl-pill{position:fixed;left:6px;top:50px;z-index:2147482600;display:flex;align-items:center;gap:8px;
+  font:13px/1 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.72);border:1px solid #444;
+  border-radius:999px;padding:7px 13px 7px 10px;cursor:pointer}
+.rwk-dl-pill .rwk-dl-spin{flex:none;width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
+  border-top-color:#fff;animation:rwk-dl-spin .7s linear infinite}
+.rwk-dl-pill.done{background:rgba(24,84,40,.9)}
+.rwk-dl-pill.done .rwk-dl-spin{display:none}
+@keyframes rwk-dl-spin{to{transform:rotate(360deg)}}
 `;
+
+  let styleNode = null;
+  function ensureStyle() {
+    if (styleNode) return;
+    styleNode = el("style", { textContent: STYLE });
+    document.head.appendChild(styleNode);
+  }
 
   function el(tag, props, children = []) {
     const node = document.createElement(tag);
@@ -358,27 +458,71 @@
     return node;
   }
 
+  // The pill: percent while the download runs, a spinner beside it, and a tap
+  // that brings the panel back. After the run ends it shows 100% for
+  // PILL_HIDE_MS and then removes itself.
+  function showPill() {
+    if (pill) {
+      pill.render();
+      return;
+    }
+    ensureStyle();
+    const spin = el("span", { className: "rwk-dl-spin" });
+    const pct = el("span", { className: "rwk-dl-pct" });
+    const node = el("button", { className: "rwk-dl-pill", type: "button", title: "Download game (folder)" }, [spin, pct]);
+    node.setAttribute("data-rwk-ui", "");
+    node.setAttribute("aria-live", "polite");
+    node.addEventListener("click", () => openPanel());
+    RWK.shield(node);
+    document.body.appendChild(node);
+    let timer = null;
+    const render = () => {
+      const run = active ? active.run : latest;
+      if (active) {
+        if (timer) clearTimeout(timer), (timer = null);
+        node.classList.remove("done");
+        pct.textContent = percent(active.run) + "%";
+        return;
+      }
+      node.classList.add("done");
+      pct.textContent = run && run.reason === null ? "100%" : "Stopped";
+      if (!timer) timer = setTimeout(hidePill, PILL_HIDE_MS);
+    };
+    pill = { node, render, stop: () => timer && clearTimeout(timer) };
+    render();
+  }
+
+  function hidePill() {
+    if (!pill) return;
+    pill.stop();
+    pill.node.remove();
+    pill = null;
+  }
+
   function openPanel() {
     if (panel) return;
-    const style = el("style", { textContent: STYLE });
-    document.head.appendChild(style);
+    hidePill(); // the panel already shows the same progress
+    ensureStyle();
     const title = el("h2", { textContent: "Download game (folder)" });
     const message = el("p");
     const bar = el("div", { className: "rwk-dl-bar" }, [el("i")]);
     const note = el("p", { className: "rwk-dl-note" });
     const actions = el("div", { className: "rwk-modal-actions" });
     const overlay = el("div", { className: "rwk-modal" }, [el("div", { className: "rwk-modal-box" }, [title, message, bar, note, actions])]);
-    const button = (label, onClick, primary) => {
-      const b = el("button", { textContent: label, className: primary ? "primary" : "" });
+    const button = (label, onClick, className = "") => {
+      const b = el("button", { textContent: label, className });
       b.addEventListener("click", onClick);
       return b;
     };
     let done = null;
-    const close = () => {
+    // Hide, not close: the download keeps running, and the pill shows its
+    // progress while the toolkit is out of the way. A run that already finished
+    // shows its 100% pill for PILL_HIDE_MS too.
+    const hide = () => {
       overlay.remove();
-      style.remove();
       panel = null;
       if (done) done();
+      if (active || latest) showPill();
     };
 
     const render = () => {
@@ -388,31 +532,31 @@
       if (active) {
         bar.hidden = false;
         bar.firstChild.style.width = percent(active.run) + "%";
-        message.textContent = `Saving ${megabytes(active.run.bytes)} of ${megabytes(active.run.bytesTotal)} · ${active.run.done} of ${active.run.total} files`;
+        message.textContent = `Saving ${megabytes(active.run.bytes)} of ${megabytes(active.run.bytesTotal)} · ${active.run.done} of ${active.run.total} files into "${active.folder}"`;
         note.textContent = active.run.skipped ? `${active.run.skipped} file(s) were already in the folder and were skipped.` : "";
-        actions.append(button("Close", close), button("Cancel", () => active && active.controller.abort(), true));
+        actions.append(button("Hide", hide), button("Cancel", () => active && active.controller.abort(), "rwk-dl-danger"));
       } else if (run && run.reason === null) {
-        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder. The game folder holds the same build the site serves.`;
-        note.textContent = "";
-        actions.append(button("Close", close));
+        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves.`;
+        note.textContent = "To play it, serve the folder over http:// rather than opening index.html directly: the game loads its data with XMLHttpRequest, which a file:// page cannot use.";
+        actions.append(button("Hide", hide));
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
-        actions.append(button("Close", close));
+        actions.append(button("Hide", hide));
       } else {
         message.textContent = "No download has run in this page yet.";
-        actions.append(button("Close", close));
+        actions.append(button("Hide", hide));
       }
     };
 
     RWK.shield(overlay);
     panel = { render };
     render(); // fills the buttons before the frame puts the focus on one
-    done = RWK.panel(overlay, { close });
+    done = RWK.panel(overlay, { close: hide });
   }
 
   // The pure parts, for the tests (no DOM, no File System Access API).
-  RWK.download = { folderPlan, pathSegments, keyOf };
+  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom };
 
   //---------------------------------------------------------------------------
   // The menu entries. /api/download?check=1 answers 403 to everyone but the

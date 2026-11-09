@@ -235,6 +235,17 @@ test("download list: paths that could leave the folder are dropped", async () =>
   for (const bad of ["/abs", "a/../b", "a//b", "a\\b", "", 7, "x/./y"]) assert.ok(!safeRel(bad), String(bad));
 });
 
+test("download list: a file the site does not serve is left out, also from an older deploy's list", async () => {
+  // A deploy before UNSERVED_FILES listed _headers; the Worker never hands it
+  // out, so a folder download does not stop on its 404.
+  const env = assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "_headers": 37, "index.html": 5, "robots.txt": 20 }) });
+  const res = await handleDownloadList(new Request(BASE + "/api/download/list"), env, as("host@example.com"));
+  assert.deepEqual((await res.json()).files, [
+    { rel: "index.html", size: 5 },
+    { rel: "robots.txt", size: 20 },
+  ]);
+});
+
 // ---------------------------------------------------------------------------
 // Through the full Worker
 // ---------------------------------------------------------------------------
