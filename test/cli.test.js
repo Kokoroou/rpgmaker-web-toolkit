@@ -294,6 +294,35 @@ test("web build: runtime plugins and the toolkit version for the problem report"
   assert.equal(JSON.parse(core.parameters.config).version, pkg.version);
 });
 
+test("web build: rwk-build.json lists every file of the build, for the folder download", () => {
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), "var $plugins = [];\n");
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const files = [
+    { rel: "index.html", size: 1 },
+    { rel: "js/plugins.js", size: 20 },
+    { rel: "img/pictures/a.png", size: 3000 },
+    { rel: "js/rpg_core.js", size: 40 }, // not in the lens manifest
+    { rel: "fonts/mplus.woff", size: 50 },
+    { rel: "movies/op.webm", size: 60 },
+  ];
+  const out = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }, files);
+  const manifest = JSON.parse(out.get("rwk-build.json"));
+
+  assert.equal(manifest.v, 1);
+  // Every game file, whatever its folder, plus the files the toolkit writes.
+  for (const rel of files.map((f) => f.rel)) assert.ok(rel in manifest.files, rel);
+  for (const rel of out.keys()) if (rel !== "rwk-build.json") assert.ok(rel in manifest.files, `generated: ${rel}`);
+  assert.equal(manifest.files["img/pictures/a.png"], 3000);
+  assert.equal(manifest.files["js/rwk-guard.js"], Buffer.byteLength(out.get("js/rwk-guard.js")), "generated files carry their real size");
+  assert.ok(!("rwk-build.json" in manifest.files), "it does not list itself");
+  assert.deepEqual(Object.keys(manifest.files), [...Object.keys(manifest.files)].sort(), "sorted");
+
+  // Built before the last generated file, it would be short by that one.
+  assert.ok(Object.keys(manifest.files).length > out.size - 1);
+});
+
 test("web build: quick save and autosave settings", () => {
   const root = tmp();
   fs.mkdirSync(path.join(root, "js"));

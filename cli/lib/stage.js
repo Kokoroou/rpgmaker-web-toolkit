@@ -15,6 +15,7 @@ import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
 import { GUARD_REL, appendToolkit, guardInto } from "../../worker/toolkit.js";
 import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
+import { BUILD_MANIFEST } from "../../worker/download.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Lens", "RWK_Download", "RWK_Report"];
 
@@ -287,7 +288,7 @@ export function liveSettingsOf(engine, cfg, policy) {
 
 // Top-level keys that differ between two configs and only a deploy applies.
 export function keysNeedingDeploy(before, after) {
-  const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion", "url", "savesImportedAt", "lensOwners"]);
+  const skip = new Set([...LIVE_KEYS, "slug", "fingerprint", "storageId", "retiredWorkers", "policy", "liveSettings", "toolkitVersion", "url", "savesImportedAt", "lensOwners", "downloadOwners", "downloadZip"]);
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   const out = [...keys].filter((key) => !skip.has(key) && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
   // Translation is a live key, but the Worker only gets the Workers AI binding at a deploy.
@@ -328,6 +329,20 @@ export function lensManifest(game, files) {
   const list = {};
   for (const f of [...files].sort((a, b) => (a.rel < b.rel ? -1 : 1))) if (lensAllowed(f.rel)) list[f.rel] = f.size;
   return JSON.stringify({ v: 1, title: game.title, engine: game.engine, files: list });
+}
+
+// Every file the built site serves, with its size: { v, files: { rel: size } },
+// written to the build as rwk-build.json. The host's folder download asks the
+// Worker for it (/api/download/list, worker/download.js). Unlike the lens
+// manifest it lists the whole build (the page, scripts, fonts, movies…), and it
+// does not list itself (its size depends on its content).
+// files: from collectFiles(); out: the generated files, already made.
+export function buildManifest(files, out) {
+  const list = {};
+  for (const f of files) list[f.rel] = f.size;
+  for (const [rel, content] of out) list[rel] = typeof content === "string" ? Buffer.byteLength(content) : content.length;
+  delete list[BUILD_MANIFEST];
+  return JSON.stringify({ v: 1, files: Object.fromEntries(Object.entries(list).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) });
 }
 
 // Width and height of a PNG file's content, or null.
@@ -415,5 +430,8 @@ export function generatedFiles(game, gameConfig, files = []) {
       2
     )
   );
+
+  // Last: it lists every file above, so it is written once they all exist.
+  out.set(BUILD_MANIFEST, buildManifest(files, out));
   return out;
 }
