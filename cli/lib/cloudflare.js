@@ -572,6 +572,17 @@ export function downloadOwnersForUpgrade(cfg, email) {
   return downloadOwnersOf(cfg, email);
 }
 
+// What a deploy does about the download ZIP: "make" when a deployer may
+// download (owners) and the config asks for the archive ("download": { "zip":
+// true }); "remove" when no ZIP is wanted but an earlier deploy left one
+// (cfg.downloadZip, recorded by the deploy that made it); "skip" otherwise.
+// The folder download needs neither, so it is unaffected.
+export function downloadPlan(cfg, owners) {
+  if (owners.length && downloadZipOf(cfg)) return "make";
+  if (cfg.downloadZip !== false) return "remove";
+  return "skip";
+}
+
 export function listSaveFiles(saveDir, engine) {
   const ext = engineOf(engine).saveExtension;
   return fs

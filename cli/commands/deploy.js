@@ -18,7 +18,7 @@ import {
   saveLiveSettings,
   lensOwnersOf,
   downloadOwnersOf,
-  downloadZipOf,
+  downloadPlan,
   syncOverflow,
   uploadBuildZip,
   deleteBuildZip,
@@ -266,17 +266,6 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
       "On a phone: open the link → browser menu → “Add to Home Screen” to play fullscreen.",
     ],
   };
-}
-
-// What the deploy does about the download ZIP: "make" when a deployer may
-// download (downloadOwners) and the config asks for the archive
-// ("download": { "zip": true }); "remove" when no ZIP is wanted but an earlier
-// deploy left one (cfg.downloadZip, recorded by the deploy that made it);
-// "skip" otherwise. The folder download needs neither.
-export function downloadPlan(cfg, owners) {
-  if (owners.length && downloadZipOf(cfg)) return "make";
-  if (cfg.downloadZip !== false) return "remove";
-  return "skip";
 }
 
 // The deployer's per-player settings for the Worker, with a word on what they do.
