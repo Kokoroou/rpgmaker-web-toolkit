@@ -33,6 +33,36 @@
   // The key rwk-sw.js stores a file under.
   const keyOf = (rel) => location.origin + "/" + rel.split("/").map(encodeURIComponent).join("/");
 
+  // Where Workers Assets ends up serving a *.html file: a request for one is
+  // redirected to the page without its extension (/credits.html -> /credits),
+  // and a page's own index.html to its folder (/dir/index.html -> /dir/, the
+  // start page index.html -> /). -> that pathname, or null for any other file.
+  function htmlTarget(rel) {
+    if (!String(rel).toLowerCase().endsWith(".html")) return null;
+    const noExt = rel.slice(0, -".html".length);
+    if (noExt === "index") return "/";
+    if (noExt.endsWith("/index")) return "/" + noExt.slice(0, -"index".length);
+    return "/" + noExt;
+  }
+
+  // Whether a fetch was answered with Access's login page instead of the file.
+  // Access redirects a signed-out visitor too, so a redirect alone does not
+  // say: the answer is Access's unless it landed on the page the .html file
+  // above is served as (that redirect is the site's own, and is not a sign-out).
+  function signedOut(res, rel) {
+    if (res.type !== "basic") return true;
+    if (!res.redirected) return false;
+    const target = htmlTarget(rel);
+    try {
+      const url = new URL(res.url);
+      return !(target && url.origin === location.origin && trimSlash(url.pathname) === trimSlash(target));
+    } catch {
+      return true; // no url to check: treat it as no answer
+    }
+  }
+
+  const trimSlash = (pathname) => (pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname);
+
   //---------------------------------------------------------------------------
   // The list: asked of the Service Worker, which has the build's file list.
   //---------------------------------------------------------------------------
@@ -103,7 +133,7 @@
     try {
       const res = await fetch(item.key, { signal: run.signal, headers: { "x-rwk-preload": "1" } });
       // Not a login page Access redirected to, nor a partial or failed answer.
-      if (res.redirected || res.type !== "basic") throw Object.assign(new Error("Signed out"), { signin: true });
+      if (signedOut(res, item.rel)) throw Object.assign(new Error("Signed out"), { signin: true });
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
       let body = res;
       if (typeof TransformStream === "function" && res.body) {

@@ -12,6 +12,7 @@ import { cleanHint, gamepadKeys, pluginHint, scanKeys, stripComments } from "../
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
 import { LIVE_KEYS, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
 import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, remapConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
+import { UNSERVED_FILES } from "../worker/download.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
 import { splitToolkit } from "../worker/toolkit.js";
@@ -313,7 +314,10 @@ test("web build: rwk-build.json lists every file of the build, for the folder do
   assert.equal(manifest.v, 1);
   // Every game file, whatever its folder, plus the files the toolkit writes.
   for (const rel of files.map((f) => f.rel)) assert.ok(rel in manifest.files, rel);
-  for (const rel of out.keys()) if (rel !== "rwk-build.json") assert.ok(rel in manifest.files, `generated: ${rel}`);
+  // Except the configuration Workers Assets reads and never serves, which a
+  // download cannot fetch; the list itself stays out too.
+  for (const rel of out.keys()) if (!UNSERVED_FILES.has(rel) && rel !== "rwk-build.json") assert.ok(rel in manifest.files, `generated: ${rel}`);
+  assert.ok(!("_headers" in manifest.files), "the headers file is not a file of the site");
   assert.equal(manifest.files["img/pictures/a.png"], 3000);
   assert.equal(manifest.files["js/rwk-guard.js"], Buffer.byteLength(out.get("js/rwk-guard.js")), "generated files carry their real size");
   assert.ok(!("rwk-build.json" in manifest.files), "it does not list itself");

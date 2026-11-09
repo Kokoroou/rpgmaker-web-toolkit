@@ -15,7 +15,7 @@ import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
 import { GUARD_REL, appendToolkit, guardInto } from "../../worker/toolkit.js";
 import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
-import { BUILD_MANIFEST } from "../../worker/download.js";
+import { BUILD_MANIFEST, UNSERVED_FILES } from "../../worker/download.js";
 
 export const RUNTIME_PLUGINS = ["RWK_Core", "RWK_Language", "RWK_Translate", "RWK_SaveSync", "RWK_MobileControls", "RWK_SafeSaves", "RWK_Speed", "RWK_Message", "RWK_Backlog", "RWK_Dash", "RWK_Remap", "RWK_SaveTools", "RWK_SaveHistory", "RWK_ItemBatch", "RWK_Cheats", "RWK_Offline", "RWK_Lens", "RWK_Download", "RWK_Report"];
 
@@ -331,17 +331,18 @@ export function lensManifest(game, files) {
   return JSON.stringify({ v: 1, title: game.title, engine: game.engine, files: list });
 }
 
-// Every file the built site serves, with its size: { v, files: { rel: size } },
+// Every file the site serves, with its size: { v, files: { rel: size } },
 // written to the build as rwk-build.json. The host's folder download asks the
 // Worker for it (/api/download/list, worker/download.js). Unlike the lens
-// manifest it lists the whole build (the page, scripts, fonts, movies…), and it
-// does not list itself (its size depends on its content).
+// manifest it lists the whole build (the page, scripts, fonts, movies…); see
+// UNSERVED_FILES for the few it leaves out.
 // files: from collectFiles(); out: the generated files, already made.
 export function buildManifest(files, out) {
   const list = {};
   for (const f of files) list[f.rel] = f.size;
   for (const [rel, content] of out) list[rel] = typeof content === "string" ? Buffer.byteLength(content) : content.length;
-  delete list[BUILD_MANIFEST];
+  for (const rel of UNSERVED_FILES) delete list[rel];
+  delete list[BUILD_MANIFEST]; // it does not list itself: its size depends on its content
   return JSON.stringify({ v: 1, files: Object.fromEntries(Object.entries(list).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) });
 }
 

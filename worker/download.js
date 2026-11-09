@@ -25,6 +25,11 @@ const ZIP_KEY = (gameId) => `assets/${gameId}/rwk.zip`;
 // path the site serves, with its size. Only names and sizes.
 export const BUILD_MANIFEST = "rwk-build.json";
 
+// Files the build holds but the site never serves, so a download must not ask
+// for them. `_headers` is configuration for Workers Assets: Cloudflare reads it
+// and does not serve it, and /_headers answers 404.
+export const UNSERVED_FILES = new Set(["_headers"]);
+
 export async function isDownloadOwner(env, user) {
   if (env.AUTH_MODE !== "access" || !env.BUCKET) return false;
   let owners = [];
@@ -92,7 +97,7 @@ export async function handleDownloadList(request, env, user) {
   if (!manifest) return jsonReply({ gameId: env.GAME_ID, files: [] });
   const files = [];
   for (const [rel, size] of Object.entries(manifest.files || {})) {
-    if (!safeRel(rel)) continue;
+    if (!safeRel(rel) || UNSERVED_FILES.has(rel)) continue;
     files.push({ rel, size: Number(size) >= 0 ? Number(size) : 0 });
   }
   files.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
