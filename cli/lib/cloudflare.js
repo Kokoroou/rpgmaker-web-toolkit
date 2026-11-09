@@ -344,6 +344,24 @@ function walkBuild(dir, rel = "") {
   return out;
 }
 
+// Removes the build's ZIP and its record from R2, for a deploy whose config no
+// longer asks for one ("download": { "zip": true } was turned off), so the space
+// it took is freed. A game that never had one costs a single small read.
+// -> true when there was an archive to remove.
+export async function deleteBuildZip({ bucket, slug, io = {} }) {
+  const { get = r2Get, remove = r2Delete } = io;
+  let record = null;
+  try {
+    record = await get(bucket, BUILD_ZIP_META_KEY(slug));
+  } catch {
+    return false; // R2 unreachable: the next deploy tries again
+  }
+  if (!record) return false;
+  await remove(bucket, BUILD_ZIP_KEY(slug));
+  await remove(bucket, BUILD_ZIP_META_KEY(slug));
+  return true;
+}
+
 // Makes assets/<slug>/rwk.zip from `entries` and uploads it, unless the archive
 // in R2 was made from the same files (then nothing is made or uploaded).
 // zipPath: where to write it, next to the build; it is deleted after the upload.
@@ -529,14 +547,22 @@ export function lensOwnersForUpgrade(cfg, email) {
   return lensOwnersOf(cfg, email);
 }
 
-// Who may download the web build as a ZIP (GET /api/download): the Cloudflare
-// account's email and `download.owners`; "download": false turns it off.
+// Who may download the web build, as a ZIP or into a folder (⚙ → Share →
+// Download game; GET /api/download and /api/download/list): the Cloudflare
+// account's email and `download.owners`; "download": false turns both off.
 // -> hashes (worker/download.js)
 export function downloadOwnersOf(cfg, email) {
   if (cfg.download === false) return [];
   const extra = cfg.download && Array.isArray(cfg.download.owners) ? cfg.download.owners : [];
   const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
   return [...new Set(emails.map(userHash))];
+}
+
+// Whether a deploy also makes the ZIP in R2: only when the config asks for it
+// ("download": { "zip": true }). Downloading into a folder needs no archive and
+// no R2 space, so it is the default; the ZIP costs as much as the build.
+export function downloadZipOf(cfg) {
+  return !!(cfg.download !== false && cfg.download && typeof cfg.download === "object" && cfg.download.zip === true);
 }
 
 // The owners for rwk upgrade: what the last deploy stored, or derived from the
