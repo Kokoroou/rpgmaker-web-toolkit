@@ -117,6 +117,10 @@ export default defineConfig({
         items: [{ text: "Play offline", link: "/play/offline" }],
       },
       {
+        text: "Share",
+        items: [{ text: "Download game", link: "/play/download" }],
+      },
+      {
         text: "Help",
         items: [{ text: "Report a problem, game files", link: "/play/help" }],
       },

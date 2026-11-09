@@ -29,6 +29,7 @@ At the top, **tiles** for what you use most: **Quick save**, **Quick load** and,
 | **Controls** | Edit button layout (phones), Keys and buttons | [Touch controls](/play/controls), [Keys and buttons](/play/keys) |
 | **Display** | Language, when the game has translations; Translate the game and Translate into, when live translation is turned on | [Language](/play/language), [Live translation](/play/translate) |
 | **Offline** | Play offline | [Play offline](/play/offline) |
+| **Share** | MakerLens link, Download game (folder), Download game (ZIP) — shown only to the game's owner | [Download game](/play/download), [Look at the game in MakerLens](/reference/how-it-works#look-at-the-game-in-makerlens) |
 | **Help** | Report a problem, Game files on this device | [Help](/play/help) |
 
 A group appears only when it has something in it: options the person who set up the game, or the game's creator, turned off are missing, and so is a group left empty. Settings added by other plugins sit under **More**.

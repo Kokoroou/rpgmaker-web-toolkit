@@ -59,6 +59,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              RWK_ItemBatch       use several items at once (MZ / MV adapter for the common event queue)
              RWK_Cheats          cheats, off by default: party, gold and items, win a battle, switches and variables, movement
                                  (god mode: Game_Actor.setHp; walk through walls: Game_Player.isDebugThrough)
+             RWK_Download        ⚙ → Share → Download game: the owner saves the build to a folder (Chromium) or as a ZIP (/api/download)
              RWK_Lens            ⚙ → Share → MakerLens link: the owner makes and stops read-only links (/api/lens)
              RWK_Offline         ⚙ → Play offline: downloads every file in the Service Worker's list into its cache, resumable
              RWK_Report          problem report: latest errors, audio state, files that failed to load
@@ -70,7 +71,7 @@ run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary w
              toolkit.js          the toolkit's part of js/plugins.js, and the guard in index.html; serves a newer toolkit after upgrade
              settings.js         the deployer's settings from R2, so config applies without a redeploy
              lens.js             /_lens/* read-only files for MakerLens (share token) and /api/lens for the owner
-             download.js         /api/download: the build's ZIP from R2, for the host only
+             download.js         /api/download (the build's ZIP from R2) and /api/download/list (the build's files), host only
              translate.js        POST /api/translate: Workers AI (env.AI), each line kept in R2, a daily character cap
 ```
 
@@ -86,7 +87,8 @@ The game folder is never written to. Each run:
 
    The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.
 4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
-5. Makes the build's ZIP (`cli/lib/zip.js`) and uploads it to R2, unless the files it would hold are the ones the archive in R2 was made from. It is what the host downloads in ⚙ → **Share** → **Download game**.
+5. Writes `rwk-build.json`, the complete list of the build's files and their sizes (a game has some 3,000; the file is about 150 KB). The host's ⚙ → **Share** → **Download game (folder)** fetches it through the Worker and then reads the files from the site itself, so the list is the only thing the Worker does for it.
+   When the config asks for it (`"download": { "zip": true }`), it also makes the build's ZIP (`cli/lib/zip.js`) and uploads it to R2, unless the files it would hold are the ones the archive in R2 was made from. Turning that off removes an archive an earlier deploy left, so the space comes back.
 6. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
 7. Deletes the build folder.
 
@@ -116,7 +118,7 @@ Static files are **Workers Static Assets** (free, unmetered bandwidth). One R2 b
 rwk/games.json                       settings of every game (keyed by fingerprint)
 assets/<slug>/<path>                 files over 25 MiB
 assets/<slug>/.rwk-manifest.json     hashes of those files
-assets/<slug>/rwk.zip                the whole web build, for the host's ⚙ → Share → Download game
+assets/<slug>/rwk.zip                the whole web build, for the host's Download game (ZIP); only with "download": { "zip": true }
 assets/<slug>/rwk.zip.json           what that archive holds, so a deploy with no change skips it
 saves/<sha256(email)>/<slug>/<name>  saves (config, global, file1…)
 history/<sha256(email)>/<slug>/<name>/<time>
@@ -131,7 +133,13 @@ rwk/translate/usage/<day>.json       characters sent to Workers AI that day (UTC
 
 Saves are stored under a hash of the email, never the email itself.
 
-The archive is made by the CLI at deploy (`cli/lib/zip.js`), not by the Worker: reading a game's thousands of files from inside a Worker would use one subrequest per file, and the free plan allows 50 outside Cloudflare and 1,000 to its own services per request. It is one object, served with `Range`, so a dropped download resumes instead of starting again. A game deployed before this existed has no archive (the entry stays hidden) until it is deployed again. It follows the files in R2: a very large build counts against the free plan's 10 GB.
+The ZIP is made by the CLI at deploy (`cli/lib/zip.js`), not by the Worker: reading a game's thousands of files from inside a Worker would use one subrequest per file, and the free plan allows 50 outside Cloudflare and 1,000 to its own services per request. It is one object, served with `Range`, so a dropped download resumes instead of starting again. It is only made when the config asks for it, because it fills R2 with a second copy of the game; the folder download needs no archive, and a file it fetches never reaches the Worker anyway (run_worker_first sends only `/api/*`, `/_lens/*` and the files the Worker serves). A game deployed before this existed has no archive (the entry stays hidden) until it is deployed again with the setting on. A very large build counts against the free plan's 10 GB.
+
+## Download game to a folder
+
+The host saves the whole web build into a folder on their PC, from the game itself: **⚙ → Share → Download game (folder)** ([what it looks like](/play/download)). The entry shows only for the owner's emails and only in Chromium browsers, which alone have the File System Access API (`showDirectoryPicker`).
+
+The Worker answers one request, `/api/download/list`, with the files in `rwk-build.json` (names and sizes; the same owner check as the ZIP). The page then fetches each file from the site and writes it, four at a time, under the path it has on the site. Those fetches are static assets, so the Worker never sees them: no subrequest, and no byte stored in R2. A file the folder already holds with the same size is skipped, so a stopped download continues where it left off; a file that fails is counted and listed, and the rest go on. It calls `showDirectoryPicker` before anything is awaited, or Chrome would refuse it for having lost the click's permission. A game deployed before `rwk-build.json` existed has no folder entry until it is deployed again.
 
 ## Save sync
 
