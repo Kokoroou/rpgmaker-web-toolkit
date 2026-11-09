@@ -10,9 +10,9 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
-import { handleDownload, isDownloadOwner } from "../worker/download.js";
+import { BUILD_MANIFEST, handleDownload, handleDownloadList, isDownloadOwner, safeRel } from "../worker/download.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
-import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, uploadBuildZip, zipEntries, workerVars } from "../cli/lib/cloudflare.js";
+import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, downloadPlan, downloadZipOf, deleteBuildZip, uploadBuildZip, zipEntries, workerVars } from "../cli/lib/cloudflare.js";
 import { writeZip } from "../cli/lib/zip.js";
 import { RUNTIME_PLUGINS } from "../cli/lib/stage.js";
 import { makeEnv } from "./helpers.js";
@@ -105,11 +105,13 @@ test("download: ?check=1 says whether the archive is there, without sending it",
   const env = ownerEnv();
   const before = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
   assert.equal(before.status, 200);
-  assert.deepEqual(await before.json(), { owner: true, gameId: "test-game", ready: false }, "a game deployed before the archive existed");
+  assert.deepEqual(await before.json(), { owner: true, gameId: "test-game", ready: false, folder: false }, "a game deployed before the archive existed");
 
   await putZip(env);
   const after = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
-  assert.equal((await after.json()).ready, true);
+  const afterBody = await after.json();
+  assert.equal(afterBody.ready, true);
+  assert.equal(afterBody.folder, false, "no build list in this env's assets");
 });
 
 // ---------------------------------------------------------------------------
@@ -156,7 +158,81 @@ test("download: a build without an archive says how to make one", async () => {
   const env = ownerEnv();
   const res = await handleDownload(new Request(BASE + "/api/download"), env, as("host@example.com"));
   assert.equal(res.status, 404);
-  assert.match((await res.json()).error, /rwk deploy/);
+  assert.match((await res.json()).error, /"download": \{ "zip": true \}/);
+});
+
+// ---------------------------------------------------------------------------
+// /api/download/list: the build's files, for the folder download
+// ---------------------------------------------------------------------------
+
+// An env whose static assets serve `files` ({ rel: text }).
+function assetsEnv(files, overrides = {}) {
+  return ownerEnv({
+    ASSETS: {
+      fetch: async (req) => {
+        const rel = new URL(req.url).pathname.slice(1);
+        return rel in files ? new Response(files[rel]) : new Response("nope", { status: 404 });
+      },
+    },
+    ...overrides,
+  });
+}
+
+const manifestOf = (files) => JSON.stringify({ v: 1, files });
+
+test("download list: every file of the build, sorted, with its size", async () => {
+  const env = assetsEnv({
+    [BUILD_MANIFEST]: manifestOf({ "js/plugins.js": 10, "index.html": 5, "img/a.png": 7 }),
+  });
+  const res = await handleDownloadList(new Request(BASE + "/api/download/list"), env, as("host@example.com"));
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    gameId: "test-game",
+    files: [
+      { rel: "img/a.png", size: 7 },
+      { rel: "index.html", size: 5 },
+      { rel: "js/plugins.js", size: 10 },
+    ],
+  });
+});
+
+test("download list: 403 for anyone who is not the owner, 503 without a bucket", async () => {
+  const env = assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) });
+  const other = await handleDownloadList(new Request(BASE + "/api/download/list"), env, as("player@example.com"));
+  assert.equal(other.status, 403);
+  const noBucket = await handleDownloadList(
+    new Request(BASE + "/api/download/list"),
+    assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) }, { BUCKET: undefined }),
+    as("host@example.com")
+  );
+  assert.equal(noBucket.status, 503);
+});
+
+test("download list: an empty list when the game was deployed before the manifest", async () => {
+  const env = assetsEnv({});
+  const res = await handleDownloadList(new Request(BASE + "/api/download/list"), env, as("host@example.com"));
+  assert.deepEqual(await res.json(), { gameId: "test-game", files: [] });
+  const check = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
+  assert.equal((await check.json()).folder, false, "the folder entry stays hidden");
+});
+
+test("download list: ?check=1 says the folder is possible once rwk-build.json is there", async () => {
+  const env = assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) });
+  const res = await handleDownload(new Request(BASE + "/api/download?check=1"), env, as("host@example.com"));
+  assert.equal((await res.json()).folder, true);
+});
+
+test("download list: paths that could leave the folder are dropped", async () => {
+  const env = assetsEnv({
+    [BUILD_MANIFEST]: manifestOf({ "/abs": 1, "a/../b": 2, "a//b": 3, "a\\b": 4, "": 5, "ok/file.png": 6, "rwk-build.json": 7 }),
+  });
+  const res = await handleDownloadList(new Request(BASE + "/api/download/list"), env, as("host@example.com"));
+  assert.deepEqual((await res.json()).files, [
+    { rel: "ok/file.png", size: 6 },
+    { rel: "rwk-build.json", size: 7 }, // a real build path; the CLI leaves it out of its own list
+  ]);
+  assert.ok(safeRel("ok/file.png"));
+  for (const bad of ["/abs", "a/../b", "a//b", "a\\b", "", 7, "x/./y"]) assert.ok(!safeRel(bad), String(bad));
 });
 
 // ---------------------------------------------------------------------------
@@ -168,6 +244,16 @@ test("download: worker routes /api/download to the handler", async () => {
   const env = makeEnv({ AUTH_MODE: "none", RWK_DOWNLOAD_OWNERS: JSON.stringify([hash]) });
   const res = await createWorker().fetch(new Request(BASE + "/api/download"), env);
   assert.equal(res.status, 403, "\"public\" is not in download owners");
+});
+
+test("download: worker routes /api/download/list to the handler", async () => {
+  // No Access token in this request: the login is checked before the owner list.
+  const env = assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) }, { AUTH_MODE: "access", RWK_DOWNLOAD_OWNERS: JSON.stringify([userHash("host@example.com")]) });
+  const res = await createWorker().fetch(new Request(BASE + "/api/download/list"), env);
+  assert.equal(res.status, 401);
+  // A public site: everyone is "public", which the owner list does not hold.
+  const publicEnv = assetsEnv({ [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) }, { AUTH_MODE: "none", RWK_DOWNLOAD_OWNERS: JSON.stringify([userHash("host@example.com")]) });
+  assert.equal((await createWorker().fetch(new Request(BASE + "/api/download/list"), publicEnv)).status, 403);
 });
 
 // ---------------------------------------------------------------------------
@@ -257,6 +343,44 @@ test("download owners: downloadOwnersOf derives hashes from the account email an
   );
   assert.deepEqual(downloadOwnersOf({ download: false }, "host@example.com"), []);
   assert.deepEqual(downloadOwnersOf({}, undefined), []);
+});
+
+test("download zip: opt-in only, and off when download is false", () => {
+  assert.equal(downloadZipOf({}), false, "no download key: no ZIP");
+  assert.equal(downloadZipOf({ download: { owners: ["a@example.com"] } }), false, "owners alone do not ask for the archive");
+  assert.equal(downloadZipOf({ download: { zip: true } }), true);
+  assert.equal(downloadZipOf({ download: true }), false);
+  assert.equal(downloadZipOf({ download: false }), false);
+  assert.equal(downloadZipOf({ download: { zip: "yes" } }), false, "only true makes one");
+});
+
+test("download zip: a deploy makes, removes or skips the archive", () => {
+  const owners = [userHash("host@example.com")];
+  assert.equal(downloadPlan({ download: { zip: true } }, owners), "make");
+  assert.equal(downloadPlan({ download: { zip: true }, downloadZip: false }, owners), "make", "asking for it again overrides the record");
+  assert.equal(downloadPlan({}, owners), "remove", "off by default: check for one an earlier deploy left");
+  assert.equal(downloadPlan({ downloadZip: true }, owners), "remove", "a ZIP made before this default: still removed");
+  assert.equal(downloadPlan({ downloadZip: false }, owners), "skip", "checked already, nothing left");
+  assert.equal(downloadPlan({ download: false }, owners), "remove", "owners gone: what was made is removed once");
+  assert.equal(downloadPlan({}, []), "remove");
+  assert.equal(downloadPlan({ download: { zip: true }, downloadZip: false }, []), "skip", "no owners: no ZIP");
+});
+
+test("download zip: a deploy with the ZIP off removes the archive an older one made", async () => {
+  const r2 = new Map([
+    ["assets/g/rwk.zip", Buffer.from("old")],
+    ["assets/g/rwk.zip.json", Buffer.from("{}")],
+    ["assets/g/.rwk-manifest.json", Buffer.from("{}")],
+  ]);
+  const io = {
+    get: async (bucket, key) => (r2.has(key) ? r2.get(key) : null),
+    remove: async (bucket, key) => r2.delete(key),
+  };
+  assert.equal(await deleteBuildZip({ bucket: "b", slug: "g", io }), true);
+  assert.ok(!r2.has("assets/g/rwk.zip"));
+  assert.ok(!r2.has("assets/g/rwk.zip.json"));
+  assert.ok(r2.has("assets/g/.rwk-manifest.json"), "only the archive goes");
+  assert.equal(await deleteBuildZip({ bucket: "b", slug: "g", io }), false, "nothing left to remove");
 });
 
 test("download owners: downloadOwnersForUpgrade keeps stored list or falls back to current account", () => {

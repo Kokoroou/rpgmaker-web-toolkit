@@ -18,8 +18,10 @@ import {
   saveLiveSettings,
   lensOwnersOf,
   downloadOwnersOf,
+  downloadPlan,
   syncOverflow,
   uploadBuildZip,
+  deleteBuildZip,
   zipEntries,
   writeWorkerProject,
 } from "../lib/cloudflare.js";
@@ -158,23 +160,36 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   }
 
   //-------------------------------------------------------------------------
-  // The whole build as one ZIP, for the host's ⚙ → Share → Download game. Made
-  // here, because a Worker cannot read a game's thousands of files to stream
-  // them (the free plan allows far fewer subrequests than a game has files).
+  // The whole build as one ZIP, for the host's ⚙ → Share → Download game (ZIP).
+  // Made here only when the config asks for it ("download": { "zip": true }):
+  // it fills R2 with a second copy of the game, and downloading into a folder
+  // needs it not at all. A Worker cannot read a game's thousands of files to
+  // stream them (the free plan allows far fewer subrequests than a game has files).
   const downloadOwners = downloadOwnersOf(cfg, email);
+  const downloadStep = downloadPlan(cfg, downloadOwners);
   let zip = null;
-  if (downloadOwners.length) {
+  if (downloadStep === "make") {
     log.step("Download archive (ZIP)");
     const zipPath = path.join(buildDir, "build.zip");
     try {
       zip = await uploadBuildZip({ bucket, slug: storageIdOf(cfg), entries: zipEntries(publicDir, assets, overflow), zipPath });
       log.ok(`${zip.uploaded ? "" : "Unchanged: "}${zip.entries} files, ${formatBytes(zip.bytes)}`);
+      cfg.downloadZip = true;
     } catch (err) {
       // The site works without it: only the host's download entry is missing.
       log.warn(`Could not make the download ZIP: ${err.message}`);
       log.info(c.dim("The game itself is unaffected; the ZIP is made at the next deploy."));
     } finally {
       fs.rmSync(zipPath, { force: true });
+    }
+  } else if (downloadStep === "remove") {
+    // No ZIP wanted: free what a deploy before this one left in R2. Asked once:
+    // once there is none, downloadZip stays false, and later deploys skip the read.
+    try {
+      if (await deleteBuildZip({ bucket, slug: storageIdOf(cfg) })) log.info(c.dim("Removed the older download ZIP from R2 (this config does not make one)."));
+      cfg.downloadZip = false;
+    } catch (err) {
+      log.warn(`Could not remove the older download ZIP from R2: ${err.message}`);
     }
   }
 

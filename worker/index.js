@@ -13,7 +13,7 @@
 // everyone's settings and playerSettings, so an edit needs no redeploy.
 
 import { AuthError, identify, userHash } from "./auth.js";
-import { handleDownload } from "./download.js";
+import { handleDownload, handleDownloadList } from "./download.js";
 import { LENS_PREFIX, handleLens, handleLensApi } from "./lens.js";
 import { handleHistory, handleSaves, json } from "./saves.js";
 import { liveSettings } from "./settings.js";
@@ -70,6 +70,7 @@ async function handleApi(request, env, path, whoIs) {
     // What this player gets on top of everyone's settings (js/plugins.js).
     if (path === "/api/config") return json({ email: user.email, gameId: env.GAME_ID, settings: user.settings || {} });
     if (path === "/api/download") return handleDownload(request, env, user);
+    if (path === "/api/download/list") return handleDownloadList(request, env, user);
     if (path === "/api/saves") return handleSaves(request, env, user, null);
     if (path.startsWith("/api/saves/")) return handleSaves(request, env, user, path.slice("/api/saves/".length));
     if (path === "/api/history") return handleHistory(request, env, user, "");
