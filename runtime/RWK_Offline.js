@@ -360,7 +360,7 @@
     const note = el("p", { className: "rwk-off-note" });
     const actions = el("div", { className: "rwk-modal-actions" });
     const overlay = el("div", { className: "rwk-modal" }, [el("div", { className: "rwk-modal-box" }, [title, message, bar, note, actions])]);
-    const button = (label, onClick, primary) => {
+    const button = (label, onClick, primary = false) => {
       const b = el("button", { textContent: label, className: primary ? "primary" : "" });
       b.addEventListener("click", onClick);
       return b;
@@ -373,28 +373,43 @@
       if (done) done();
     };
 
+    // Made once, then only shown or hidden. The progress redraws this panel
+    // every 200 ms while files download, and a button taken out of the page
+    // between the press and the release never gets its click: rebuilding the
+    // row each time is what left these buttons dead (docs/LESSONS.md).
+    const installBtn = button("Install app", async () => {
+      const prompt = installPrompt;
+      installPrompt = null;
+      render();
+      try {
+        await prompt.prompt();
+      } catch (e) {
+        // dismissed
+      }
+    });
+    const closeBtn = button("Close", close);
+    const startBtn = button("Download", start, true);
+    const pauseBtn = button("Pause", () => active && active.controller.abort(), true);
+    actions.append(installBtn, closeBtn, startBtn, pauseBtn);
+
     const render = () => {
-      actions.textContent = "";
       const bits = [];
       let running = "";
       bar.hidden = true;
       const p = latest;
+      installBtn.hidden = !!active || !p || !installPrompt || isStandalone();
+      pauseBtn.hidden = !active;
+      startBtn.hidden = true;
       if (active) {
         const run = active.run;
         bar.hidden = false;
         bar.firstChild.style.width = percent(run) + "%";
         message.textContent = `Downloading ${megabytes(run.bytes)} of ${megabytes(run.bytesTotal)} · ${run.done} of ${run.total} files`;
         running = "You can close this and keep playing: the download goes on. Keep this page open until it finishes.";
-        actions.append(
-          button("Close", close),
-          button("Pause", () => active && active.controller.abort(), true)
-        );
       } else if (!p) {
         message.textContent = "Checking what this device already has…";
-        actions.append(button("Close", close));
       } else if (!p.missing.length) {
         message.textContent = `Everything is on this device (${p.files} files, ${megabytes(p.bytes)}). The game opens and plays without a connection. Saves made offline upload when you are back online.`;
-        actions.append(button("Close", close));
       } else {
         const have = p.files - p.missing.length;
         message.textContent = have
@@ -404,23 +419,9 @@
         const tooBig = p.free !== null && p.missingBytes > p.free * 0.95;
         if (tooBig) bits.push("Not enough space: free some, or clear other sites' data");
         else bits.push("Wi-Fi is best: this is a big download");
-        actions.append(button("Close", close), button(have ? "Continue" : `Download ${megabytes(p.missingBytes)}`, start, true));
-        if (tooBig) actions.lastChild.disabled = true;
-      }
-      if (!active && p && installPrompt && !isStandalone()) {
-        actions.insertBefore(
-          button("Install app", async () => {
-            const prompt = installPrompt;
-            installPrompt = null;
-            render();
-            try {
-              await prompt.prompt();
-            } catch (e) {
-              // dismissed
-            }
-          }),
-          actions.firstChild
-        );
+        startBtn.textContent = have ? "Continue" : `Download ${megabytes(p.missingBytes)}`;
+        startBtn.disabled = tooBig;
+        startBtn.hidden = false;
       }
       if (isApple() && !isStandalone()) bits.push("On iPhone and iPad: tap Share, then Add to Home Screen. Safari deletes a website's files after a week without a visit, but not an app's.");
       note.textContent = [running, ...bits].filter(Boolean).join("\n");

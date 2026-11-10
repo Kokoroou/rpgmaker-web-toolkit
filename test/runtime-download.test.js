@@ -213,6 +213,18 @@ function fakeDom() {
   return { doc, make };
 }
 
+// Every chunk a write got, as one Uint8Array (a string chunk is its bytes).
+function concat(parts) {
+  const chunks = parts.map((p) => (typeof p === "string" ? new TextEncoder().encode(p) : new Uint8Array(p.buffer || p, p.byteOffset || 0, p.byteLength)));
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.length;
+  }
+  return out;
+}
+
 // A folder the File System Access API would hand back: nested fake handles
 // that only remember what was "written" (nothing is on disk).
 function fakeFs(doc) {
@@ -237,16 +249,25 @@ function fakeFs(doc) {
           async getFile() {
             return files.get(file);
           },
+          // A real FileSystemWritableFileStream is a WritableStream that also
+          // has write() / close(), which is how a launcher is written.
           async createWritable() {
-            let size = 0;
-            return new WritableStream({
+            const parts = [];
+            const stream = new WritableStream({
               write(chunk) {
-                size += chunk.byteLength;
+                parts.push(chunk);
               },
               close() {
-                files.set(file, { size });
+                // Kept as written, so a test can read the file back: strings
+                // as they are, byte chunks as a Uint8Array.
+                const all = parts.every((p) => typeof p === "string");
+                files.set(file, { size: concat(parts).length, text: all ? parts.join("") : new TextDecoder().decode(concat(parts)), bytes: () => concat(parts) });
               },
             });
+            let writer = null;
+            stream.write = (chunk) => (writer ||= stream.getWriter()).write(chunk);
+            stream.close = () => (writer ||= stream.getWriter()).close();
+            return stream;
           },
         };
       },
@@ -261,7 +282,11 @@ function fakeFs(doc) {
 
 // Loads RWK_Download over the fake DOM, with fetch answering the file list and
 // every file's body. -> the pieces a test drives.
-function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", size: 6 }] } = {}) {
+function loadUi({
+  files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", size: 6 }],
+  saves = [],
+  enc = "latin1",
+} = {}) {
   const { doc, make } = fakeDom();
   const fs = fakeFs(doc);
   const tools = [];
@@ -269,7 +294,8 @@ function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", 
   const waits = [];
   const win = {
     RWK: {
-      config: { gameId: "g" },
+      config: { gameId: "g", sync: { enabled: true } },
+      engine: "MZ",
       tools: { add: (t) => tools.push(t) },
       icons: { download: "<svg/>", folderOpen: "<svg/>" },
       toast: (message) => toasts.push(message),
@@ -297,6 +323,8 @@ function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", 
     Request,
     AbortController,
     TransformStream,
+    TextEncoder,
+    TextDecoder,
     setTimeout: (fn, ms) => {
       waits.push({ fn, ms });
       return waits.length;
@@ -305,6 +333,14 @@ function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", 
     fetch: async (url) => {
       if (url === "/api/download?check=1") return new Response(JSON.stringify({ owner: true, folder: true, ready: false }));
       if (url === "/api/download/list") return new Response(JSON.stringify({ files }));
+      if (url === "/api/saves") return new Response(JSON.stringify({ items: saves.map((name) => ({ name })) }));
+      if (url.startsWith("/api/saves/")) {
+        // The cloud blob of one save: the engine string as latin1 bytes, or UTF-8.
+        const name = decodeURIComponent(url.slice("/api/saves/".length));
+        const text = `save:${name}`;
+        const bytes = enc === "utf8" ? new TextEncoder().encode(text) : Uint8Array.from(text, (c) => c.charCodeAt(0));
+        return new Response(bytes, { headers: { "x-rwk-enc": enc } });
+      }
       // A same-origin fetch in a browser is type "basic"; Node's is "default".
       const body = new Response("data");
       Object.defineProperty(body, "type", { value: "basic" });
@@ -314,7 +350,8 @@ function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", 
   };
   vm.runInNewContext(source(), context);
   const loaded = { doc, make, fs, tools, toasts, waits, win, RWK: win.RWK };
-  // The entry's click: the picker, then start(). Resolves with the panel up.
+  // The entry's click: the picker, then start(), which reads the list, checks
+  // the folder and asks. Resolves with the confirmation up.
   loaded.flushStart = async () => {
     await flush(); // /api/download?check=1 lands and adds the entry
     tools.find((t) => t.label === "Download game (folder)").onSelect();
@@ -322,7 +359,27 @@ function loadUi({ files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", 
     while (Date.now() < until && !doc.body.children.some((n) => n.className === "rwk-modal")) await flush();
     await flush();
   };
+  // Press Download in the confirmation (the checkbox keeps its default), then
+  // wait for the progress panel.
+  loaded.confirm = async () => {
+    const ask = doc.body.children.find((n) => n.className === "rwk-modal");
+    byLabel(ask, "Download").click();
+    await flush();
+  };
+  // The download is a chain of promises; the fake timers never fire, so wait
+  // by flushing until the run is over (the panel says "Saved").
+  loaded.finished = async () => {
+    await waitFor(() => loaded.panelText().includes("Saved"));
+    await flush();
+  };
+  loaded.panelText = () => all(doc.body).map((n) => n.textContent).join(" ");
   return loaded;
+}
+
+// Flushes microtasks until ok() is true.
+async function waitFor(ok, tries = 500) {
+  for (let i = 0; i < tries && !ok(); i++) await flush(1);
+  if (!ok()) throw new Error("the condition never became true");
 }
 
 const flush = async (n = 6) => {
@@ -337,17 +394,66 @@ const all = (node, out = []) => {
 };
 const byLabel = (node, label) => all(node).find((n) => n.tagName === "BUTTON" && n.textContent === label);
 
-test("folder download: the build goes into a new folder named after the game", async () => {
+test("folder download: the build goes into www/ inside a folder named after the game", async () => {
   const ui = loadUi();
-  await ui.flushStart(); // the picker, then start()
+  await ui.flushStart(); // the picker, then start(), which stops at the question
   assert.ok(ui.fs.dirs.has("root/Test Game"), "a folder named after the game, inside the one picked");
-  assert.equal(ui.fs.dirs.get("root/Test Game").files.get("index.html").size, 4, "and the build is written into it");
-  void byLabel;
+  assert.ok(ui.fs.dirs.has("root/Test Game/www"), "the web build goes into www/, the standard layout");
+  await ui.confirm();
+  await ui.finished();
+  assert.equal(ui.fs.dirs.get("root/Test Game/www").files.get("index.html").size, 4, "and the build is written into it");
 });
 
-test("folder download: Hide keeps the download going and leaves a pill with the percent", async () => {
+test("folder download: a finished run leaves the launchers beside www/", async () => {
   const ui = loadUi();
   await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  const game = ui.fs.dirs.get("root/Test Game");
+  for (const name of ["Game.bat", "Game.command", "Game.sh", "rwk-serve.mjs", "README.txt"]) {
+    assert.ok(game.files.has(name), name + " is written");
+  }
+  assert.ok(!game.files.has("www"), "and not into www/");
+  assert.match(game.files.get("Game.bat").text, /--directory www/, "the Python fallback serves www/");
+  assert.match(game.files.get("rwk-serve.mjs").text, /join\(HERE, "www"\)/, "the Node server serves www/");
+});
+
+test("folder download: the checkbox copies the account's cloud saves into save/", async () => {
+  const ui = loadUi({ saves: ["file1", "global", "notes"] });
+  await ui.flushStart();
+  const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  const box = all(ask).find((n) => n.tagName === "INPUT");
+  assert.ok(box, "the confirmation offers the saves");
+  assert.equal(box.checked, true, "on by default");
+  byLabel(ask, "Download").click();
+  await ui.finished();
+
+  const save = ui.fs.dirs.get("root/Test Game/save");
+  assert.ok(save, "a save/ folder beside www/");
+  assert.ok(save.files.has("file1.rmmzsave"), "MZ's extension");
+  assert.ok(save.files.has("global.rmmzsave"));
+  assert.equal(save.files.has("notes.rmmzsave"), false, "only the engine's own save names");
+  // The blob was the engine string as latin1 bytes; the file is that string in UTF-8.
+  assert.equal(Buffer.from(await save.files.get("file1.rmmzsave").bytes()).toString("utf8"), "save:file1");
+});
+
+test("folder download: unticking the checkbox leaves save/ out", async () => {
+  const ui = loadUi({ saves: ["file1"] });
+  await ui.flushStart();
+  const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  all(ask).find((n) => n.tagName === "INPUT").checked = false;
+  byLabel(ask, "Download").click();
+  await flush();
+  assert.equal(ui.fs.dirs.has("root/Test Game/save"), false, "no save/ folder");
+});
+
+test("folder download: Hide and Cancel keep their identity across the progress redraws", async () => {
+  const ui = loadUi();
+  await ui.flushStart();
+  const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  byLabel(ask, "Download").click();
+  await flush();
+
   const panel = ui.doc.body.children.find((n) => n.className === "rwk-modal");
   assert.ok(panel, "the panel is up");
   assert.equal(byLabel(panel, "Close"), undefined, "no Close any more");
@@ -355,6 +461,13 @@ test("folder download: Hide keeps the download going and leaves a pill with the 
   const cancel = byLabel(panel, "Cancel");
   assert.ok(hide && cancel, "Hide and Cancel");
   assert.match(cancel.className, /rwk-dl-danger/, "Cancel is the red one");
+
+  // The redraws that show progress must not rebuild the row: a button
+  // replaced between a press and its release never gets the click. The run
+  // finishes here (the fake timers never fire), so render() ran again since.
+  await ui.finished();
+  assert.equal(byLabel(panel, "Hide"), hide, "the same Hide node after the run's redraws");
+  assert.equal(byLabel(panel, "Cancel"), cancel, "and the same Cancel node");
 
   hide.click();
   assert.equal(ui.doc.body.children.includes(panel), false, "the panel is gone");
@@ -366,6 +479,8 @@ test("folder download: Hide keeps the download going and leaves a pill with the 
 test("folder download: the pill shows 100%, waits 5 s, then goes", async () => {
   const ui = loadUi();
   await ui.flushStart();
+  byLabel(ui.doc.body.children.find((n) => n.className === "rwk-modal"), "Download").click();
+  await flush();
   const panel = ui.doc.body.children.find((n) => n.className === "rwk-modal");
   byLabel(panel, "Hide").click();
   const pill = ui.doc.body.children.find((n) => n.className.startsWith("rwk-dl-pill"));

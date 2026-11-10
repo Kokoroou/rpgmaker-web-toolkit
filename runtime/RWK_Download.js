@@ -9,7 +9,10 @@
 //   - (folder): writes every file into a folder the user picks, through the
 //     File System Access API. Chromium only (Chrome, Edge, Brave); nothing
 //     else has showDirectoryPicker, and that is on purpose: this is a tool for
-//     a desktop, not a player feature.
+//     a desktop, not a player feature. The folder also gets one small launcher
+//     per desktop OS (Game.bat / Game.command / Game.sh): it starts a local web
+//     server and opens the game in a browser, since a file:// page cannot load
+//     the game's data.
 //   - (ZIP): the archive the deploy made and keeps in R2, shown only when the
 //     config asks for one ("download": { "zip": true }).
 //=============================================================================
@@ -95,6 +98,320 @@
       // no database yet: the page's title below
     }
     return folderNameFrom(title || (document && document.title) || "");
+  }
+
+  //---------------------------------------------------------------------------
+  // Launchers: one small file per desktop OS, written into the game folder, so
+  // the host plays the build by double-clicking it instead of remembering a
+  // server command. A file:// page cannot load the game (XMLHttpRequest is
+  // blocked), so each launcher starts a local web server and opens the browser
+  // on it. rwk-serve.mjs (Node, no packages) does both; without Node, Python's
+  // http.server serves it and the launcher opens the browser.
+  //---------------------------------------------------------------------------
+
+  const SERVER_FILE = "rwk-serve.mjs";
+
+  const SERVER_SOURCE = `// Plays this game on this PC: serves the www/ folder beside this file over
+// http://127.0.0.1 and opens it in a browser. Written by
+// rpgmaker-web-toolkit's Download game (folder). Needs Node.js 18 or newer and
+// nothing else; close the window to stop the server.
+import { createServer } from "node:http";
+import { createReadStream, existsSync } from "node:fs";
+import { stat } from "node:fs/promises";
+import { exec } from "node:child_process";
+import { dirname, extname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+// The game lives in www/ (a normal RPG Maker web build); an older folder made
+// before that layout is served from where this file is.
+const ROOT = existsSync(join(HERE, "www", "index.html")) ? join(HERE, "www") : HERE;
+const TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".webmanifest": "application/manifest+json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".ogg": "audio/ogg",
+  ".m4a": "audio/mp4",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+};
+
+function fail(res, status, message) {
+  res.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
+  res.end(message);
+}
+
+// bytes=a-b, bytes=a-, bytes=-n (the last n bytes); none when it makes no sense.
+function rangeOf(value, size) {
+  const match = /^bytes=(\\d*)-(\\d*)$/.exec(String(value || "").trim());
+  if (!match || !size) return null;
+  const start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2] || 0));
+  const end = match[1] && match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+  if (!Number.isFinite(start) || start > end || start >= size) return null;
+  return { start, end };
+}
+
+async function onRequest(req, res) {
+  let pathname = "/";
+  try {
+    pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  } catch (e) {
+    return fail(res, 400, "Bad request");
+  }
+  let file = resolve(join(ROOT, pathname));
+  // Nothing outside this folder, however the path was spelled.
+  if (file !== ROOT && !file.startsWith(ROOT + sep)) return fail(res, 403, "Forbidden");
+  let info = null;
+  try {
+    info = await stat(file);
+  } catch (e) {
+    info = null;
+  }
+  // A page asked for without its extension, as the site serves it.
+  if (!info && !extname(file)) {
+    file += ".html";
+    info = await stat(file).catch(() => null);
+  }
+  if (info && info.isDirectory()) {
+    file = join(file, "index.html");
+    info = await stat(file).catch(() => null);
+  }
+  if (!info || !info.isFile()) return fail(res, 404, "Not found: " + pathname);
+
+  const headers = {
+    "content-type": TYPES[extname(file).toLowerCase()] || "application/octet-stream",
+    "accept-ranges": "bytes",
+    "cache-control": "no-cache",
+  };
+  const range = rangeOf(req.headers.range, info.size);
+  if (range) {
+    headers["content-range"] = "bytes " + range.start + "-" + range.end + "/" + info.size;
+    headers["content-length"] = String(range.end - range.start + 1);
+    res.writeHead(206, headers);
+    if (req.method === "HEAD") return res.end();
+    return createReadStream(file, { start: range.start, end: range.end }).pipe(res);
+  }
+  headers["content-length"] = String(info.size);
+  res.writeHead(200, headers);
+  if (req.method === "HEAD") return res.end();
+  createReadStream(file).pipe(res);
+}
+
+function listen(port) {
+  return new Promise((resolveListen, reject) => {
+    const server = createServer(onRequest);
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => resolveListen(server));
+  });
+}
+
+const wanted = process.env.RWK_PORT === undefined ? null : Number(process.env.RWK_PORT);
+let server = null;
+for (let i = 0; i < 12 && !server; i++) {
+  const port = wanted === null ? 8000 + i : wanted + i;
+  try {
+    server = await listen(port);
+  } catch (e) {
+    if (e.code !== "EADDRINUSE") throw e; // a port in use: try the next one
+  }
+}
+if (!server) {
+  console.error("No free port to serve the game on.");
+  process.exit(1);
+}
+
+const url = "http://localhost:" + server.address().port + "/";
+if (!process.env.RWK_NO_OPEN) {
+  const open =
+    process.platform === "win32" ? 'start "" "' + url + '"' :
+    process.platform === "darwin" ? 'open "' + url + '"' :
+    'xdg-open "' + url + '"';
+  exec(open, () => {});
+}
+console.log("Game: " + url + "  (close this window to stop the server)");
+`;
+
+  // A launcher that finds the folder, uses Node when it is there, and falls
+  // back to Python's http.server, which needs no script of its own.
+  const SHELL_LAUNCHER = `#!/bin/sh
+# Starts the game: serves the www/ folder beside this file over
+# http://localhost and opens it in a browser.
+# Needs Node.js 18+ (https://nodejs.org) or Python 3.
+# macOS / Linux: run it with "sh Game.sh" (or "chmod +x Game.sh" once).
+cd "$(dirname "$0")" || exit 1
+if command -v node >/dev/null 2>&1; then
+  exec node ${SERVER_FILE}
+fi
+if command -v python3 >/dev/null 2>&1; then
+  python3 -m http.server 8000 --directory www &
+  sleep 1
+  command -v open >/dev/null 2>&1 && open http://localhost:8000/ || xdg-open http://localhost:8000/ >/dev/null 2>&1
+  wait
+  exit 0
+fi
+echo "To play this game, install Node.js (https://nodejs.org) or Python 3."
+`;
+
+  const BAT_LAUNCHER = `@echo off
+rem Starts the game: serves the www/ folder beside this file over
+rem http://localhost and opens it in a browser.
+rem Needs Node.js 18+ (https://nodejs.org) or Python 3.
+setlocal
+cd /d "%~dp0"
+where node >nul 2>nul
+if not errorlevel 1 (
+  node ${SERVER_FILE}
+  goto :end
+)
+where py >nul 2>nul
+if not errorlevel 1 (
+  start "" http://localhost:8000/
+  py -m http.server 8000 --directory www
+  goto :end
+)
+where python >nul 2>nul
+if not errorlevel 1 (
+  start "" http://localhost:8000/
+  python -m http.server 8000 --directory www
+  goto :end
+)
+echo To play this game, install Node.js (https://nodejs.org) or Python 3.
+pause
+:end
+`;
+
+  const README = `How to play this game
+=====================
+
+Windows: double-click Game.bat.
+macOS: double-click Game.command.
+Linux: run "sh Game.sh".
+
+The launcher starts a small web server and opens the game in your browser. It
+needs Node.js 18+ (https://nodejs.org) or Python 3. The game cannot run by
+opening www/index.html directly: a file:// page cannot load the game's data.
+
+Host it on a web domain
+-----------------------
+This folder has the standard RPG Maker layout: the web build is in www/. To
+publish it on a new domain, upload the CONTENTS of www/ to the domain (or point
+its web root at www/). The launcher files and save/ are only for playing here.
+
+Your saves
+----------
+When the download included them, save/ holds the cloud saves of the account
+signed in, in the desktop game's own format (fileN.rmmzsave for MZ, or
+fileN.rpgsave for MV). Copy them into a desktop game's save/ folder to
+continue there.
+`;
+
+  // The files a download leaves in the game folder so it can be played by
+  // double-clicking one of them. -> [{ rel, text }]
+  function launcherFiles() {
+    return [
+      { rel: SERVER_FILE, text: SERVER_SOURCE },
+      { rel: "Game.bat", text: BAT_LAUNCHER },
+      { rel: "Game.command", text: SHELL_LAUNCHER },
+      { rel: "Game.sh", text: SHELL_LAUNCHER },
+      { rel: "README.txt", text: README },
+    ];
+  }
+
+  // Writes the launchers into the game folder (a few small files: rewriting
+  // them on a second run keeps the folder playable after an older download).
+  // A failure only warns: the game itself is complete, and any local server
+  // plays it. -> true when every file was written.
+  async function writeLaunchers(dir) {
+    try {
+      for (const file of launcherFiles()) {
+        const handle = await dir.getFileHandle(file.rel, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(file.text);
+        await writable.close();
+      }
+      return true;
+    } catch (e) {
+      RWK.toast("Could not write the launcher (Game.bat / Game.sh): " + (e.message || e), "warn", 6000);
+      return false;
+    }
+  }
+
+  //---------------------------------------------------------------------------
+  // The cloud saves of the account signed in, written beside the game so the
+  // folder is a complete desktop-style copy. Optional: the checkbox in the
+  // confirmation (on by default) asks for them.
+  //---------------------------------------------------------------------------
+
+  // What the engine reads in save/: file1..fileN, and the two special files.
+  const SAVE_NAME = /^(file\d+|global|config)$/;
+
+  // The saves the Worker lists for this sign-in, or [] when the game has cloud
+  // sync off or the list cannot be read (the download then just goes on).
+  async function cloudSaves() {
+    if (!RWK.config.sync || !RWK.config.sync.enabled) return [];
+    try {
+      const res = await fetch("/api/saves", { credentials: "same-origin" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data && data.items) ? data.items.filter((item) => item && SAVE_NAME.test(item.name)) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // A cloud blob as the desktop save file: the cloud holds the engine string
+  // either as latin1 bytes or as UTF-8, and the desktop file is that string in
+  // UTF-8 (cli/commands/saves-export.js, toSaveFile).
+  function desktopSave(bytes, enc) {
+    if (enc === "utf8") return bytes; // already UTF-8 of the same string
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return new TextEncoder().encode(text);
+  }
+
+  // -> how many save files were written. One unreadable save does not stop the
+  // others, and a folder that refuses save/ only warns.
+  async function writeSaves(dir, items) {
+    let saveDir;
+    try {
+      saveDir = await dir.getDirectoryHandle("save", { create: true });
+    } catch (e) {
+      RWK.toast("Could not make the save/ folder: " + (e.message || e), "warn", 6000);
+      return 0;
+    }
+    const ext = RWK.engine === "MZ" ? ".rmmzsave" : ".rpgsave";
+    let written = 0;
+    for (const item of items) {
+      try {
+        const res = await fetch("/api/saves/" + encodeURIComponent(item.name), { credentials: "same-origin" });
+        if (!res.ok) continue;
+        const handle = await saveDir.getFileHandle(item.name + ext, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(desktopSave(new Uint8Array(await res.arrayBuffer()), res.headers.get("x-rwk-enc")));
+        await writable.close();
+        written++;
+      } catch (e) {
+        // retried on a later run; the game files are unaffected
+      }
+    }
+    return written;
   }
 
   // What is left to write: a file already in the folder with the same size is
@@ -300,7 +617,7 @@
     else if (run.reason === "offline") RWK.toast("Connection lost. Start the download again to continue where it stopped.", "warn", 6000);
     else if (run.reason === "signin") RWK.toast("You are signed out. Reload the page, sign in, then start again.", "warn", 6000);
     else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download. Start again to retry them.`, "warn", 6000);
-    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.`, "info", 5000);
+    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in save/.` : ""), "info", 5000);
   }
 
   // Reads the build's file list and the folder, asks, then writes. The folder
@@ -337,7 +654,17 @@
     }
 
     RWK.toast("Checking the folder…", "info", 2000);
-    const { dirFor } = dirCacheFor(gameDir);
+    // The standard RPG Maker layout: the web build goes into www/, so the
+    // folder can be uploaded to a new domain (serve www/) or dropped beside a
+    // desktop game's files. The launchers and save/ stay outside it.
+    let webDir;
+    try {
+      webDir = await gameDir.getDirectoryHandle("www", { create: true });
+    } catch (e) {
+      RWK.toast(`Could not make the folder "${name}/www": ` + (e.message || e), "error", 5000);
+      return;
+    }
+    const { dirFor } = dirCacheFor(webDir);
     let plan;
     try {
       plan = folderPlan(files, await existingSizes(dirFor, files));
@@ -345,7 +672,27 @@
       RWK.toast("Could not read the folder: " + (e.message || e), "error", 5000);
       return;
     }
+    const saves = await cloudSaves();
     if (!plan.todo.length) {
+      await writeLaunchers(gameDir); // an older download may not have them yet
+      if (saves.length) {
+        const copy = await RWK.choose(
+          "Download game (folder)",
+          `Everything is already in "${name}".\n\nSave your ${saves.length} cloud save(s) into the save/ folder as well?`,
+          [
+            { label: "Save them", value: true, primary: true },
+            { label: "Cancel", value: false, cancel: true },
+          ]
+        );
+        if (!copy) return;
+        const written = await writeSaves(gameDir, saves);
+        RWK.toast(
+          written ? `${written} cloud save(s) saved to "save/".` : "Could not save the cloud saves. Try again.",
+          written ? "info" : "warn",
+          5000
+        );
+        return;
+      }
       RWK.toast(`Everything is already in "${name}".`, "info", 4000);
       return;
     }
@@ -353,11 +700,8 @@
     const lines = [`Save ${plan.todo.length} file(s), ${megabytes(plan.bytes)}, into the folder "${name}"?`];
     if (plan.skipped) lines.push(`${plan.skipped} file(s) are already there and are skipped.`);
     lines.push("Keep this page open while it runs. You can stop it and start again later: files already written are skipped.");
-    const ok = await RWK.choose("Download game (folder)", lines.join("\n"), [
-      { label: "Download", value: true, primary: true },
-      { label: "Cancel", value: false, cancel: true },
-    ]);
-    if (!ok) return;
+    const answer = await askDownload(lines, saves.length);
+    if (!answer) return;
 
     const controller = new AbortController();
     let last = 0;
@@ -372,8 +716,15 @@
     active = { controller, run, dirFor, folder: name };
     openPanel();
     download(dirFor, plan.todo, run).then(
-      (result) => {
+      async (result) => {
         active = null;
+        // The game is fully there: also leave the files that start it, so the
+        // folder plays with a double-click. A stopped run writes none: half a
+        // folder is not playable yet.
+        if (result.reason === null) {
+          await writeLaunchers(gameDir);
+          if (answer.saves) result.saves = await writeSaves(gameDir, saves);
+        }
         latest = result;
         latestFolder = name;
         if (panel) panel.render();
@@ -433,6 +784,8 @@
 .rwk-dl-bar{height:10px;border-radius:5px;background:#33333b;overflow:hidden;margin:0 0 8px}
 .rwk-dl-bar i{display:block;height:100%;width:0;background:#3b6fd8;transition:width .2s}
 .rwk-dl-note{margin:0 0 14px;font-size:13px;opacity:.75;white-space:pre-line}
+.rwk-dl-saves{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-size:14px;cursor:pointer}
+.rwk-dl-saves input{width:17px;height:17px;margin:0;accent-color:#3b6fd8}
 .rwk-modal-actions button.rwk-dl-danger{background:#b3261e;border-color:#b3261e;color:#fff}
 .rwk-dl-pill{position:fixed;left:6px;top:50px;z-index:2147482600;display:flex;align-items:center;gap:8px;
   font:13px/1 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.72);border:1px solid #444;
@@ -499,6 +852,48 @@
     pill = null;
   }
 
+  // The confirmation: the file count and size, and (when the account has
+  // cloud saves) a checkbox to copy them too, on by default. RWK.choose has
+  // buttons only, and this needs a checkbox. -> { saves: boolean } when
+  // Download was pressed, null when cancelled.
+  function askDownload(lines, saveCount) {
+    return new Promise((resolve) => {
+      const overlay = el("div", { className: "rwk-modal" });
+      const box = el("div", { className: "rwk-modal-box" });
+      const title = el("h2", { textContent: "Download game (folder)" });
+      const message = el("p", { textContent: lines });
+      box.append(title, message);
+      let checkbox = null;
+      if (saveCount) {
+        const row = el("label", { className: "rwk-dl-saves" });
+        checkbox = el("input", { type: "checkbox" });
+        checkbox.checked = true;
+        row.append(checkbox, el("span", { textContent: `Also save my cloud saves (${saveCount} save${saveCount === 1 ? "" : "s"}) into save/` }));
+        box.appendChild(row);
+      }
+      const actions = el("div", { className: "rwk-modal-actions" });
+      let done = null;
+      const answer = (value) => {
+        if (!done) return;
+        const finish = done;
+        done = null;
+        overlay.remove();
+        finish();
+        resolve(value);
+      };
+      const yes = el("button", { textContent: "Download", className: "primary" });
+      yes.setAttribute("data-rwk-primary", "");
+      yes.addEventListener("click", () => answer({ saves: !!(checkbox && checkbox.checked) }));
+      const no = el("button", { textContent: "Cancel" });
+      no.addEventListener("click", () => answer(null));
+      actions.append(yes, no);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+      RWK.shield(overlay);
+      done = RWK.panel(overlay, { box, close: () => answer(null) });
+    });
+  }
+
   function openPanel() {
     if (panel) return;
     hidePill(); // the panel already shows the same progress
@@ -509,11 +904,6 @@
     const note = el("p", { className: "rwk-dl-note" });
     const actions = el("div", { className: "rwk-modal-actions" });
     const overlay = el("div", { className: "rwk-modal" }, [el("div", { className: "rwk-modal-box" }, [title, message, bar, note, actions])]);
-    const button = (label, onClick, className = "") => {
-      const b = el("button", { textContent: label, className });
-      b.addEventListener("click", onClick);
-      return b;
-    };
     let done = null;
     // Hide, not close: the download keeps running, and the pill shows its
     // progress while the toolkit is out of the way. A run that already finished
@@ -524,28 +914,34 @@
       if (done) done();
       if (active || latest) showPill();
     };
+    // Made once, then only shown or hidden: a button taken out of the page
+    // while the mouse or a finger is down on it never gets its click (the
+    // press and the release land on two different elements), and the progress
+    // redraws every PROGRESS_MS. That is what left Hide dead during a
+    // download (docs/LESSONS.md). The redraws only touch text and visibility.
+    const hideBtn = el("button", { textContent: "Hide" });
+    hideBtn.addEventListener("click", hide);
+    const cancelBtn = el("button", { textContent: "Cancel", className: "rwk-dl-danger" });
+    cancelBtn.addEventListener("click", () => active && active.controller.abort());
+    actions.append(hideBtn, cancelBtn);
 
     const render = () => {
-      actions.textContent = "";
       bar.hidden = true;
+      cancelBtn.hidden = !active;
       const run = active ? active.run : latest;
       if (active) {
         bar.hidden = false;
         bar.firstChild.style.width = percent(active.run) + "%";
         message.textContent = `Saving ${megabytes(active.run.bytes)} of ${megabytes(active.run.bytesTotal)} · ${active.run.done} of ${active.run.total} files into "${active.folder}"`;
         note.textContent = active.run.skipped ? `${active.run.skipped} file(s) were already in the folder and were skipped.` : "";
-        actions.append(button("Hide", hide), button("Cancel", () => active && active.controller.abort(), "rwk-dl-danger"));
       } else if (run && run.reason === null) {
-        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves.`;
-        note.textContent = "To play it, serve the folder over http:// rather than opening index.html directly: the game loads its data with XMLHttpRequest, which a file:// page cannot use.";
-        actions.append(button("Hide", hide));
+        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, in www/.`;
+        note.textContent = "Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve www/ and open the game in your browser. To publish it on a domain, upload the contents of www/.";
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
-        actions.append(button("Hide", hide));
       } else {
         message.textContent = "No download has run in this page yet.";
-        actions.append(button("Hide", hide));
       }
     };
 
@@ -556,7 +952,7 @@
   }
 
   // The pure parts, for the tests (no DOM, no File System Access API).
-  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom };
+  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom, launcherFiles, desktopSave, cloudSaves, writeSaves };
 
   //---------------------------------------------------------------------------
   // The menu entries. /api/download?check=1 answers 403 to everyone but the
