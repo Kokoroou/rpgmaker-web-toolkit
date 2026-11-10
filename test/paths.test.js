@@ -174,6 +174,20 @@ test("paths: characters that break a web address", () => {
   assert.deepEqual(result.issues.filter((i) => i.kind === "unsafe").map((i) => i.source), ["img/pictures/a#1.png"]);
 });
 
+test("paths: a folder written in code gets its own warning line, apart from file references", () => {
+  const dir = makeGame({
+    "js/plugins/Menu.js": "this.loadBitmap('img/menus/CG/', n, 0, true);",
+    "img/menus/cg/Cg_1.png": "x",
+    "data/Actors.json": [null, { characterName: "", faceName: "actor1", battlerName: "" }],
+    "img/faces/Actor1.png": "x",
+  });
+  const lines = pathWarnings(scan(dir).issues);
+  assert.equal(lines.length, 2, lines.join("\n"));
+  assert.match(lines[0], /1 reference\(s\).*data\/Actors\.json/, "a file reference keeps the usual line");
+  assert.match(lines[1], /Menu\.js.*img\/menus\/CG\/.*must be "img\/menus\/cg\/"/, "the folder has its own line");
+  assert.match(lines[1], /Now Loading/);
+});
+
 test("paths: the warnings are one line per kind and say what to do", () => {
   const dir = makeGame({
     "img/characters/Actor1.PNG": "x",
