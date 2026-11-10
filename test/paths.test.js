@@ -144,6 +144,19 @@ test("paths: path literals in plugin scripts are case-checked only", () => {
   assert.equal(find(result, "missing", "img/pictures/Nope.png"), undefined, "code may build or guard names: no missing report");
 });
 
+test("paths: a folder written in plugin code is case-checked", () => {
+  // loadBitmap('img/menus/CG/', name) asks for a folder by name, with no file extension.
+  const dir = makeGame({
+    "js/plugins/Menu.js": "ImageManager.loadCg = function (n) { return this.loadBitmap('img/menus/CG/', n, 0, true); };\nconst absent = 'img/menus/equip/';\nconst built = `img/${x}/`;",
+    "img/menus/cg/Cg_1.png": "x",
+  });
+  const result = scan(dir);
+  const folder = find(result, "case", "img/menus/CG/");
+  assert.deepEqual([folder.to, folder.fix, folder.actual], ["img/menus/cg/", "reference", "img/menus/cg"]);
+  assert.equal(find(result, "missing", "img/menus/equip/"), undefined, "a folder that is absent may be an unused plugin: no missing report");
+  assert.equal(find(result, "case", "img/${x}/"), undefined, "a name built at run time cannot be checked");
+});
+
 test("paths: ambiguous spelling has no automatic fix", { skip: !caseSensitiveDisk && "needs a case-sensitive disk" }, () => {
   const dir = makeGame({
     "img/characters/Hero.png": "x",

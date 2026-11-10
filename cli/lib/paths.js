@@ -45,6 +45,9 @@ export const ENGINE_FOLDERS = {
 
 const MAX_TEXT_BYTES = 8 * 1024 ** 2;
 const LITERAL = /(["'`])((?:img|audio|data|js|fonts|movies|effects|icon|css)\/[^"'`\n\\$]*?\.[A-Za-z0-9_]{1,6})\1/gid;
+// A folder path in code, e.g. loadBitmap('img/menus/CG/', name): the engine joins
+// the file name after it, so only the folder is written here.
+const DIR_LITERAL = /(["'`])((?:img|audio|movies|effects)\/(?:[^"'`\n\\$]+?\/)?)\1/gid;
 const HTML_REF = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gid;
 const CSS_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/gid;
 
@@ -60,12 +63,18 @@ function buildIndex(files) {
   const exact = new Set();
   const byNfc = new Map();
   const byKey = new Map();
+  // Folders too: code can name one (loadBitmap('img/menus/CG/', name)) without a file.
+  const dirs = new Set();
+  const dirsByKey = new Map();
   for (const { rel } of files) {
     exact.add(rel);
     push(byNfc, nfcKey(rel), rel);
     push(byKey, ciKey(rel), rel);
+    const segs = rel.split("/");
+    for (let i = 1; i < segs.length; i++) dirs.add(segs.slice(0, i).join("/"));
   }
-  return { exact, byNfc, byKey };
+  for (const dir of dirs) if (!dirsByKey.has(ciKey(dir))) dirsByKey.set(ciKey(dir), dir);
+  return { exact, byNfc, byKey, dirs, dirsByKey };
 }
 
 // candidates: [{ rel, dir (segments in the folder part), ext }]
@@ -304,7 +313,30 @@ function scanText(files, index, issues) {
     if (isHtml) scanTextPaths(file, text, HTML_REF, 2, "", index, issues, { reportMissing: true });
     if (isCss) scanTextPaths(file, text, CSS_URL, 2, baseDir, index, issues, { reportMissing: true });
     if (lower === "js/plugins.js") scanPluginList(file, text, index, issues);
-    if (isScript) scanTextPaths(file, text, LITERAL, 2, "", index, issues, { reportMissing: false });
+    if (isScript) {
+      scanTextPaths(file, text, LITERAL, 2, "", index, issues, { reportMissing: false });
+      scanDirLiterals(file, text, index, issues);
+    }
+  }
+}
+
+// Folder literals in code: the engine checks the name itself, not the whole path.
+// `loadBitmap('img/menus/CG/', name)` asks for img/menus/CG/<name>.png, so only the
+// folder is written down and a wrong letter case there 404s every picture in it.
+// Case is reported (with the exact spelling to use, so it can be fixed); a folder the
+// game does not have at all is not, like any other name built in code — the plugin may
+// be turned off, and `deep` lists the line for a person to read.
+function scanDirLiterals(file, text, index, issues) {
+  for (const m of text.matchAll(DIR_LITERAL)) {
+    const raw = m[2];
+    const dir = raw.replace(/\/$/, "");
+    if (!dir || index.dirs.has(dir)) continue;
+    if (dir.includes("${")) continue; // built at run time: nothing to compare
+    const actual = index.dirsByKey.get(ciKey(dir));
+    if (!actual || nfcKey(actual) === nfcKey(dir)) continue;
+    const [start, end] = m.indices[2];
+    const site = { where: `${file.rel}:${text.slice(0, start).split("\n").length}`, at: { start, end, text: raw } };
+    issues.add({ kind: "case", source: file.rel, ref: raw, expected: raw, actual, to: `${actual}/`, fix: "reference" }, site);
   }
 }
 
@@ -366,9 +398,20 @@ export function pathWarnings(issues) {
   const total = (list) => list.reduce((sum, i) => sum + i.count, 0);
   const out = [];
   const spelled = of("case", "unicode");
-  if (spelled.length) {
+  // A folder literal is reported on its own line below: it breaks every file in the folder.
+  const files = spelled.filter((i) => !i.ref.endsWith("/"));
+  if (files.length) {
     out.push(
-      `${total(spelled)} reference(s) name a file with a different letter case or Unicode form than the file has, e.g. ${sample(spelled)}. Windows accepts this, the web host does not, so these will be missing in the browser. The rwk-paths skills (Claude Code) fix them.`
+      `${total(files)} reference(s) name a file with a different letter case or Unicode form than the file has, e.g. ${sample(files)}. Windows accepts this, the web host does not, so these will be missing in the browser. The rwk-paths skills (Claude Code) fix them.`
+    );
+  }
+  // A folder written in code (loadBitmap('img/menus/CG/', name)) is the harsher case:
+  // every picture in it 404s, and an RPG Maker scene that waits for them never starts
+  // (the "Now Loading" screen stays for good).
+  const dirs = spelled.filter((i) => i.ref.endsWith("/"));
+  if (dirs.length) {
+    out.push(
+      `${dirs.length} folder(s) are written in code with a different letter case than the folder has, e.g. ${dirs.slice(0, 2).map((i) => `${i.source}: "${i.ref}" (must be "${i.to}")`).join("; ")}. Every file in such a folder is missing in the browser, and a menu that loads them stays on "Now Loading".`
     );
   }
   const ext = of("ext");
