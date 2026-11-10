@@ -15,7 +15,7 @@ npm test                         # CLI + Worker tests (node:test, no network)
 
 Launcher changes: `shellcheck run.sh rwk.sh` (CI runs it too). `npm test` runs on Linux, macOS and Windows in CI.
 
-How the pieces fit: [How it works](site/reference/how-it-works.md).
+How the pieces fit: [How it works](site/reference/how-it-works.md). Lessons from bugs that reached a release, and the rules they left behind: [docs/LESSONS.md](docs/LESSONS.md).
 
 ## Runtime performance (`tools/perf/`)
 
