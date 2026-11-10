@@ -56,6 +56,19 @@ export function splitToolkit(pluginsJs) {
   return { game: pluginsJs.slice(0, at), config };
 }
 
+// The game's own plugin list, parsed. The toolkit's part is cut off first:
+// its entries carry "]" inside a string (the "[rpgmaker-web-toolkit]"
+// description), so reading up to the last "]" of the file takes that one for
+// the end of the array and the slice no longer parses. A downloaded web build
+// is such a file, and deploying one is what this is for.
+export function parsePluginList(pluginsJs) {
+  const { game } = splitToolkit(pluginsJs);
+  const start = game.indexOf("[");
+  const end = game.lastIndexOf("]");
+  if (start < 0 || end < start) throw new Error("Could not parse js/plugins.js");
+  return JSON.parse(game.slice(start, end + 1));
+}
+
 // One player's settings (players.js) on top of the RWK_Core config of a
 // toolkit build's plugins.js. patch: { key: runtime value }
 export function patchConfig(pluginsJs, patch) {
