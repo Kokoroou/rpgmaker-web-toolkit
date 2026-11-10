@@ -16,6 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { parsePluginList } from "../../worker/toolkit.js";
 
 const IMAGE = [".png", ".rpgmvp", ".png_"];
 const AUDIO = [".ogg", ".m4a", ".rpgmvo", ".rpgmvm", ".ogg_", ".m4a_"];
@@ -228,7 +229,7 @@ const readText = (file) => (file.size <= MAX_TEXT_BYTES ? fs.readFileSync(file.a
 function scanPluginList(file, text, index, issues) {
   let list;
   try {
-    list = JSON.parse(text.slice(text.indexOf("["), text.lastIndexOf("]") + 1));
+    list = parsePluginList(text);
   } catch {
     return;
   }

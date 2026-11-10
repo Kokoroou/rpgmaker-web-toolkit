@@ -13,7 +13,7 @@ import { userHash } from "./cloudflare.js";
 import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
 import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
-import { GUARD_REL, appendToolkit, guardInto } from "../../worker/toolkit.js";
+import { GUARD_REL, appendToolkit, guardInto, splitToolkit } from "../../worker/toolkit.js";
 import { LENS_MANIFEST, lensAllowed } from "../../worker/lens.js";
 import { BUILD_MANIFEST, UNSERVED_FILES } from "../../worker/download.js";
 
@@ -380,7 +380,10 @@ export function generatedFiles(game, gameConfig, files = []) {
   for (const [name, source] of Object.entries(runtimeSources())) out.set(`js/plugins/${name}.js`, source);
 
   const pluginsJs = fs.readFileSync(resolveCI(game.root, "js", "plugins.js"), "utf8");
-  out.set("js/plugins.js", appendToolkit(pluginsJs, RUNTIME_PLUGINS, runtimeConfig));
+  // splitToolkit first: a web build that was downloaded from a site (⚙ → Share
+  // → Download game) already carries the toolkit's part, and appending to it
+  // would load every RWK_* plugin twice.
+  out.set("js/plugins.js", appendToolkit(splitToolkit(pluginsJs).game, RUNTIME_PLUGINS, runtimeConfig));
 
   // Runs before the game's plugins: a plugin that eats the toolkit's clicks
   // or captures its pointers no longer can (worker/toolkit.js: guardInto).

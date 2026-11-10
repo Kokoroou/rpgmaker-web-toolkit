@@ -2,6 +2,7 @@
 // press, to suggest on-screen buttons.
 
 import fs from "node:fs";
+import { parsePluginList } from "../../worker/toolkit.js";
 import { resolveCI } from "./game.js";
 
 // Already reachable by touch in MZ/MV (tap, two-finger cancel, built-in buttons).
@@ -14,11 +15,7 @@ export function gamepadKeys(shoulder = false) {
 
 export function readPlugins(root) {
   const file = resolveCI(root, "js", "plugins.js");
-  const src = fs.readFileSync(file, "utf8");
-  const start = src.indexOf("[");
-  const end = src.lastIndexOf("]");
-  if (start < 0 || end < start) throw new Error("Could not parse js/plugins.js");
-  return JSON.parse(src.slice(start, end + 1));
+  return parsePluginList(fs.readFileSync(file, "utf8"));
 }
 
 // -> [{ key, plugins: [names], hint, count }] sorted by usage

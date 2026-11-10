@@ -15,7 +15,7 @@ import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, 
 import { UNSERVED_FILES } from "../worker/download.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
 import { userHash } from "../cli/lib/cloudflare.js";
-import { splitToolkit } from "../worker/toolkit.js";
+import { TOOLKIT_MARKER, appendToolkit, parsePluginList, splitToolkit } from "../worker/toolkit.js";
 import { log, warnings } from "../cli/lib/ui.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-"));
@@ -70,6 +70,24 @@ test("scanKeys reads only enabled plugins and skips touch-covered keys", () => {
   assert.equal(cleanHint("v1.0.0 FlyCat-<快捷键提示>"), "快捷键提示");
   assert.equal(cleanHint("Shows a <b>bold</b> hint"), "Shows a <b>bold</b> hint");
   assert.equal(stripComments('a = "http://x"; // note').trim(), 'a = "http://x";');
+});
+
+test("scanKeys reads a web build that already carries the toolkit's plugins", () => {
+  // ⚙ → Share → Download game gives a plugins.js with the toolkit's part after
+  // the game's array. Its entries hold "]" inside a string (the
+  // "[rpgmaker-web-toolkit]" description), so reading up to the file's last "]"
+  // used to slice past the array and throw.
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js", "plugins"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "js", "plugins.js"),
+    `var $plugins =\n[\n{"name":"A","status":true,"description":"Quest journal","parameters":{}}\n];\n\n` +
+      `// ---- rpgmaker-web-toolkit (web build only) ----\n` +
+      `$plugins.push({"name":"RWK_Core","status":true,"description":"[rpgmaker-web-toolkit]","parameters":{"config":"{}"}});\n` +
+      `$plugins.push({"name":"RWK_Report","status":true,"description":"[rpgmaker-web-toolkit]","parameters":{}});\n`
+  );
+  fs.writeFileSync(path.join(root, "js", "plugins", "A.js"), `if (Input.isTriggered('r')) {}`);
+  assert.deepEqual(scanKeys(root).map((k) => k.key), ["r"]);
 });
 
 test("syncPublicDir never writes through hard links into the game folder", () => {
@@ -325,6 +343,29 @@ test("web build: rwk-build.json lists every file of the build, for the folder do
 
   // Built before the last generated file, it would be short by that one.
   assert.ok(Object.keys(manifest.files).length > out.size - 1);
+});
+
+test("web build: deploying a downloaded build does not add the toolkit twice", () => {
+  // The folder ⚙ → Share → Download game writes can be deployed again: its
+  // plugins.js already holds the toolkit's part, which must be replaced.
+  const root = tmp();
+  fs.mkdirSync(path.join(root, "js"));
+  fs.writeFileSync(path.join(root, "index.html"), "<html><head></head><body></body></html>");
+  const gamePart = `var $plugins =\n[\n{"name":"A","status":true,"description":"","parameters":{}}\n];\n`;
+  const downloaded = appendToolkit(gamePart, RUNTIME_PLUGINS, { version: "0.0.1" });
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), downloaded);
+
+  const js = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }).get("js/plugins.js");
+  assert.equal(js.split(TOOLKIT_MARKER).length - 1, 1, "one toolkit block");
+  assert.equal(js.match(/"name":"RWK_Core"/g).length, 1, "RWK_Core listed once");
+  assert.deepEqual(parsePluginList(js).map((p) => p.name), ["A"], "the game's own list is kept");
+  assert.notEqual(JSON.parse(/\$plugins\.push\((\{"name":"RWK_Core".*\})\);/.exec(js)[1]).parameters.config, '{"version":"0.0.1"}', "the old config is replaced");
+
+  // A game folder that was never deployed: nothing to cut, same output as before.
+  fs.writeFileSync(path.join(root, "js", "plugins.js"), gamePart);
+  const fresh = generatedFiles({ root, engine: "MZ", title: "G" }, { slug: "g", sync: {} }).get("js/plugins.js");
+  assert.equal(fresh.split(TOOLKIT_MARKER).length - 1, 1);
+  assert.deepEqual(parsePluginList(fresh).map((p) => p.name), ["A"]);
 });
 
 test("web build: quick save and autosave settings", () => {
