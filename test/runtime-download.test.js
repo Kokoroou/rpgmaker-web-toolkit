@@ -418,7 +418,41 @@ test("folder download: a finished run leaves the launchers beside www/", async (
   assert.match(game.files.get("rwk-serve.mjs").text, /join\(HERE, "www"\)/, "the Node server serves www/");
 });
 
-test("folder download: the checkbox copies the account's cloud saves into save/", async () => {
+test("folder download: the launcher's server answers the game's save calls from www/save/", async () => {
+  const ui = loadUi();
+  await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  const server = ui.fs.dirs.get("root/Test Game").files.get("rwk-serve.mjs").text;
+
+  // A downloaded copy has no site behind it: the save API has to come from the
+  // server the launcher starts, or the game's saves have nowhere to go.
+  assert.match(server, /const SAVES = join\(ROOT, "save"\)/, "saves live in www/save/");
+  assert.match(server, /pathname === "\/api\/saves"/, "the list the game asks for first");
+  assert.match(server, /readFile\(file\)/, "GET hands a save back");
+  assert.match(server, /writeFile\(file, saveFile\(buf, req\.headers\["x-rwk-enc"\]\)\)/, "PUT writes one");
+  assert.match(server, /unlink\(file\)/, "DELETE removes one");
+  // The extension is the engine's, read from the build rather than assumed.
+  assert.match(server, /existsSync\(join\(ROOT, "js", "rmmz_core\.js"\)\) \? "\.rmmzsave" : "\.rpgsave"/);
+  // A name that could leave www/save/, and a body that is too big, are refused.
+  assert.match(server, /if \(!SAVE_RE\.test\(name\)\) return jsonReply\(res, 400/);
+  assert.match(server, /size > MAX_SAVE\) throw new Error\("too large"\)/);
+  // What a downloaded copy must not offer: it is already on this PC, and the
+  // rest needs the site.
+  assert.match(server, /jsonReply\(res, 403, \{ error: "Not available in a downloaded copy" \}\)/);
+  // An empty history, not a 404: the game asks for it only when the player opens
+  // the panel, and an empty list is the honest answer ("this copy keeps none").
+  assert.match(server, /pathname === "\/api\/history"/);
+  assert.match(server, /jsonReply\(res, 200, \{ items: \[\] \}\)/);
+  assert.match(server, /jsonReply\(res, 404, \{ error: "Not available offline" \}\)/);
+  // The game compares a save's version (etag) between launches; without one it
+  // would read every save as changed elsewhere and ask about a conflict.
+  assert.match(server, /const etagOf = \(st\) => st\.size \+ "-" \+ Math\.round\(st\.mtimeMs\)/);
+  assert.match(server, /etag: etagOf\(st\)/, "GET carries it");
+  assert.match(server, /items\.push\(\{ name, size: st\.size, etag: etagOf\(st\)/, "and so does the list");
+});
+
+test("folder download: the checkbox copies the account's cloud saves into www/save/", async () => {
   const ui = loadUi({ saves: ["file1", "global", "notes"] });
   await ui.flushStart();
   const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
@@ -428,8 +462,8 @@ test("folder download: the checkbox copies the account's cloud saves into save/"
   byLabel(ask, "Download").click();
   await ui.finished();
 
-  const save = ui.fs.dirs.get("root/Test Game/save");
-  assert.ok(save, "a save/ folder beside www/");
+  const save = ui.fs.dirs.get("root/Test Game/www/save");
+  assert.ok(save, "a save/ folder inside www/, where the launcher's server reads it");
   assert.ok(save.files.has("file1.rmmzsave"), "MZ's extension");
   assert.ok(save.files.has("global.rmmzsave"));
   assert.equal(save.files.has("notes.rmmzsave"), false, "only the engine's own save names");
@@ -444,7 +478,7 @@ test("folder download: unticking the checkbox leaves save/ out", async () => {
   all(ask).find((n) => n.tagName === "INPUT").checked = false;
   byLabel(ask, "Download").click();
   await flush();
-  assert.equal(ui.fs.dirs.has("root/Test Game/save"), false, "no save/ folder");
+  assert.equal(ui.fs.dirs.has("root/Test Game/www/save"), false, "no save/ folder");
 });
 
 test("folder download: Hide and Cancel keep their identity across the progress redraws", async () => {
