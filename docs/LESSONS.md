@@ -39,3 +39,32 @@ children, so the redraw looked harmless. A fake that does not model the thing th
 bug depends on proves nothing — check that the fake removes children, fires
 `click` only on the same node, and has the real API's methods (here,
 `FileSystemWritableFileStream.write()` / `close()`, not just a `WritableStream`).
+
+## Say what a risk is attached to, or it is just noise
+
+**Where:** the design discussion of `www/save/` in the folder download, 2026-11-10.
+No code was wrong; the *explanation* was.
+
+**The mistake:** I warned that putting saves in `www/save/` "makes them public"
+and left it at that. Read plainly, that says the toolkit publishes them — and the
+next step anyone would take is to check `rwk deploy`, which **overrides nothing**:
+`cli/lib/game.js` skips a `save` folder by name (`RUNTIME_DIRS`), at any depth.
+The risk only exists for someone who copies `www/` to a host by hand, which is
+what the guide's "upload the contents of `www/`" line is about. The person whose
+workflow is `rwk deploy` only heard a warning about something that cannot happen
+to them, and the real, small caveat (manual uploads) went unread.
+
+**The rule:** when a risk is a reason to choose A over B, name **the action that
+creates it**, in the same sentence — here "if you copy `www/` to a host by hand,
+delete `save/` first". A risk with no actor is a vague one, and a vague one gets
+argued with instead of acted on.
+
+**The same shape, in code:** a local server standing in for the cloud API must
+copy the parts of the protocol the client *checks*, not just the parts it *uses*.
+`rwk-serve.mjs` served `/api/saves` without an `etag`, and `RWK_SaveSync` compares
+etags to tell "unchanged since last sync" from "something else rewrote this
+file": every launch would have looked like a conflict, asking the player to pick
+between two identical saves. The list is what it uses; the etag is what it
+checks. When re-implementing an endpoint, grep the client for every header and
+field it reads, not only the ones it needs to get the work done.
+

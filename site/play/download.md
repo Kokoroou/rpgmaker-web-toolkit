@@ -13,7 +13,7 @@ There are two entries, and which ones appear depends on the site:
 
 | Entry | What it does | Needs |
 |---|---|---|
-| **Download game (folder)** | Writes the whole build into a new folder named after the game, inside the place you pick, with a launcher that starts it | Chrome, Edge or Brave, and a game deployed with this toolkit version |
+| **Download game (folder)** | Writes the whole build into a new folder named after the game, inside the place you pick, with a launcher that plays it on its own | Chrome, Edge or Brave, and a game deployed with this toolkit version |
 | **Download game (ZIP)** | Downloads the whole build as one archive | A site set up with [`"download": { "zip": true }`](/reference/config) |
 
 ## Download game (folder)
@@ -21,7 +21,6 @@ There are two entries, and which ones appear depends on the site:
 1. Open **⚙ → Share → Download game (folder)**.
 2. Choose where to save (any folder, such as your Desktop or `Games`), and give the browser permission to write there. The toolkit makes a new folder inside it named after the game — `My Game` for a game titled *My Game* — and writes the build there, so it never mixes with what the folder already holds.
 3. Confirm the number of files and the size, and whether to copy your cloud saves too (see below). Then wait. Keep the page open while it runs; the game pauses meanwhile.
-
 While it runs the window has **Hide** and **Cancel**. **Hide** puts the toolkit away but keeps the download going: a small pill at the top-left shows the percentage and a spinner, and tapping it brings the window back. When every file has arrived the pill reads 100%, waits five seconds, and then goes. **Cancel** stops the download.
 
 ### What the folder holds
@@ -33,7 +32,7 @@ My Game/
 ├── www/            the whole web build, exactly as the site serves it
 │   ├── index.html
 │   ├── js/  data/  img/  audio/  …
-├── save/           your cloud saves, when you asked for them (optional)
+│   └── save/       this copy's saves, when you play it (see below)
 ├── Game.bat        Windows: double-click to play
 ├── Game.command    macOS: double-click to play
 ├── Game.sh         Linux: run "sh Game.sh"
@@ -47,15 +46,29 @@ My Game/
 
 The game cannot run by opening `www/index.html` directly: RPG Maker loads its data and plugins with `XMLHttpRequest`, which a `file://` page cannot use, and the game shows a black screen. Any local web server does the same job — for example `npx serve www` or `python -m http.server --directory www`.
 
+### Playing it without the site
+
+The copy plays on its own: **no internet, no sign-in, no cloud**. Its saves are files in `www/save/`, and the launcher's server answers the game's save calls from that folder, so saving works exactly as on a desktop game.
+
+Only Node.js does that: the Python fallback serves files but has no save API, so the game keeps its saves in the browser's storage there. If saving matters, install Node.js.
+
+What the copy does not have, because it needs the site: cloud saves (there is one account per copy — yours, on this PC), the older copies of a save (⚙ → Saves → Older saves), and live translation. Play here, then copy a save over if you want to continue with your account.
+
+⚙ → Saves → **Cloud saves** still says *In sync* in a downloaded copy: the line reports whether the saves are written, and here they go to `www/save/` instead of the cloud. There is nothing to sign in to and no upload anywhere.
+
 ### Publishing it on a domain
 
-Upload the **contents of `www/`** to the new domain (or point its web root at `www/`). The launchers, `save/` and `README.txt` are only for playing on this PC, and are not part of the build.
+Upload the **contents of `www/`** to the new domain (or point its web root at `www/`). The launchers and `README.txt` are only for playing on this PC, and are not part of the build.
+
+**Delete `www/save/` first**, or this copy's saves go up with the game. Uploading with the toolkit instead is unaffected: `rwk deploy` never publishes a `save` folder.
 
 ### Your saves
 
-When the download includes them, `save/` holds the cloud saves of the account you are signed in with, in the desktop game's own format (`fileN.rmmzsave` for MZ, `fileN.rpgsave` for MV). Copy them into a desktop game's `save/` folder to continue there. They are not part of `www/`, so they are never published with the game.
+`www/save/` holds one file per slot (`fileN.rmmzsave` for MZ, `fileN.rpgsave` for MV), written the way a desktop RPG Maker game writes them. Copy them into a desktop game's `save/` folder to continue there, or copy that folder's saves in.
 
-The checkbox is ticked by default and only appears when the game has cloud saves for your account. Leave it off to download only the build.
+When the download included your cloud saves (the checkbox, ticked by default), they are written there too, so the copy starts with your progress.
+
+The checkbox only appears when the game has cloud saves for your account. Leave it off to download only the build.
 
 **Stopped, or the connection dropped?** Start **Download game (folder)** again and choose the same place. The toolkit finds the folder it made, and a file already there with the same size is skipped, so only what is missing is fetched. Files you added to the folder yourself are left alone.
 

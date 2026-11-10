@@ -9,10 +9,12 @@
 //   - (folder): writes every file into a folder the user picks, through the
 //     File System Access API. Chromium only (Chrome, Edge, Brave); nothing
 //     else has showDirectoryPicker, and that is on purpose: this is a tool for
-//     a desktop, not a player feature. The folder also gets one small launcher
-//     per desktop OS (Game.bat / Game.command / Game.sh): it starts a local web
-//     server and opens the game in a browser, since a file:// page cannot load
-//     the game's data.
+//     a desktop, not a player feature. The folder gets the standard RPG Maker
+//     layout — the build in www/, a launcher per desktop OS beside it
+//     (Game.bat / Game.command / Game.sh) — and the launcher's server answers
+//     the game's save calls from www/save/, so the copy plays and keeps its
+//     saves on its own, with no site and no cloud. The saves it writes are the
+//     desktop game's own files, so they can be copied between the two.
 //   - (ZIP): the archive the deploy made and keeps in R2, shown only when the
 //     config asks for one ("download": { "zip": true }).
 //=============================================================================
@@ -115,9 +117,14 @@
 // http://127.0.0.1 and opens it in a browser. Written by
 // rpgmaker-web-toolkit's Download game (folder). Needs Node.js 18 or newer and
 // nothing else; close the window to stop the server.
+//
+// It also answers the few /api/ calls the game makes, from the save/ folder
+// inside www/: the saves of this copy ARE the files there, in the format a
+// desktop RPG Maker game writes, so they can be copied between the two. The
+// downloaded copy never talks to the internet.
 import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { exec } from "node:child_process";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -126,6 +133,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // The game lives in www/ (a normal RPG Maker web build); an older folder made
 // before that layout is served from where this file is.
 const ROOT = existsSync(join(HERE, "www", "index.html")) ? join(HERE, "www") : HERE;
+// Where this copy's saves live. The game reaches them through the small API
+// below, which stands in for the site's cloud saves.
+const SAVES = join(ROOT, "save");
+// What a save file written here is called; the build says which engine this is.
+const EXT = existsSync(join(ROOT, "js", "rmmz_core.js")) ? ".rmmzsave" : ".rpgsave";
+const SAVE_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+const MAX_SAVE = 32 * 1024 * 1024;
 const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -168,6 +182,135 @@ function rangeOf(value, size) {
   return { start, end };
 }
 
+//---------------------------------------------------------------------------
+// The save API: the same few calls the deployed site answers, answered here
+// from www/save/ instead of the cloud. RWK_SaveSync reads and writes a save as
+// an engine string, which is what the desktop file holds, so a save made here
+// opens in a desktop game and the other way round. The metadata the site keeps
+// (etag, device, when) is not needed: one machine, one player.
+//---------------------------------------------------------------------------
+
+const reply = (res, status, body, headers = {}) => {
+  res.writeHead(status, { "cache-control": "no-store", ...headers });
+  res.end(body === null ? undefined : body);
+};
+
+const jsonReply = (res, status, body) => reply(res, status, JSON.stringify(body), { "content-type": "application/json; charset=utf-8" });
+
+// The save name in a file name, or null when it is not one.
+const nameIn = (file) => (file.toLowerCase().endsWith(EXT) ? file.slice(0, -EXT.length) : null);
+
+// The string RWK_SaveSync expects from the bytes of a file: the engine writes
+// its string as UTF-8, and the API hands it back one byte per character. The
+// bytes go over as they are either way; only the label differs, and it is
+// latin1 for a file that is not whole UTF-8 (one byte per character, which is
+// what the cloud stores for such a save).
+const engineString = (buf) => ({ enc: Buffer.byteLength(buf.toString("utf8"), "utf8") === buf.length ? "utf8" : "latin1", body: buf });
+
+// What to do with a PUT body: the engine string, either as UTF-8 or as latin1.
+const saveFile = (buf, enc) => (enc === "utf8" ? buf : Buffer.from(buf.toString("latin1"), "utf8"));
+
+// A save's version, as the site's own API has one: the game compares this
+// against the copy it synced last, to tell "the file changed under me" (a save
+// copied in from a desktop game) from "unchanged". Size and write time are
+// enough here: one machine writes these files.
+const etagOf = (st) => st.size + "-" + Math.round(st.mtimeMs);
+
+async function readBody(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_SAVE) throw new Error("too large");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function listSaves() {
+  let names = [];
+  try {
+    names = await readdir(SAVES);
+  } catch (e) {
+    return []; // no save/ yet: nothing has been saved here
+  }
+  const items = [];
+  for (const file of names.sort()) {
+    const name = nameIn(file);
+    if (!name || !SAVE_RE.test(name)) continue;
+    try {
+      const st = await stat(join(SAVES, file));
+      items.push({ name, size: st.size, etag: etagOf(st), updatedAt: Math.round(st.mtimeMs), deviceId: "this PC" });
+    } catch (e) {
+      // gone while listing
+    }
+  }
+  return items;
+}
+
+async function onApi(req, res, pathname) {
+  // The host-only download entries: this copy is already on the PC they would
+  // write to, so the menu leaves them out. The lens is the owner's tool for the
+  // deployed game, not for a copy on a PC.
+  if (pathname.startsWith("/api/download") || pathname === "/api/me" || pathname.startsWith("/api/lens")) {
+    return jsonReply(res, 403, { error: "Not available in a downloaded copy" });
+  }
+  // Older copies of a save are kept by the site; this copy keeps none, and an
+  // empty list says so in ⚙ → Saves → Older saves instead of a network error.
+  if (pathname === "/api/history") {
+    if (req.method !== "GET") return jsonReply(res, 405, { error: "Method not allowed" });
+    return jsonReply(res, 200, { items: [] });
+  }
+  if (pathname === "/api/saves") {
+    if (req.method !== "GET") return jsonReply(res, 405, { error: "Method not allowed" });
+    return jsonReply(res, 200, { items: await listSaves() });
+  }
+  if (pathname.startsWith("/api/saves/")) {
+    const name = pathname.slice("/api/saves/".length);
+    if (!SAVE_RE.test(name)) return jsonReply(res, 400, { error: "Invalid save name" });
+    const file = join(SAVES, name + EXT);
+    if (req.method === "GET") {
+      let buf;
+      let st;
+      try {
+        st = await stat(file);
+        buf = await readFile(file);
+      } catch (e) {
+        return jsonReply(res, 404, { error: "Not found" });
+      }
+      const { enc, body } = engineString(buf);
+      return reply(res, 200, body, { "content-type": "application/octet-stream", "x-rwk-enc": enc, etag: etagOf(st) });
+    }
+    if (req.method === "PUT") {
+      let buf;
+      try {
+        buf = await readBody(req);
+      } catch (e) {
+        return jsonReply(res, 413, { error: "Save is too large" });
+      }
+      try {
+        await mkdir(SAVES, { recursive: true });
+        await writeFile(file, saveFile(buf, req.headers["x-rwk-enc"]));
+      } catch (e) {
+        return jsonReply(res, 500, { error: "Could not write the save" });
+      }
+      const st = await stat(file).catch(() => null);
+      return jsonReply(res, 200, { etag: st ? etagOf(st) : "", updatedAt: st ? Math.round(st.mtimeMs) : Date.now() });
+    }
+    if (req.method === "DELETE") {
+      try {
+        await unlink(file);
+      } catch (e) {
+        // already gone
+      }
+      return reply(res, 204, null);
+    }
+    return jsonReply(res, 405, { error: "Method not allowed" });
+  }
+  // Translation needs the site's AI binding: the original text stays.
+  return jsonReply(res, 404, { error: "Not available offline" });
+}
+
 async function onRequest(req, res) {
   let pathname = "/";
   try {
@@ -175,6 +318,7 @@ async function onRequest(req, res) {
   } catch (e) {
     return fail(res, 400, "Bad request");
   }
+  if (pathname === "/api" || pathname.startsWith("/api/")) return onApi(req, res, pathname);
   let file = resolve(join(ROOT, pathname));
   // Nothing outside this folder, however the path was spelled.
   if (file !== ROOT && !file.startsWith(ROOT + sep)) return fail(res, 403, "Forbidden");
@@ -249,7 +393,9 @@ console.log("Game: " + url + "  (close this window to stop the server)");
 `;
 
   // A launcher that finds the folder, uses Node when it is there, and falls
-  // back to Python's http.server, which needs no script of its own.
+  // back to Python's http.server, which needs no script of its own. Python's
+  // server has no save API, so the game stores its saves in the browser
+  // instead of www/save/ (and says so in the folder's README).
   const SHELL_LAUNCHER = `#!/bin/sh
 # Starts the game: serves the www/ folder beside this file over
 # http://localhost and opens it in a browser.
@@ -308,18 +454,25 @@ The launcher starts a small web server and opens the game in your browser. It
 needs Node.js 18+ (https://nodejs.org) or Python 3. The game cannot run by
 opening www/index.html directly: a file:// page cannot load the game's data.
 
+Your saves
+----------
+They are in www/save/, one file per slot (fileN.rmmzsave for MZ, or
+fileN.rpgsave for MV), written the way a desktop RPG Maker game writes them.
+Copy them into a desktop game's save/ folder to continue there, or copy that
+folder's saves in here. Nothing leaves this PC: the launcher's server answers
+the game's save calls itself.
+
+This copy has no cloud saves, no older saves and no translation: those need the
+site. Play here, then copy a save over if you want to continue on the site.
+
 Host it on a web domain
 -----------------------
 This folder has the standard RPG Maker layout: the web build is in www/. To
 publish it on a new domain, upload the CONTENTS of www/ to the domain (or point
-its web root at www/). The launcher files and save/ are only for playing here.
+its web root at www/). The launcher files are only for playing here.
 
-Your saves
-----------
-When the download included them, save/ holds the cloud saves of the account
-signed in, in the desktop game's own format (fileN.rmmzsave for MZ, or
-fileN.rpgsave for MV). Copy them into a desktop game's save/ folder to
-continue there.
+Careful: www/ also holds this copy's saves, in www/save/. Delete that folder
+before uploading it anywhere public.
 `;
 
   // The files a download leaves in the game folder so it can be played by
@@ -354,9 +507,10 @@ continue there.
   }
 
   //---------------------------------------------------------------------------
-  // The cloud saves of the account signed in, written beside the game so the
-  // folder is a complete desktop-style copy. Optional: the checkbox in the
-  // confirmation (on by default) asks for them.
+  // The cloud saves of the account signed in, written into www/save/ so the
+  // copy starts with the player's own progress. Optional: the checkbox in the
+  // confirmation (on by default) asks for them. They are the desktop game's
+  // files, and the launcher's server reads them back.
   //---------------------------------------------------------------------------
 
   // What the engine reads in save/: file1..fileN, and the two special files.
@@ -388,10 +542,10 @@ continue there.
 
   // -> how many save files were written. One unreadable save does not stop the
   // others, and a folder that refuses save/ only warns.
-  async function writeSaves(dir, items) {
+  async function writeSaves(webDir, items) {
     let saveDir;
     try {
-      saveDir = await dir.getDirectoryHandle("save", { create: true });
+      saveDir = await webDir.getDirectoryHandle("save", { create: true });
     } catch (e) {
       RWK.toast("Could not make the save/ folder: " + (e.message || e), "warn", 6000);
       return 0;
@@ -617,7 +771,7 @@ continue there.
     else if (run.reason === "offline") RWK.toast("Connection lost. Start the download again to continue where it stopped.", "warn", 6000);
     else if (run.reason === "signin") RWK.toast("You are signed out. Reload the page, sign in, then start again.", "warn", 6000);
     else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download. Start again to retry them.`, "warn", 6000);
-    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in save/.` : ""), "info", 5000);
+    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in www/save/.` : ""), "info", 5000);
   }
 
   // Reads the build's file list and the folder, asks, then writes. The folder
@@ -656,7 +810,8 @@ continue there.
     RWK.toast("Checking the folder…", "info", 2000);
     // The standard RPG Maker layout: the web build goes into www/, so the
     // folder can be uploaded to a new domain (serve www/) or dropped beside a
-    // desktop game's files. The launchers and save/ stay outside it.
+    // desktop game's files. The launchers stay outside it, and the saves go in
+    // www/save/, where the launcher's server hands them to the game.
     let webDir;
     try {
       webDir = await gameDir.getDirectoryHandle("www", { create: true });
@@ -685,9 +840,9 @@ continue there.
           ]
         );
         if (!copy) return;
-        const written = await writeSaves(gameDir, saves);
+        const written = await writeSaves(webDir, saves);
         RWK.toast(
-          written ? `${written} cloud save(s) saved to "save/".` : "Could not save the cloud saves. Try again.",
+          written ? `${written} cloud save(s) saved to "www/save/".` : "Could not save the cloud saves. Try again.",
           written ? "info" : "warn",
           5000
         );
@@ -723,7 +878,7 @@ continue there.
         // folder is not playable yet.
         if (result.reason === null) {
           await writeLaunchers(gameDir);
-          if (answer.saves) result.saves = await writeSaves(gameDir, saves);
+          if (answer.saves) result.saves = await writeSaves(webDir, saves);
         }
         latest = result;
         latestFolder = name;
@@ -756,11 +911,16 @@ continue there.
       RWK.toast("Downloading needs an internet connection.", "warn", 3000);
       return;
     }
+    if (!("showDirectoryPicker" in window)) {
+      RWK.toast("This browser cannot save to a folder.", "warn", 4000);
+      return;
+    }
     let picked;
     try {
       picked = window.showDirectoryPicker({ mode: "readwrite", id: "rwk-game" });
     } catch (e) {
-      RWK.toast("This browser cannot save to a folder.", "warn", 4000);
+      // Refused, or not really callable: say so rather than failing later.
+      RWK.toast("Could not open the folder: " + (e.message || e), "error", 5000);
       return;
     }
     picked
@@ -787,7 +947,7 @@ continue there.
 .rwk-dl-saves{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-size:14px;cursor:pointer}
 .rwk-dl-saves input{width:17px;height:17px;margin:0;accent-color:#3b6fd8}
 .rwk-modal-actions button.rwk-dl-danger{background:#b3261e;border-color:#b3261e;color:#fff}
-.rwk-dl-pill{position:fixed;left:6px;top:50px;z-index:2147482600;display:flex;align-items:center;gap:8px;
+.rwk-dl-pill{position:fixed;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:2147482600;display:flex;align-items:center;gap:8px;
   font:13px/1 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.72);border:1px solid #444;
   border-radius:999px;padding:7px 13px 7px 10px;cursor:pointer}
 .rwk-dl-pill .rwk-dl-spin{flex:none;width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
@@ -868,7 +1028,7 @@ continue there.
         const row = el("label", { className: "rwk-dl-saves" });
         checkbox = el("input", { type: "checkbox" });
         checkbox.checked = true;
-        row.append(checkbox, el("span", { textContent: `Also save my cloud saves (${saveCount} save${saveCount === 1 ? "" : "s"}) into save/` }));
+        row.append(checkbox, el("span", { textContent: `Also save my cloud saves (${saveCount} save${saveCount === 1 ? "" : "s"}) into www/save/` }));
         box.appendChild(row);
       }
       const actions = el("div", { className: "rwk-modal-actions" });
@@ -936,7 +1096,7 @@ continue there.
         note.textContent = active.run.skipped ? `${active.run.skipped} file(s) were already in the folder and were skipped.` : "";
       } else if (run && run.reason === null) {
         message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, in www/.`;
-        note.textContent = "Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve www/ and open the game in your browser. To publish it on a domain, upload the contents of www/.";
+        note.textContent = "Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve www/ and open the game in your browser. It saves into www/save/, the desktop game's own format.";
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
