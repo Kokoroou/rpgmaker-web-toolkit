@@ -5,6 +5,7 @@ import { deploy } from "./commands/deploy.js";
 import { doctor } from "./commands/doctor.js";
 import { editConfig } from "./commands/config.js";
 import { exportSaves } from "./commands/saves-export.js";
+import { deletePlayerSaves, movePlayerSaves } from "./commands/saves-player.js";
 import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
@@ -82,6 +83,10 @@ async function main() {
       return status(target);
     case "saves export":
       return exportSaves(target, { email: flags.email, out: flags.out });
+    case "saves move":
+      return movePlayerSaves(target, { from: flags.from, to: flags.to });
+    case "saves delete":
+      return deletePlayerSaves(target, { email: flags.email });
     case "logs":
       return logs(target);
     case "open":

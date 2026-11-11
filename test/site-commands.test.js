@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
+import { deletePlayerSaves, movePlayerSaves, playerPrefixes } from "../cli/commands/saves-player.js";
 import { exportSaves, saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
 import { deleteSite, describeSite, list, logs, open, purgeObjects, status, toolkitFact } from "../cli/commands/site.js";
 import { userHash as userHashOf } from "../cli/lib/cloudflare.js";
@@ -266,4 +267,46 @@ test("saves export: lists, downloads and writes the player's saves", async (t) =
   await assert.rejects(exportSaves("my-game", { out }, { ...deps, apiToken: async () => null }), /Not logged in/);
   await assert.rejects(exportSaves("my-game", { out }, { ...deps, listObjects: async () => [] }), /No cloud saves/);
   assert.equal((await exportSaves("", { out: mv, email: "a@b.c" }, { ...deps, ask: async () => "my-game" })).facts.length, 2);
+});
+
+test("saves move / delete: one player's saves and older saves, by email", async (t) => {
+  quiet(t);
+  const from = playerPrefixes("old@x.y", "my-game");
+  const to = playerPrefixes("new@x.y", "my-game");
+  const store = new Map([
+    [`${from.prefixes[0]}file1`, "a"],
+    [`${from.prefixes[1]}file1/1700000000000`, "b"],
+    [`rwk/players/my-game.json`, JSON.stringify({ [from.hash]: 5 })],
+  ]);
+  const deps = {
+    connect: async () => ({ email: "me@x.y", account: { id: "acc" } }),
+    loadSettings: () => ({}),
+    findSite: async () => ({ ...CFG }),
+    ask: async (text, _d, validate) => (/Type the email/.test(text) ? "OLD@x.y" : ""),
+    apiToken: async () => "tok",
+    listObjects: async ({ prefix }) => [...store].filter(([k]) => k.startsWith(prefix)).map(([key, v]) => ({ key, size: v.length })),
+    getObject: async ({ key }) => (store.has(key) ? Buffer.from(store.get(key)) : null),
+    putObject: async ({ key, body }) => store.set(key, Buffer.from(body).toString()),
+    deleteObject: async ({ key }) => store.delete(key),
+  };
+  await movePlayerSaves("my-game", { from: "old@x.y", to: "new@x.y" }, deps);
+  assert.equal(store.get(`${to.prefixes[0]}file1`), "a");
+  assert.equal(store.get(`${to.prefixes[1]}file1/1700000000000`), "b");
+  assert.equal(store.has(`${from.prefixes[0]}file1`), false);
+  assert.deepEqual(JSON.parse(store.get("rwk/players/my-game.json")), { [to.hash]: 5 });
+  await assert.rejects(movePlayerSaves("my-game", { from: "old@x.y", to: "new@x.y" }, deps), /No cloud saves for old@x.y/);
+  await assert.rejects(movePlayerSaves("my-game", { from: "a@x.y", to: "A@x.y" }, deps), /same email/);
+  await assert.rejects(movePlayerSaves("my-game", { from: "a@x.y", to: "nope" }, deps), /email addresses/);
+  await assert.rejects(movePlayerSaves("my-game", { from: "a@x.y", to: "b@x.y" }, { ...deps, findSite: async () => ({ ...CFG, auth: { mode: "none" } }) }), /public/);
+
+  await deletePlayerSaves("my-game", { email: "new@x.y" }, { ...deps, ask: async () => "NEW@x.y" });
+  assert.deepEqual([...store.keys()], ["rwk/players/my-game.json"]);
+  assert.deepEqual(JSON.parse(store.get("rwk/players/my-game.json")), {});
+});
+
+test("args: saves move and delete", () => {
+  const move = parse(["saves", "move", "my-game", "--from", "a@b.c", "--to", "d@e.f"]);
+  assert.deepEqual([move.spec.name, move.flags.from, move.flags.to], ["saves move", "a@b.c", "d@e.f"]);
+  assert.equal(parse(["saves", "delete", "my-game", "--email", "a@b.c"]).spec.name, "saves delete");
+  assert.throws(() => parse(["saves", "export", "my-game", "--from", "a@b.c"]), /Unknown option --from/);
 });

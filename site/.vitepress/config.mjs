@@ -53,76 +53,100 @@ export default defineConfig({
         text: "Set up a game",
         items: [
           { text: "Before you start", link: "/setup/requirements" },
-          { text: "Set up Cloudflare", link: "/setup/cloudflare" },
-          { text: "First deploy", link: "/setup/first-deploy" },
-          { text: "Protect the site and invite players", link: "/setup/access" },
-          { text: "Update the game", link: "/setup/updating" },
-          { text: "Publish from CI", link: "/setup/ci" },
-          { text: "Customize the game", link: "/setup/configuration" },
-          { text: "Translations", link: "/setup/languages" },
-          { text: "On-screen buttons", link: "/setup/controls" },
+          {
+            text: "Publish",
+            collapsed: false,
+            items: [
+              { text: "Set up Cloudflare", link: "/setup/cloudflare" },
+              { text: "First deploy", link: "/setup/first-deploy" },
+              { text: "Update the game", link: "/setup/updating" },
+              { text: "Publish from CI", link: "/setup/ci" },
+            ],
+          },
+          {
+            text: "Players",
+            collapsed: true,
+            items: [{ text: "Protect the site and invite players", link: "/setup/access" }],
+          },
+          {
+            text: "Customize",
+            collapsed: true,
+            items: [
+              { text: "Customize the game", link: "/setup/configuration" },
+              { text: "Translations", link: "/setup/languages" },
+              { text: "On-screen buttons", link: "/setup/controls" },
+            ],
+          },
           { text: "Troubleshooting", link: "/setup/troubleshooting" },
         ],
       },
-      // Play, then one section per group of the in-game ⚙ menu, in the menu's order.
+      // Play: the first pages, then one collapsed group per group of the in-game ⚙ menu, in the menu's order.
       {
         text: "Play",
         items: [
           { text: "Open and play", link: "/play/" },
           { text: "Menu map", link: "/play/menu" },
           { text: "Toolbar", link: "/play/toolbar" },
+          {
+            text: "Speed and movement",
+            collapsed: true,
+            items: [{ text: "Fast forward and always dash", link: "/play/speed" }],
+          },
+          {
+            text: "Messages",
+            collapsed: true,
+            items: [{ text: "Auto, Skip and the log", link: "/play/messages" }],
+          },
+          {
+            text: "Items",
+            collapsed: true,
+            items: [{ text: "Use several items at once", link: "/play/items" }],
+          },
+          {
+            text: "Saves",
+            collapsed: true,
+            items: [
+              { text: "Cloud saves", link: "/play/saves" },
+              { text: "Quick save and autosave", link: "/play/quick-save" },
+              { text: "Older saves", link: "/play/older-saves" },
+              { text: "Save files", link: "/play/save-files" },
+            ],
+          },
+          {
+            text: "Cheats",
+            collapsed: true,
+            items: [{ text: "Cheats", link: "/play/cheats" }],
+          },
+          {
+            text: "Controls",
+            collapsed: true,
+            items: [
+              { text: "Touch controls", link: "/play/controls" },
+              { text: "Keys and buttons", link: "/play/keys" },
+            ],
+          },
+          {
+            text: "Display",
+            collapsed: true,
+            items: [
+              { text: "Language", link: "/play/language" },
+              { text: "Live translation", link: "/play/translate" },
+            ],
+          },
+          {
+            text: "Offline",
+            collapsed: true,
+            items: [{ text: "Play offline", link: "/play/offline" }],
+          },
+          {
+            text: "Share and help",
+            collapsed: true,
+            items: [
+              { text: "Download game", link: "/play/download" },
+              { text: "Report a problem, game files", link: "/play/help" },
+            ],
+          },
         ],
-      },
-      {
-        text: "Speed and movement",
-        items: [{ text: "Fast forward and always dash", link: "/play/speed" }],
-      },
-      {
-        text: "Messages",
-        items: [{ text: "Auto, Skip and the log", link: "/play/messages" }],
-      },
-      {
-        text: "Items",
-        items: [{ text: "Use several items at once", link: "/play/items" }],
-      },
-      {
-        text: "Saves",
-        items: [
-          { text: "Cloud saves", link: "/play/saves" },
-          { text: "Quick save and autosave", link: "/play/quick-save" },
-          { text: "Older saves", link: "/play/older-saves" },
-          { text: "Save files", link: "/play/save-files" },
-        ],
-      },
-      {
-        text: "Cheats",
-        items: [{ text: "Cheats", link: "/play/cheats" }],
-      },
-      {
-        text: "Controls",
-        items: [
-          { text: "Touch controls", link: "/play/controls" },
-          { text: "Keys and buttons", link: "/play/keys" },
-        ],
-      },
-      {
-        text: "Display",
-        items: [
-          { text: "Language", link: "/play/language" },
-          { text: "Live translation", link: "/play/translate" },
-        ],
-      },
-      {
-        text: "Offline",
-        items: [{ text: "Play offline", link: "/play/offline" }],
-      },
-      {
-        text: "Share",
-        items: [{ text: "Download game", link: "/play/download" }],
-      },
-      {
-        text: "Help",
-        items: [{ text: "Report a problem, game files", link: "/play/help" }],
       },
       {
         text: "Reference",

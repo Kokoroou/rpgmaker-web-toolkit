@@ -35,6 +35,8 @@ const DONE = {
   "config": "config saved",
   status: "status",
   "saves export": "saves downloaded",
+  "saves move": "saves moved",
+  "saves delete": "saves deleted",
   logs: "logs",
   open: "opened",
   list: "sites",

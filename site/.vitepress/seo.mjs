@@ -178,9 +178,11 @@ export function buildLlmsTxt({ srcDir, sidebar, description }) {
     "- Not supported: RPG Maker XP, VX and VX Ace. Not affiliated with Cloudflare or RPG Maker.",
     "",
   ];
+  // Sidebar groups can nest (collapsible sub-groups): the pages are listed flat under the top group.
+  const leaves = (items) => items.flatMap((item) => (item.items ? leaves(item.items) : [item]));
   for (const group of sidebar) {
     lines.push(`## ${group.text}`, "");
-    for (const item of group.items) {
+    for (const item of leaves(group.items)) {
       const file = linkToFile(item.link);
       lines.push(`- [${item.text}](${pageUrl(file)}): ${readDescription(srcDir, file)}`);
     }

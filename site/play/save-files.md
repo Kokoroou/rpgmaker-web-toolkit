@@ -15,6 +15,11 @@ In the menu: ⚙ → **Saves** → **Saves** opens this panel:
 | <span id="import">**Import**</span> | Puts a file into the slot: a desktop save, an editor's raw output, or plain JSON. The save uploads to the cloud and **the game restarts** so you can load it |
 | <span id="delete">**Delete**</span> | Empties the slot, **on every device** when sync is on |
 
+**Export all** (below the list) downloads the whole save folder as one ZIP, `saves-<date>.zip`:
+
+- `save/`: every filled slot plus `config` (the game's options) and `global` (the slot list), named as on desktop, so the folder can replace the desktop game's `save/` folder
+- `rwk-environment.json`: where the saves come from (engine, game, page, whether cloud sync was on, the device, the date)
+
 Import refuses files from the other engine, and the game's `config` and `global` files.
 
 ::: danger

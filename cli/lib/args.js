@@ -76,6 +76,20 @@ export const COMMANDS = [
     examples: ["rwk saves export my-game --email me@example.com", "rwk saves export my-game --out ./backup"],
   },
   {
+    name: "saves move",
+    summary: "Move one player's cloud saves (and older saves) to another email, e.g. after the player changed address",
+    targets: ["link", "name"],
+    options: { from: "The email the saves are under now", to: "The email that gets them (its own saves with the same name are replaced)" },
+    examples: ["rwk saves move my-game --from old@example.com --to new@example.com"],
+  },
+  {
+    name: "saves delete",
+    summary: "Delete one player's cloud saves and older saves; asks you to type the email",
+    targets: ["link", "name"],
+    options: { email: "The player's email whose saves are deleted; without it the command asks" },
+    examples: ["rwk saves delete my-game --email old@example.com", "rwk saves export my-game --email old@example.com && rwk saves delete my-game --email old@example.com"],
+  },
+  {
     name: "logs",
     summary: "Show the site's Worker logs as they happen, until Ctrl+C",
     targets: ["link", "name"],
@@ -200,7 +214,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, name, to, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, name, to, from, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -222,6 +236,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         account: { type: "string" },
         name: { type: "string" },
         to: { type: "string" },
+        from: { type: "string" },
         email: { type: "string" },
         out: { type: "string" },
         get: { type: "string" },
@@ -230,7 +245,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --account <account ID>, --to new-name, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --account <account ID>, --to new-name, --from old@example.com, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -248,6 +263,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     account: values.account,
     name: values.name,
     to: values.to,
+    from: values.from,
     email: values.email,
     out: values.out,
     get: values.get,
@@ -277,7 +293,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  for (const option of ["name", "to", "email", "out", "get", "set"]) {
+  for (const option of ["name", "to", "from", "email", "out", "get", "set"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
