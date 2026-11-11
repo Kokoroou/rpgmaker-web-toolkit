@@ -10,7 +10,7 @@ import { deletePlayerSaves, movePlayerSaves, playerPrefixes } from "../cli/comma
 import { exportSaves, saveObjects, toSaveFile } from "../cli/commands/saves-export.js";
 import { deleteSite, describeSite, list, logs, open, purgeObjects, status, toolkitFact } from "../cli/commands/site.js";
 import { userHash as userHashOf } from "../cli/lib/cloudflare.js";
-import { deleteObject, getObject, listObjects } from "../cli/lib/r2-api.js";
+import { deleteObject, getObject, listObjects, putObject } from "../cli/lib/r2-api.js";
 import { renderSummary, runResult } from "../cli/lib/report.js";
 
 const parse = (args) => parseCommandLine(args, { stdinIsTTY: true });
@@ -309,4 +309,48 @@ test("args: saves move and delete", () => {
   assert.deepEqual([move.spec.name, move.flags.from, move.flags.to], ["saves move", "a@b.c", "d@e.f"]);
   assert.equal(parse(["saves", "delete", "my-game", "--email", "a@b.c"]).spec.name, "saves delete");
   assert.throws(() => parse(["saves", "export", "my-game", "--from", "a@b.c"]), /Unknown option --from/);
+});
+
+test("r2 api: writes an object", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => (calls.push([url, init.method, init.headers["content-type"], init.body]), new Response(null, { status: 200 }));
+  await putObject({ token: "t", accountId: "a", bucket: "b", key: "saves/x/f", body: "data", fetchImpl });
+  await putObject({ token: "t", accountId: "a", bucket: "b", key: "k", body: "{}", contentType: "application/json", fetchImpl });
+  assert.deepEqual(calls[0], ["https://api.cloudflare.com/client/v4/accounts/a/r2/buckets/b/objects/saves%2Fx%2Ff", "PUT", "application/octet-stream", "data"]);
+  assert.equal(calls[1][2], "application/json");
+  await assert.rejects(
+    putObject({ token: "t", accountId: "a", bucket: "b", key: "k", body: "x", fetchImpl: async () => Response.json({ success: false, errors: [{ message: "denied" }] }, { status: 403 }) }),
+    /Could not write k.*denied.*Workers R2 Storage → Edit/
+  );
+});
+
+test("saves move / delete: ask for what is missing, and a failed player list only warns", async (t) => {
+  quiet(t);
+  const from = playerPrefixes("old@x.y", "my-game");
+  const store = new Map([[`${from.prefixes[0]}file1`, "a"]]);
+  const asked = [];
+  const deps = {
+    connect: async () => ({ email: "me@x.y", account: { id: "acc" } }),
+    loadSettings: () => ({}),
+    findSite: async () => ({ ...CFG }),
+    ask: async (text) => (asked.push(text), /sign in|gets|now|whose|Paste/.test(text) ? (/gets/.test(text) ? "new@x.y" : /Paste/.test(text) ? "my-game" : "old@x.y") : "OLD@x.y"),
+    apiToken: async () => "tok",
+    listObjects: async ({ prefix }) => [...store].filter(([k]) => k.startsWith(prefix)).map(([key, v]) => ({ key, size: v.length })),
+    getObject: async ({ key }) => {
+      if (key.startsWith("rwk/")) throw new Error("boom");
+      return store.has(key) ? Buffer.from(store.get(key)) : null;
+    },
+    putObject: async ({ key, body }) => store.set(key, Buffer.from(body).toString()),
+    deleteObject: async ({ key }) => store.delete(key),
+  };
+  const moved = await movePlayerSaves("", {}, deps);
+  assert.equal(moved.facts[1][1], "new@x.y");
+  assert.equal(asked.length, 3);
+  await assert.rejects(movePlayerSaves("my-game", { from: "old@x.y", to: "new@x.y" }, { ...deps, apiToken: async () => null }), /Not logged in/);
+  await assert.rejects(movePlayerSaves("my-game", { from: "old@x.y", to: "new@x.y" }, { ...deps, findSite: async () => ({ ...CFG, sync: { enabled: false } }) }), /sync is off/);
+  await assert.rejects(deletePlayerSaves("my-game", { email: "bad" }, deps), /email address/);
+  await assert.rejects(deletePlayerSaves("my-game", { email: "none@x.y" }, deps), /No cloud saves/);
+  const removed = await deletePlayerSaves("my-game", {}, { ...deps, ask: async (text) => (/whose/.test(text) ? "new@x.y" : "NEW@x.y") });
+  assert.equal(removed.facts[0][1], "new@x.y");
+  assert.equal(store.size, 0);
 });
