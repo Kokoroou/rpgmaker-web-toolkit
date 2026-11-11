@@ -523,6 +523,35 @@ export async function probeAccess(url) {
   }
 }
 
+// Whether /_lens gets past Access: the Worker answers a request without a token
+// itself (401 + JSON), where Access would redirect to its login page.
+export async function probeLensBypass(url) {
+  try {
+    const res = await fetch(new URL("/_lens/ping", url), { redirect: "manual", headers: { "cache-control": "no-cache" } });
+    const location = res.headers.get("location");
+    if (location) return { open: false, status: res.status };
+    return { open: res.status === 401 && (res.headers.get("content-type") || "").includes("json"), status: res.status };
+  } catch (err) {
+    return { open: false, error: err.message };
+  }
+}
+
+// The dashboard steps for the /_lens bypass, as plain lines (the values to type are
+// in the lines, so each can be copied). Cloudflare's "Add an application" page
+// cannot be filled in from a link, so the values are listed in order instead.
+export function lensBypassSteps({ host, slug }) {
+  return {
+    page: (accountId) => `https://one.dash.cloudflare.com/${accountId}/access/apps/add`,
+    lines: [
+      ["Select", "Self-hosted"],
+      ["Application name", `${slug}-lens`],
+      ["Public hostname", `${host}   Path: _lens`],
+      ["Policy", "Create new policy → Action: Bypass → Include: Everyone"],
+      ["Then", "Save the policy, then Save the application"],
+    ],
+  };
+}
+
 //---------------------------------------------------------------------------
 // Save import (desktop save files -> cloud)
 //---------------------------------------------------------------------------
