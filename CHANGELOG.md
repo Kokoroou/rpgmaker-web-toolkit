@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.7.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.6.0...v0.7.0) (2026-11-11)
+
+
+### Features
+
+* **cli:** deploy a public site whose saves stay in each player's browser ([#131](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/131)) ([db20579](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/db20579f3d5b4bb32358a4d2f587e20341eedb58))
+* **cli:** guide the /_lens Access bypass step by step ([#128](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/128)) ([296e8c3](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/296e8c386733b3cee09c143103c7baf5a9a3a310))
+* **core:** one MakerLens link for Assets and Events ([#129](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/129)) ([d1cac0b](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/d1cac0b4f93c062a24fe28e60a27b13d273ba4ae))
+* export the whole save folder, and move or delete a player's saves by email ([#130](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/130)) ([e1d52c6](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e1d52c6d079573403f162b50f4c900d3f8a05613))
+* **runtime:** add in-game download zip button for game host ([#118](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/118)) ([a048873](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/a048873ecc8b8032b5211ca8c8509bdeb8cd3bd2))
+* **runtime:** let the host download the game into a folder ([#122](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/122)) ([8a1c35f](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8a1c35f8df46745be5d33e83baa8cd41c7669ab9))
+* **runtime:** play a downloaded game with its saves in www/save/ ([#125](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/125)) ([f4f39f4](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f4f39f416dc99b6ff0a0a6361d1e1604e48ae0b0))
+* **runtime:** play the downloaded build with a launcher, and copy saves ([#124](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/124)) ([d52ca6c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/d52ca6cd37c7142b322dab8262674cc33eb8dbcf))
+* **worker:** allow the game host to download the build as a ZIP ([#116](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/116)) ([93df5d5](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/93df5d57f3c458404643588ffe0b278340975e30))
+
+
+### Bug Fixes
+
+* **cli:** deploy a web build that already has the toolkit's plugins ([#126](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/126)) ([4be430d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/4be430d72831874fd6b1731c451008f9900d27ba))
+* **cli:** list the /_lens bypass steps in the dashboard's order ([#133](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/133)) ([a44a6be](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/a44a6be7b4655d2bfef7a42e343da513ccf29d87))
+* **cli:** open the current Access application form for the /_lens bypass ([#132](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/132)) ([15ff048](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/15ff048b57f183198187d7ac845f4de2063d02eb))
+* **cli:** warn about a folder written in code with the wrong letter case ([#127](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/127)) ([a413c63](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/a413c63c55145cb06a5d7790a14db6b5f7eac1e5))
+* give the page the process object NW.js has ([#120](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/120)) ([336825e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/336825e141669a95ee9d812acb810e7b00e677f8))
+* make the host's ZIP download the whole build ([#121](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/121)) ([118229d](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/118229d69f58e1a51c3aed60b93c9be2c33a99f7))
+* **runtime:** keep toolkit buttons and dialogs working in hostile games ([#119](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/119)) ([1f19fa7](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1f19fa7e135889988eec2ecb3194cb66c986860c))
+* **runtime:** stop the folder download at index.html ([#123](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/123)) ([b4c57d0](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/b4c57d05fbb135c9da4209f2c681f1da67aff6c9))
+
 ## [0.6.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.5.0...v0.6.0) (2026-11-07)
 
 
