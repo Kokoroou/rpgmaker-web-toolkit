@@ -26,6 +26,12 @@ With **cloud save sync** on, your saves follow your email. Save on your phone, c
 | ☁ crossed out | Offline or a network problem: saves stay on this device and upload later |
 | Red ☁ with ! | Login expired, or a save differs from the cloud: see below |
 
+## Keep saves on this device only
+
+⚙ → **Saves** → **Keep saves on this device only** stops all uploads: saves stay in this browser's storage and other devices never see them. Saves already in the cloud stay there. Clearing this browser's data deletes local-only saves, so export them first if they matter.
+
+Turn it off the same way, then reload the page: this device's saves are compared with the cloud's as at any game start.
+
 ## If the game asks
 
 <div class="shots">
