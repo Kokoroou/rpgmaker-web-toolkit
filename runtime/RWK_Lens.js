@@ -4,8 +4,9 @@
 // License: PolyForm Noncommercial 1.0.0 with the Game Creators permission,
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // ⚙ → Share → MakerLens link: the game's owner makes a read-only link that
-// opens this game's pictures, audio and events in MakerLens (Assets and
-// Events) without making the game public. The Worker keeps the links
+// opens this game's pictures, audio and events in MakerLens without making
+// the game public. One link for both tools: it opens Assets, which has a
+// button to switch to Events (and back) with the same link. The Worker keeps the links
 // (worker/lens.js); only the owner's emails see this entry.
 //=============================================================================
 /*:
@@ -40,11 +41,8 @@
     return { ok: res.ok, status: res.status, body };
   };
 
-  // The links MakerLens opens: the token stays after the "#", which no server receives.
-  const linksFor = (token) => {
-    const hash = "#game=" + encodeURIComponent(location.origin) + "&t=" + encodeURIComponent(token);
-    return { assets: MAKERLENS + "/assets/" + hash, events: MAKERLENS + "/events/" + hash };
-  };
+  // The one link MakerLens opens: the token stays after the "#", which no server receives.
+  const linkFor = (token) => MAKERLENS + "/assets/#game=" + encodeURIComponent(location.origin) + "&t=" + encodeURIComponent(token);
 
   const when = (sec) => new Date(sec * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 
@@ -72,7 +70,6 @@
 .rwk-lens-new{margin:0 0 12px;padding:10px;border:1px solid #2d8a55;border-radius:10px}
 .rwk-lens-new[hidden]{display:none}
 .rwk-lens-row{display:flex;align-items:center;gap:8px;margin:6px 0}
-.rwk-lens-row b{min-width:58px}
 .rwk-lens-row input{flex:1;min-width:0;font:12px monospace;padding:6px 8px;border-radius:6px;border:1px solid #555;background:#1f1f25;color:#eee}
 .rwk-lens-warn{color:#f0b429}
 .rwk-lens-list{max-height:min(35vh,260px);overflow:auto;border-top:1px solid #333}
@@ -105,7 +102,7 @@
 
     const intro = el("p", {
       textContent:
-        "Make a read-only link that opens this game's pictures, audio and events in MakerLens. The game stays private: " +
+        "Make one read-only link that opens this game's pictures, audio and events in MakerLens (Assets and Events, switch between them there). The game stays private: " +
         "the link is a key that lets MakerLens read the game's files until it expires. It never opens the saves. " +
         "Anyone you give it to can look at the game's files, so share it only with people you trust.",
     });
@@ -157,24 +154,22 @@
     }
 
     function show(token) {
-      const links = linksFor(token);
+      const url = linkFor(token);
       fresh.textContent = "";
       fresh.append(el("p", { textContent: "Link made. Copy it now: the key is not shown again." }));
-      for (const [name, url] of [["Assets", links.assets], ["Events", links.events]]) {
-        const field = el("input", { type: "text", readOnly: true, value: url });
-        field.addEventListener("focus", () => field.select());
-        const copy = el("button", { textContent: "Copy" });
-        copy.addEventListener("click", async () => {
-          try {
-            await navigator.clipboard.writeText(url);
-            RWK.toast(name + " link copied.", "info", 1800);
-          } catch {
-            field.focus();
-            RWK.toast("Press Ctrl+C to copy.", "info", 2500);
-          }
-        });
-        fresh.append(el("div", { className: "rwk-lens-row" }, el("b", { textContent: name }), field, copy));
-      }
+      const field = el("input", { type: "text", readOnly: true, value: url });
+      field.addEventListener("focus", () => field.select());
+      const copy = el("button", { textContent: "Copy" });
+      copy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          RWK.toast("Link copied.", "info", 1800);
+        } catch {
+          field.focus();
+          RWK.toast("Press Ctrl+C to copy.", "info", 2500);
+        }
+      });
+      fresh.append(el("div", { className: "rwk-lens-row" }, field, copy));
       fresh.hidden = false;
     }
 
