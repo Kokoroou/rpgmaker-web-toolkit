@@ -544,11 +544,13 @@ export function lensBypassSteps({ host, slug }) {
   return {
     page: (accountId) => `https://dash.cloudflare.com/${accountId}/one/access-controls/apps/self-hosted/add`,
     lines: [
-      ["Public hostnames", `click "Switch to custom input", then type ${host}`],
-      ["Path", "_lens"],
-      ["Access policies", "Create new policy → Action: Bypass → Include: Everyone → Save the policy"],
-      ["Details → Name", `${slug}-lens`],
-      ["Then", "Click Create at the bottom of the page"],
+      ["Public hostnames", `click "Switch to custom input", then type ${host}/_lens (the path goes in the same box)`],
+      ["Access policies", "click Create new policy"],
+      ["Policy rules (left) → Include → Selector", "Everyone"],
+      ["Policy details (right) → Policy Name", `${slug}-lens-bypass`],
+      ["Policy details (right) → Action", "Bypass"],
+      ["Then", "Save policy"],
+      ["Back on the application page", "leave Name and Session duration (24 hours) as they are, and click Create at the bottom"],
     ],
   };
 }
