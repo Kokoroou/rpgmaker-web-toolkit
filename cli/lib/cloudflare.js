@@ -550,7 +550,8 @@ export function lensBypassSteps({ host, slug }) {
       ["Policy details (right) → Policy Name", `${slug}-lens-bypass`],
       ["Policy details (right) → Action", "Bypass"],
       ["Then", "Save policy"],
-      ["Back on the application page", "leave Name and Session duration (24 hours) as they are, and click Create at the bottom"],
+      ["Back on the application page → Details → Name", `${slug}-lens (the automatic name is the whole address, too long)`],
+      ["Then", "leave Session duration (24 hours) as it is and click Create at the bottom"],
     ],
   };
 }
