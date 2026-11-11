@@ -59,7 +59,7 @@
   //---------------------------------------------------------------------------
 
   if (sync) {
-    const CLOUD = { synced: icons.cloudCheck, syncing: icons.cloudUpload, offline: icons.cloudOff, local: icons.cloudOff, error: icons.cloudAlert };
+    const CLOUD = { synced: icons.cloudCheck, syncing: icons.cloudUpload, offline: icons.cloudOff, error: icons.cloudAlert };
     RWK.tools.add({
       icon: () => CLOUD[sync.status().state],
       group: "save",
@@ -68,36 +68,9 @@
       keepOpen: true,
       onSelect: () => {
         const { state, text } = sync.status();
-        if (state === "local") RWK.toast(text, "info", 2500);
-        else if (state === "synced") RWK.toast("☁ Saves are in sync", "info", 1500);
+        if (state === "synced") RWK.toast("☁ Saves are in sync", "info", 1500);
         else if (state === "error") RWK.toast(text, "warn", 4000);
         else sync.syncNow();
-      },
-    });
-  }
-
-  if (sync) {
-    RWK.tools.add({
-      icon: icons.cloudOff,
-      group: "save",
-      label: "Keep saves on this device only",
-      detail: () => (sync.isLocalOnly() ? "On: saves are not uploaded" : "Off: saves sync to the cloud"),
-      keepOpen: true,
-      onSelect: async () => {
-        const on = sync.isLocalOnly();
-        const ok = await RWK.choose(
-          on ? "Sync saves to the cloud again?" : "Keep saves on this device only?",
-          on
-            ? "Reload the page afterwards: this device's saves are then compared with the cloud's."
-            : "Saves stay in this browser and are not uploaded. Other devices will not see them, and clearing this browser's data deletes them.\n\nSaves already in the cloud stay there.",
-          [
-            { label: "Cancel", value: false, cancel: true },
-            { label: on ? "Sync again" : "Keep on this device", value: true, primary: true },
-          ]
-        );
-        if (!ok) return;
-        sync.setLocalOnly(!on);
-        RWK.toast(on ? "Cloud sync on: reload the page to sync" : "Saves stay on this device only", "info", 3500);
       },
     });
   }

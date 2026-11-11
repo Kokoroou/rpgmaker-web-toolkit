@@ -25,9 +25,6 @@
   const RETRY_DELAY_MS = 30000;
   const RECENT_OTHER_DEVICE_MS = 5 * 60 * 1000;
   const META_KEY = "rwk.sync." + RWK.config.gameId;
-  // The player's choice (⚙ menu): saves stay in this browser, nothing is sent.
-  const LOCAL_KEY = "rwk.localOnly." + RWK.config.gameId;
-  let localOnly = RWK.storage.get(LOCAL_KEY, false) === true;
 
   //---------------------------------------------------------------------------
   // Engine adapters: map engine storage to generic names (config, global,
@@ -276,7 +273,6 @@
   const changed = () => listeners.forEach((fn) => fn());
 
   function status() {
-    if (localOnly) return { state: "local", text: "Only on this device: not uploaded" };
     const unsent = Object.values(meta).filter((m) => m.dirty && !m.conflict).length;
     const waitingText = unsent ? `${unsent} save(s) upload when back online` : "saves sync when back online";
     if (authLost) return { state: "error", text: "Login expired: reload the page to sync saves" };
@@ -305,7 +301,6 @@
   // engine has read them: network calls time out individually, while dialogs
   // wait for the player as long as needed.
   async function boot() {
-    if (localOnly) return; // changes are still noted, to upload if sync is turned back on
     if (!navigator.onLine) {
       RWK.toast("Offline: using this device's saves; they will sync when back online.", "warn", 5000);
       return;
@@ -435,7 +430,7 @@
   }
 
   async function flush() {
-    if (localOnly || running || authLost || !pending.size) return;
+    if (running || authLost || !pending.size) return;
     if (!navigator.onLine) return changed(); // the "online" event resumes
     running = true;
     changed();
@@ -545,23 +540,12 @@
 
   // Upload whatever is waiting now, e.g. from the ⚙ menu.
   function syncNow() {
-    if (localOnly) return Promise.resolve();
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
     clearTimeout(timer);
     return flush();
   }
 
-  // On: nothing leaves this browser. Off: the next page load reconciles with the
-  // cloud (boot), since saves must not be swapped while the game runs.
-  function setLocalOnly(value) {
-    localOnly = !!value;
-    RWK.storage.set(LOCAL_KEY, localOnly);
-    if (localOnly) clearTimeout(timer);
-    changed();
-  }
-
   window.addEventListener("online", () => {
-    if (localOnly) return;
     for (const [name, m] of Object.entries(meta)) if (m.dirty && !m.conflict) pending.add(name);
     schedule(500);
   });
@@ -583,8 +567,6 @@
     meta,
     syncNow,
     status,
-    isLocalOnly: () => localOnly,
-    setLocalOnly,
     saved: markDirty,
     hush: () => (quiet = true),
     onChange: (fn) => listeners.push(fn),

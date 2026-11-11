@@ -327,7 +327,7 @@
     p.textContent = [
       allow.export && `Export saves a slot as fileN${EXT}, the file the desktop game uses, ready for a save editor. Export all downloads the whole save folder as a ZIP.`,
       allow.import && "Import puts an edited file back into a slot and restarts the game.",
-      allow.delete && "Delete empties a slot" + (RWK.saveSync && !RWK.saveSync.isLocalOnly() ? ", here and in the cloud." : "."),
+      allow.delete && "Delete empties a slot" + (RWK.saveSync ? ", here and in the cloud." : "."),
     ]
       .filter(Boolean)
       .join(" ");
@@ -392,7 +392,7 @@
     const ok = await RWK.choose(
       "Delete save",
       `Delete ${slotName(id)}?` +
-        (RWK.saveSync && !RWK.saveSync.isLocalOnly() ? "\nIt is also removed from the cloud, on every device." : "") +
+        (RWK.saveSync ? "\nIt is also removed from the cloud, on every device." : "") +
         (RWK.saveSync && RWK.config.saveHistory
           ? "\n\n⚙ → Older saves can bring it back for " + RWK.config.saveHistory.days + " days."
           : "\n\nThis cannot be undone: export it first to keep a copy."),
