@@ -489,7 +489,7 @@ async function lensBypassByHand(cfg, account) {
     return;
   }
   const dash = page(account.id);
-  log.info("Follow these steps in the browser (opening Zero Trust → Access controls → Applications):");
+  log.info("Follow these steps in the browser (opening Zero Trust → Access controls → Applications → Create new application):");
   lines.forEach(([what, value], i) => log.info(`  ${i + 1}. ${what}: ${c.bold(value)}`));
   log.info(c.dim(`  ${dash}`));
   openBrowser(dash);
