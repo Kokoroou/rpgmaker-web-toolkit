@@ -5,7 +5,8 @@
 // https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/LICENSE
 // Export a save slot as a desktop save file (file3.rmmzsave / file3.rpgsave)
 // so an external save editor can change it, import the edited file back, or
-// delete a slot.
+// delete a slot; or download the whole save folder (slots, config, global and
+// where they come from) as one ZIP.
 //=============================================================================
 /*:
  * @target MZ MV
@@ -59,22 +60,158 @@
   //   MZ: pako binary string, written as UTF-8.  MV: LZString base64 text.
   //---------------------------------------------------------------------------
 
-  async function exportSlot(id) {
-    let data;
+  // The bytes of one save as the desktop game writes it. `id` is a slot, or
+  // "config" / "global": the engine's settings file and its list of slots.
+  async function saveBytes(id) {
     if (MZ) {
-      const zip = await StorageManager.loadZip(DataManager.makeSavename(id));
-      data = new TextEncoder().encode(zip);
-    } else {
-      data = LZString.compressToBase64(StorageManager.load(id));
+      const name = typeof id === "string" ? id : DataManager.makeSavename(id);
+      return new TextEncoder().encode(await StorageManager.loadZip(name));
     }
-    const url = URL.createObjectURL(new Blob([data], { type: "application/octet-stream" }));
+    const mvId = id === "config" ? -1 : id === "global" ? 0 : id;
+    return new TextEncoder().encode(LZString.compressToBase64(StorageManager.load(mvId)));
+  }
+
+  function download(data, name, type) {
+    const url = URL.createObjectURL(new Blob([data], { type }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName(id);
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  async function exportSlot(id) {
+    download(await saveBytes(id), fileName(id), "application/octet-stream");
+  }
+
+  //---------------------------------------------------------------------------
+  // Export all: the whole save/ folder of the desktop game as one ZIP. Besides
+  // the slots it holds config and global (the options and the slot list) and
+  // rwk-environment.json, which says where the saves come from.
+  //---------------------------------------------------------------------------
+
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  // entries: [{ name, data: Uint8Array }] -> Uint8Array of a ZIP, files stored
+  // without compression (saves are already compressed).
+  function buildZip(entries, date = new Date()) {
+    const dosTime = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
+    const dosDate = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+    const encoder = new TextEncoder();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    for (const { name, data } of entries) {
+      const nameBytes = encoder.encode(name);
+      const crc = crc32(data);
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);
+      local.setUint16(6, 0x0800, true); // UTF-8 names
+      local.setUint16(10, dosTime, true);
+      local.setUint16(12, dosDate, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, data.length, true);
+      local.setUint32(22, data.length, true);
+      local.setUint16(26, nameBytes.length, true);
+      parts.push(new Uint8Array(local.buffer), nameBytes, data);
+      const entry = new DataView(new ArrayBuffer(46));
+      entry.setUint32(0, 0x02014b50, true);
+      entry.setUint16(4, 20, true);
+      entry.setUint16(6, 20, true);
+      entry.setUint16(8, 0x0800, true);
+      entry.setUint16(12, dosTime, true);
+      entry.setUint16(14, dosDate, true);
+      entry.setUint32(16, crc, true);
+      entry.setUint32(20, data.length, true);
+      entry.setUint32(24, data.length, true);
+      entry.setUint16(28, nameBytes.length, true);
+      entry.setUint32(42, offset, true);
+      central.push(new Uint8Array(entry.buffer), nameBytes);
+      offset += 30 + nameBytes.length + data.length;
+    }
+    const centralSize = central.reduce((n, part) => n + part.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, entries.length, true);
+    end.setUint16(10, entries.length, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, offset, true);
+    const all = [...parts, ...central, new Uint8Array(end.buffer)];
+    const out = new Uint8Array(all.reduce((n, part) => n + part.length, 0));
+    let at = 0;
+    for (const part of all) {
+      out.set(part, at);
+      at += part.length;
+    }
+    return out;
+  }
+
+  const has = (id) => {
+    try {
+      if (id === "config" || id === "global") {
+        if (MZ) return StorageManager.forageKeys ? StorageManager.forageKeys.includes(StorageManager.forageKey(id)) : true;
+        return StorageManager.exists(id === "config" ? -1 : 0);
+      }
+      return exists(id);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // -> { name, data }[] for the ZIP, and what is in it
+  async function collectAll() {
+    const entries = [];
+    const slots = [];
+    for (const id of [...slotIds(), "config", "global"]) {
+      if (!has(id)) continue;
+      try {
+        const file = typeof id === "string" ? id + EXT : fileName(id);
+        entries.push({ name: "save/" + file, data: await saveBytes(id) });
+        if (typeof id === "number") slots.push(id);
+      } catch (e) {
+        console.warn("[RWK] could not read", id, e);
+      }
+    }
+    const info = {
+      exportedAt: new Date().toISOString(),
+      engine: RWK.engine,
+      gameTitle: (window.$dataSystem && $dataSystem.gameTitle) || document.title || "",
+      gameId: RWK.config.gameId,
+      saveExtension: EXT,
+      slots,
+      files: entries.map((e) => e.name),
+      cloudSync: !!RWK.saveSync,
+      deviceId: RWK.deviceId || null,
+      page: location.origin + location.pathname,
+      userAgent: navigator.userAgent,
+      note: "Copy the save/ folder next to the desktop game, or import single files from ⚙ → Saves.",
+    };
+    entries.push({ name: "rwk-environment.json", data: new TextEncoder().encode(JSON.stringify(info, null, 2)) });
+    return { entries, slots };
+  }
+
+  async function exportAll() {
+    const { entries, slots } = await collectAll();
+    if (!slots.length) throw new Error("no saves");
+    const stamp = new Date().toISOString().slice(0, 10);
+    download(buildZip(entries), "saves-" + stamp + ".zip", "application/zip");
   }
 
   // Accepts the desktop format, the raw bytes some editors write instead,
@@ -188,7 +325,7 @@
     h.textContent = "Saves";
     const p = document.createElement("p");
     p.textContent = [
-      allow.export && `Export saves a slot as fileN${EXT}, the file the desktop game uses, ready for a save editor.`,
+      allow.export && `Export saves a slot as fileN${EXT}, the file the desktop game uses, ready for a save editor. Export all downloads the whole save folder as a ZIP.`,
       allow.import && "Import puts an edited file back into a slot and restarts the game.",
       allow.delete && "Delete empties a slot" + (RWK.saveSync ? ", here and in the cloud." : "."),
     ]
@@ -210,6 +347,16 @@
 
     const actions = document.createElement("div");
     actions.className = "rwk-modal-actions";
+    if (allow.export) {
+      actions.appendChild(
+        button("Export all", () =>
+          exportAll().catch((e) => {
+            console.error("[RWK] export all failed", e);
+            RWK.toast(e && e.message === "no saves" ? "There are no saves to export." : "Could not export the saves.", "error", 4000);
+          })
+        )
+      );
+    }
     actions.appendChild(button("Close", close));
     box.append(h, p, list, actions);
     overlay.appendChild(box);
@@ -332,5 +479,5 @@
   const detail = (actions.length ? actions.join(", ") + " or " + last : last) + " save slots";
   RWK.tools.add({ icon: RWK.icons.save, group: "save", label: "Saves", detail: detail[0].toUpperCase() + detail.slice(1), onSelect: openPanel });
 
-  RWK.saveTools = { open: openPanel };
+  RWK.saveTools = { open: openPanel, buildZip, crc32 };
 })();

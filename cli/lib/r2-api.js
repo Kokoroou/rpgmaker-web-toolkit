@@ -1,5 +1,5 @@
 // R2 objects through Cloudflare's API, for what wrangler cannot do:
-// `wrangler r2 object` has no list. Used to export the cloud saves and by delete --purge.
+// `wrangler r2 object` has no list. Used to export, move and delete the cloud saves and by delete --purge.
 
 const BASE = "https://api.cloudflare.com/client/v4";
 
@@ -41,4 +41,15 @@ export async function deleteObject({ token, accountId, bucket, key, fetchImpl = 
   const res = await fetchImpl(`${objectsRoute(accountId, bucket)}/${encodeURIComponent(key)}`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
   if (res.ok || res.status === 404) return;
   throw failure(`Could not delete ${key} from R2`, res.status, await res.json().catch(() => ({})), "Edit");
+}
+
+// Writes one object (replacing any with that key).
+export async function putObject({ token, accountId, bucket, key, body, contentType = "application/octet-stream", fetchImpl = fetch }) {
+  const res = await fetchImpl(`${objectsRoute(accountId, bucket)}/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": contentType },
+    body,
+  });
+  if (res.ok) return;
+  throw failure(`Could not write ${key} to R2`, res.status, await res.json().catch(() => ({})), "Edit");
 }

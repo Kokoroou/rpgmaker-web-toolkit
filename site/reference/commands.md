@@ -48,6 +48,8 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks. `--dry-run` checks the name and changes nothing | folder | [Update](/setup/updating#change-the-site-address) |
 | `& $rwk status my-game` | Whether the site is up, whether Access is in front of it, how many emails have saves, and which toolkit version it runs (recorded from this version on) | link, name | |
 | `& $rwk saves export my-game --email me@example.com` | Downloads that player's cloud saves into `my-game-saves/` (`--out <folder>` to choose), as `.rmmzsave` / `.rpgsave` files. Needs the token permission *Workers R2 Storage → Read* when you use `CLOUDFLARE_API_TOKEN` | link, name | |
+| `& $rwk saves move my-game --from old@example.com --to new@example.com` | Moves one player's cloud saves and older saves to another email, for a player who changed address. Same-name saves of the new email are replaced; the old copies are deleted once every new one is written. Add the new email to `players` and run `upgrade` so it may sign in. Needs *Workers R2 Storage → Edit* with `CLOUDFLARE_API_TOKEN` | link, name | |
+| `& $rwk saves delete my-game --email old@example.com` | Deletes one player's cloud saves and older saves after you type the email, which cannot be undone: `saves export` first keeps a copy. Remove the email from the Access policy too. Never runs with `--yes` | link, name | |
 | `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
 | `& $rwk open my-game` | Opens the site in the browser | link, name | |
 | `& $rwk list` | Lists the games published in this Cloudflare account | none | |
@@ -86,7 +88,8 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
 | `--to <name>` | Only `rename`: the new site name |
 | `--purge` | Only `delete`: also deletes what the game keeps in R2 |
-| `--email <address>`, `--out <folder>` | Only `saves export`: whose saves, and where to write them |
+| `--email <address>`, `--out <folder>` | `saves export`: whose saves, and where to write them. `saves delete`: whose saves |
+| `--from <address>`, `--to <address>` | Only `saves move`: the email the saves are under now, and the one that gets them (`--to` also names the new site in `rename`) |
 
 ## Check without publishing
 

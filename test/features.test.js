@@ -177,6 +177,24 @@ test("save tools: only the allowed actions", () => {
   assert.equal(load("RWK_SaveTools", { saveTools: false }).tools.length, 0);
 });
 
+test("save tools: export all builds a valid ZIP of the save folder", () => {
+  const { saveTools } = load("RWK_SaveTools", { saveTools: true }, { globals: { TextEncoder, Uint8Array, Uint32Array, DataView, ArrayBuffer } }).context.window.RWK;
+  assert.equal(saveTools.crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
+  const entries = [
+    { name: "save/file1.rmmzsave", data: new TextEncoder().encode("abc") },
+    { name: "rwk-environment.json", data: new TextEncoder().encode("{}") },
+  ];
+  const zip = Buffer.from(saveTools.buildZip(entries, new Date(2026, 0, 2, 3, 4, 6)));
+  const end = zip.length - 22;
+  assert.equal(zip.readUInt32LE(end), 0x06054b50);
+  assert.equal(zip.readUInt16LE(end + 10), 2);
+  // first local header: name and stored data follow it
+  assert.equal(zip.readUInt32LE(0), 0x04034b50);
+  assert.equal(zip.toString("utf8", 30, 30 + 19), "save/file1.rmmzsave");
+  assert.equal(zip.toString("utf8", 49, 52), "abc");
+  assert.equal(zip.readUInt32LE(zip.readUInt32LE(end + 16)), 0x02014b50, "central directory where the end record says");
+});
+
 const ALL_CHEATS = { party: true, items: true, battle: true, switches: true, movement: true };
 
 function cheatGlobals() {
