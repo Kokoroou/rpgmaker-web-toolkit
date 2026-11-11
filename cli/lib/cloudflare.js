@@ -537,12 +537,14 @@ export async function probeLensBypass(url) {
 }
 
 // The dashboard steps for the /_lens bypass, as plain lines (the values to type are
-// in the lines, so each can be copied). Cloudflare's "Add an application" page
-// cannot be filled in from a link, so the values are listed in order instead.
+// in the lines, so each can be copied). Cloudflare's application form cannot be
+// filled in from a link (and has no stable address of its own), so the link opens
+// the Applications list and the values are listed in order instead.
 export function lensBypassSteps({ host, slug }) {
   return {
-    page: (accountId) => `https://one.dash.cloudflare.com/${accountId}/access/apps/add`,
+    page: (accountId) => `https://dash.cloudflare.com/${accountId}/one/access-controls/apps`,
     lines: [
+      ["Click", "Create new application"],
       ["Select", "Self-hosted"],
       ["Application name", `${slug}-lens`],
       ["Public hostname", `${host}   Path: _lens`],

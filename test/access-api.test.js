@@ -136,7 +136,7 @@ test("probeLensBypass tells the Worker's answer from Access's login redirect", a
     globalThis.fetch = original;
   }
   const steps = lensBypassSteps({ host: "g.a.workers.dev", slug: "g" });
-  assert.equal(steps.page("acc"), "https://one.dash.cloudflare.com/acc/access/apps/add");
+  assert.equal(steps.page("acc"), "https://dash.cloudflare.com/acc/one/access-controls/apps");
   assert.ok(steps.lines.some(([what, value]) => what === "Application name" && value === "g-lens"));
   assert.ok(steps.lines.some(([, value]) => value.startsWith("g.a.workers.dev")));
 });
