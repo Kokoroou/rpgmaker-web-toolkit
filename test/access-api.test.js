@@ -119,3 +119,24 @@ test("enableLensBypass makes a Bypass policy and an application on <host>/_lens,
     denied.restore();
   }
 });
+
+test("probeLensBypass tells the Worker's answer from Access's login redirect", async () => {
+  const { probeLensBypass, lensBypassSteps } = await import("../cli/lib/cloudflare.js");
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response('{"error":"Invalid or expired link"}', { status: 401, headers: { "content-type": "application/json" } });
+    assert.equal((await probeLensBypass("https://g.a.workers.dev")).open, true);
+    globalThis.fetch = async () => new Response(null, { status: 302, headers: { location: "https://t.cloudflareaccess.com/cdn-cgi/access/login/g" } });
+    assert.equal((await probeLensBypass("https://g.a.workers.dev")).open, false);
+    globalThis.fetch = async () => {
+      throw new Error("offline");
+    };
+    assert.deepEqual(await probeLensBypass("https://g.a.workers.dev"), { open: false, error: "offline" });
+  } finally {
+    globalThis.fetch = original;
+  }
+  const steps = lensBypassSteps({ host: "g.a.workers.dev", slug: "g" });
+  assert.equal(steps.page("acc"), "https://one.dash.cloudflare.com/acc/access/apps/add");
+  assert.ok(steps.lines.some(([what, value]) => what === "Application name" && value === "g-lens"));
+  assert.ok(steps.lines.some(([, value]) => value.startsWith("g.a.workers.dev")));
+});

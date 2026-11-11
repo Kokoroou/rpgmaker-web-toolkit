@@ -14,6 +14,8 @@ import {
   loadGameConfigs,
   loadPlayers,
   probeAccess,
+  probeLensBypass,
+  lensBypassSteps,
   saveGameConfigs,
   saveLiveSettings,
   lensOwnersOf,
@@ -459,13 +461,52 @@ const ACCESS_TOKEN_HINT =
 // own token, which the Worker checks. Not fatal: the rest of the game works without it.
 async function ensureLensBypass(cfg, account) {
   if (!cfg.lensOwners || !cfg.lensOwners.length) return;
+  const host = new URL(cfg.url).hostname;
   const token = await apiToken();
-  if (!token) return;
-  try {
-    await enableLensBypass({ token, accountId: account.id, slug: cfg.slug, url: cfg.url });
-  } catch (err) {
-    if (!(err instanceof AccessApiError)) throw err;
-    log.warn(`MakerLens links need an Access bypass for ${new URL(cfg.url).hostname}/_lens and it could not be made: ${err.message}\n${ACCESS_TOKEN_HINT}\nOr in Zero Trust → Access controls → Applications add a self-hosted application on ${new URL(cfg.url).hostname}/_lens with a Bypass policy (Include: Everyone).`);
+  if (token) {
+    try {
+      await enableLensBypass({ token, accountId: account.id, slug: cfg.slug, url: cfg.url });
+      return;
+    } catch (err) {
+      if (!(err instanceof AccessApiError)) throw err;
+      log.warn(`MakerLens links need an Access bypass for ${host}/_lens and it could not be made: ${err.message}`);
+      if (err.denied) log.info(ACCESS_TOKEN_HINT);
+    }
+  } else if ((await probeLensBypass(cfg.url)).open) {
+    return; // made by hand earlier
+  } else {
+    log.warn(`MakerLens links need an Access bypass for ${host}/_lens, which the browser login cannot make.`);
+  }
+  await lensBypassByHand(cfg, account);
+}
+
+// The same application made in the dashboard: steps as lines, the page opened,
+// then wait for the person to confirm (checked against the live site) or skip.
+async function lensBypassByHand(cfg, account) {
+  const { page, lines } = lensBypassSteps({ host: new URL(cfg.url).hostname, slug: cfg.slug });
+  if (isUnattended()) {
+    log.info(c.dim("Run rwk deploy in a terminal once to follow the dashboard steps for it. The rest of the game works without it."));
+    return;
+  }
+  const dash = page(account.id);
+  log.info("Follow these steps in the browser (opening Zero Trust → Access controls → Applications → Add an application):");
+  lines.forEach(([what, value], i) => log.info(`  ${i + 1}. ${what}: ${c.bold(value)}`));
+  log.info(c.dim(`  ${dash}`));
+  openBrowser(dash);
+
+  for (;;) {
+    await pause("When done, press Enter to check…");
+    const probe = await probeLensBypass(cfg.url);
+    if (probe.open) {
+      log.ok("MakerLens links get through Access");
+      return;
+    }
+    log.warn(probe.error ? `Could not reach the site: ${probe.error}` : "The sign-in still answers for /_lens (changes can take about a minute).");
+    const next = await choose("Next", [
+      { label: "Check again", value: "retry" },
+      { label: "Skip (MakerLens links will not open until it is done; run rwk deploy again later)", value: "skip" },
+    ]);
+    if (next === "skip") return;
   }
 }
 
