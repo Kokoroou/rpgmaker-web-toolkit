@@ -144,6 +144,19 @@ test("paths: path literals in plugin scripts are case-checked only", () => {
   assert.equal(find(result, "missing", "img/pictures/Nope.png"), undefined, "code may build or guard names: no missing report");
 });
 
+test("paths: a folder written in plugin code is case-checked", () => {
+  // loadBitmap('img/menus/CG/', name) asks for a folder by name, with no file extension.
+  const dir = makeGame({
+    "js/plugins/Menu.js": "ImageManager.loadCg = function (n) { return this.loadBitmap('img/menus/CG/', n, 0, true); };\nconst absent = 'img/menus/equip/';\nconst built = `img/${x}/`;",
+    "img/menus/cg/Cg_1.png": "x",
+  });
+  const result = scan(dir);
+  const folder = find(result, "case", "img/menus/CG/");
+  assert.deepEqual([folder.to, folder.fix, folder.actual], ["img/menus/cg/", "reference", "img/menus/cg"]);
+  assert.equal(find(result, "missing", "img/menus/equip/"), undefined, "a folder that is absent may be an unused plugin: no missing report");
+  assert.equal(find(result, "case", "img/${x}/"), undefined, "a name built at run time cannot be checked");
+});
+
 test("paths: ambiguous spelling has no automatic fix", { skip: !caseSensitiveDisk && "needs a case-sensitive disk" }, () => {
   const dir = makeGame({
     "img/characters/Hero.png": "x",
@@ -159,6 +172,20 @@ test("paths: characters that break a web address", () => {
   const dir = makeGame({ "img/pictures/a#1.png": "x", "img/pictures/ok.png": "x" });
   const result = scan(dir);
   assert.deepEqual(result.issues.filter((i) => i.kind === "unsafe").map((i) => i.source), ["img/pictures/a#1.png"]);
+});
+
+test("paths: a folder written in code gets its own warning line, apart from file references", () => {
+  const dir = makeGame({
+    "js/plugins/Menu.js": "this.loadBitmap('img/menus/CG/', n, 0, true);",
+    "img/menus/cg/Cg_1.png": "x",
+    "data/Actors.json": [null, { characterName: "", faceName: "actor1", battlerName: "" }],
+    "img/faces/Actor1.png": "x",
+  });
+  const lines = pathWarnings(scan(dir).issues);
+  assert.equal(lines.length, 2, lines.join("\n"));
+  assert.match(lines[0], /1 reference\(s\).*data\/Actors\.json/, "a file reference keeps the usual line");
+  assert.match(lines[1], /Menu\.js.*img\/menus\/CG\/.*must be "img\/menus\/cg\/"/, "the folder has its own line");
+  assert.match(lines[1], /Now Loading/);
 });
 
 test("paths: the warnings are one line per kind and say what to do", () => {
