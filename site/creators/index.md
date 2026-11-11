@@ -28,7 +28,7 @@ The license's [game creators permission](https://github.com/Kokoroou/rpgmaker-we
 |---|---|
 | Closed playtest | Keep Access on and [invite testers](/setup/access#invite-players). Each has their own saves and can [export one](/play/save-files#export) for a bug report |
 | Supporters / early access | The same with supporters' emails (50 on the free plan) |
-| Free public release or demo | *No protection* → *I made this game*; search engines may list it |
+| Free public release or demo | *No login* → *I made this game*; search engines may list it |
 | Try it on phones | Check touch controls, plugin keys and huge images before an official port |
 | Ship the touch controls | Copy [`runtime/`](https://github.com/Kokoroou/rpgmaker-web-toolkit/tree/main/runtime) into your own build, even a paid one. Keep each file's `Required Notice:` line |
 

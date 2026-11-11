@@ -543,7 +543,7 @@ async function setupAuth(cfg, account, policy, email) {
   }
   log.info("The site is locked for now. Choose how to protect it:");
   const options = [{ label: "Cloudflare Access: email login, saves tied to the email (recommended)", value: "access" }];
-  if (allowsPublic(policy)) options.push({ label: "No protection: a public site anyone can open, everyone shares saves", value: "none" });
+  if (allowsPublic(policy)) options.push({ label: "No login: a public site anyone can open (saves stay in each player's own browser, or are shared by everyone)", value: "none" });
   else log.info(c.dim("A public site is not offered: the game's creator asks that it stays private."));
   options.push({ label: "Later (keep the site locked)", value: "later" });
   const mode = await choose("Option", options);
@@ -616,6 +616,14 @@ async function askPublic(cfg, policy) {
       { whenUnattended: null, hint: "Only a person can answer this: run the command once in a terminal." }
     );
     if (!basis) return null;
+  }
+  // A public site cannot tell players apart: cloud saves would be one set for everyone.
+  if (cfg.sync?.enabled !== false) {
+    const local = await confirm("Keep each player's saves in their own browser, with no cloud sync? (no = everyone shares one set of saves)", true);
+    if (local) {
+      cfg.sync = { ...cfg.sync, enabled: false };
+      log.ok("Saves stay in each player's browser: nothing is uploaded, no login needed.");
+    }
   }
   cfg.indexable = await confirm("Let search engines list the site?", false);
   return { mode: "none", basis, since: new Date().toISOString().slice(0, 10) };

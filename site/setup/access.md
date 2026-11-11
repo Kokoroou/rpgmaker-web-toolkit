@@ -59,7 +59,12 @@ Every deploy prints how many emails have saves. Sharing a copy widely is redistr
 
 ## A public site (no protection)
 
-`2) No protection` lets anyone with the link play, and **everyone shares one set of saves**. It is only for games you may redistribute, so the toolkit asks why:
+`2) No login` lets anyone with the link play, without an email or an account. A public site cannot tell players apart, so the toolkit asks how to keep saves:
+
+- **In each player's own browser** (the default): cloud sync is turned off (`sync.enabled: false`), nothing is uploaded, and every player's saves stay on their own device. Clearing the browser's data deletes them, and they do not follow the player to another device.
+- **Shared**: cloud sync stays on and **everyone shares one set of saves**.
+
+You can change it later with `rwk config` → *Cloud save sync*. It is only for games you may redistribute, so the toolkit asks why:
 
 ```
 ? Why may this game be public?
