@@ -6,6 +6,8 @@
 //
 // Only emails listed in RWK_DOWNLOAD_OWNERS (hashes, set at deploy like
 // RWK_LENS_OWNERS) may call these. They are off when that var is empty or missing.
+// RWK_DOWNLOAD_FOLDER = "0" / RWK_DOWNLOAD_ZIP = "0" turn one way off
+// ("download": { "folder": false } / no "zip": true in the config).
 //
 // The ZIP is made by the CLI at deploy and kept in R2 (assets/<GAME_ID>/rwk.zip,
 // cli/lib/zip.js): a Worker cannot stream a game's archive by reading its files
@@ -41,6 +43,9 @@ export async function isDownloadOwner(env, user) {
   return Array.isArray(owners) && owners.includes(await userHash(user.email));
 }
 
+const folderOn = (env) => env.RWK_DOWNLOAD_FOLDER !== "0";
+const zipOn = (env) => env.RWK_DOWNLOAD_ZIP !== "0";
+
 export async function handleDownload(request, env, user) {
   if (!env.BUCKET) return jsonErr("Download needs the R2 bucket", 503);
   if (!(await isDownloadOwner(env, user))) return jsonErr("Only the game's owner can download it", 403);
@@ -50,14 +55,16 @@ export async function handleDownload(request, env, user) {
   if (url.searchParams.get("check") === "1" || request.method === "HEAD") {
     // Whether each entry is worth showing: the owner, a ZIP to download, and
     // the file list the folder download needs.
-    const obj = await env.BUCKET.head(ZIP_KEY(env.GAME_ID));
-    const body = request.method === "HEAD" ? null : JSON.stringify({ owner: true, gameId: env.GAME_ID, ready: !!obj, folder: await hasManifest(request, env) });
+    const obj = zipOn(env) ? await env.BUCKET.head(ZIP_KEY(env.GAME_ID)) : null;
+    const folder = folderOn(env) && (await hasManifest(request, env));
+    const body = request.method === "HEAD" ? null : JSON.stringify({ owner: true, gameId: env.GAME_ID, ready: !!obj, folder });
     return new Response(body, {
       status: 200,
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
   }
 
+  if (!zipOn(env)) return jsonErr("Downloading this game as a ZIP is turned off", 404);
   const obj = await env.BUCKET.get(ZIP_KEY(env.GAME_ID), { range: request.headers, onlyIf: request.headers });
   if (!obj) {
     return jsonErr("This build has no ZIP yet: a deploy makes one when the config asks for it (\"download\": { \"zip\": true })", 404);
@@ -92,6 +99,7 @@ export async function handleDownloadList(request, env, user) {
   if (!env.BUCKET) return jsonErr("Download needs the R2 bucket", 503);
   if (!(await isDownloadOwner(env, user))) return jsonErr("Only the game's owner can download it", 403);
   if (request.method !== "GET" && request.method !== "HEAD") return jsonErr("Method not allowed", 405);
+  if (!folderOn(env)) return jsonErr("Downloading this game into a folder is turned off", 404);
 
   const manifest = await readManifest(request, env);
   if (!manifest) return jsonReply({ gameId: env.GAME_ID, files: [] });

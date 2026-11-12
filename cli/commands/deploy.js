@@ -22,6 +22,7 @@ import {
   lensOwnersOf,
   downloadOwnersOf,
   downloadPlan,
+  downloadWaysOf,
   syncOverflow,
   uploadBuildZip,
   deleteBuildZip,
@@ -220,6 +221,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     translate: translateWorker(cfg, policy, limits),
     lensOwners: lensOwnersOf(cfg, email),
     downloadOwners: downloadOwnersOf(cfg, email),
+    downloadWays: downloadWaysOf(cfg),
   };
   cfg.lensOwners = worker.lensOwners; // for rwk upgrade, which has no folder to ask
   cfg.downloadOwners = worker.downloadOwners; // likewise

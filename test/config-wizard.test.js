@@ -117,6 +117,25 @@ test("search engines are only asked about on a public site", async () => {
   assert.equal((await guidedEdit(pub, { io: scripted(["indexable", true, "save"]) })).indexable, true);
 });
 
+test("sharing: MakerLens and the two download ways, on an Access site only", async () => {
+  await assert.rejects(guidedEdit({ ...base(), auth: { mode: "none" } }, { io: scripted(["sharing"]) }), /no option "sharing"/);
+  const off = await guidedEdit(base(), { io: scripted(["sharing", "lens", false, "folder", false, "back", "save"]) });
+  assert.equal(off.lens, false);
+  assert.equal(off.download, false, "no way left: the short form");
+  const zip = await guidedEdit(off, { io: scripted(["sharing", "lens", true, "zip", true, "back", "save"]) });
+  assert.equal(zip.lens, undefined, "back to the default");
+  assert.deepEqual(zip.download, { folder: false, zip: true });
+  const both = await guidedEdit(zip, { io: scripted(["sharing", "folder", true, "zip", false, "back", "save"]) });
+  assert.equal(both.download, undefined, "the defaults need no key");
+});
+
+test("sharing: download owners are kept while the ways change", async () => {
+  const cfg = { ...base(), lens: { owners: ["a@example.com"] }, download: { owners: ["co@example.com"] } };
+  const out = await guidedEdit(cfg, { io: scripted(["Sharing (⚙ → Share): MakerLens on, download folder", "folder", false, "back", "save"]) });
+  assert.deepEqual(out.download, { owners: ["co@example.com"], folder: false });
+  assert.deepEqual(out.lens, { owners: ["a@example.com"] }, "owners kept while it stays on");
+});
+
 test("quit without saving returns null, after asking when there are changes", async () => {
   assert.equal(await guidedEdit(base(), { io: scripted(["quit"]) }), null);
   const io = scripted(["sync", false, "quit", false, "quit", true]);

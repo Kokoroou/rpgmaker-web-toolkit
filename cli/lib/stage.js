@@ -9,7 +9,7 @@ import path from "node:path";
 import { TOOLKIT_ROOT } from "./config.js";
 import { engineOf } from "./engines.js";
 import { mobileOnlyMissing, resolveCI, storageIdOf } from "./game.js";
-import { userHash } from "./cloudflare.js";
+import { downloadWaysOf, userHash } from "./cloudflare.js";
 import { FEATURE_KEYS, playerEmails, withPlayer, withPreset } from "./features.js";
 import { languagesRuntime } from "./languages.js";
 import { applyPolicy, isIndexable } from "./policy.js";
@@ -298,10 +298,20 @@ export function keysNeedingDeploy(before, after) {
 
 // Of the keys keysNeedingDeploy lists, those rwk upgrade also applies (it works
 // from R2, without the game folder): "lens" turned off or back on, which only
-// changes the Worker's owner list (lensOwnersForUpgrade) and the /_lens bypass.
-// New emails in lens.owners still need a deploy: upgrade keeps the stored list.
+// changes the Worker's owner list (lensOwnersForUpgrade) and the /_lens bypass;
+// and a way to download the build turned off, or the folder one back on, which
+// only change the Worker's vars (and remove the ZIP from R2). New emails in
+// lens.owners or download.owners still need a deploy (upgrade keeps the stored
+// list), and so does a ZIP turned on, which is made from the game folder.
 export function keysForUpgrade(before, after, keys) {
-  return keys.filter((key) => key === "lens" && (before.lens === false) !== (after.lens === false));
+  return keys.filter((key) => {
+    if (key === "lens") return (before.lens === false) !== (after.lens === false);
+    if (key !== "download") return false;
+    const was = downloadWaysOf(before);
+    const now = downloadWaysOf(after);
+    const owners = (cfg) => JSON.stringify(cfg.download?.owners ?? []);
+    return owners(before) === owners(after) && !(now.zip && !was.zip) && (was.folder !== now.folder || was.zip !== now.zip);
+  });
 }
 
 // Folders whose files the Service Worker keeps, and the biggest file it keeps

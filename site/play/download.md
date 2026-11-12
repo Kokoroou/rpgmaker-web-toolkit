@@ -13,7 +13,7 @@ There are two entries, and which ones appear depends on the site:
 
 | Entry | What it does | Needs |
 |---|---|---|
-| **Download game (folder)** | Writes the whole build into a new folder named after the game, inside the place you pick, with a launcher that plays it on its own | Chrome, Edge or Brave, and a game deployed with this toolkit version |
+| **Download game (folder)** | Writes the whole build into a new folder named after the game, inside the place you pick, with a launcher that plays it on its own | Chrome, Edge or Brave, and a game deployed with this toolkit version. On unless the site is set up with [`"download": { "folder": false }`](/reference/config) |
 | **Download game (ZIP)** | Downloads the whole build as one archive | A site set up with [`"download": { "zip": true }`](/reference/config) |
 
 ## Download game (folder)

@@ -12,7 +12,7 @@ import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { BUILD_MANIFEST, handleDownload, handleDownloadList, isDownloadOwner, safeRel } from "../worker/download.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
-import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, downloadPlan, downloadZipOf, deleteBuildZip, uploadBuildZip, zipEntries, workerVars } from "../cli/lib/cloudflare.js";
+import { userHash, downloadOwnersOf, downloadOwnersForUpgrade, downloadPlan, downloadWaysOf, downloadZipOf, deleteBuildZip, uploadBuildZip, zipEntries, workerVars } from "../cli/lib/cloudflare.js";
 import { writeZip } from "../cli/lib/zip.js";
 import { RUNTIME_PLUGINS } from "../cli/lib/stage.js";
 import { makeEnv } from "./helpers.js";
@@ -222,6 +222,25 @@ test("download list: ?check=1 says the folder is possible once rwk-build.json is
   assert.equal((await res.json()).folder, true);
 });
 
+test("download: a way turned off at deploy is hidden and refused", async () => {
+  const files = { [BUILD_MANIFEST]: manifestOf({ "index.html": 5 }) };
+  const noFolder = assetsEnv(files, { RWK_DOWNLOAD_FOLDER: "0" });
+  await putZip(noFolder);
+  const check = await (await handleDownload(new Request(BASE + "/api/download?check=1"), noFolder, as("host@example.com"))).json();
+  assert.equal(check.folder, false, "the folder entry is hidden");
+  assert.equal(check.ready, true, "the ZIP still is offered");
+  assert.equal((await handleDownloadList(new Request(BASE + "/api/download/list"), noFolder, as("host@example.com"))).status, 404);
+  assert.equal((await handleDownload(new Request(BASE + "/api/download"), noFolder, as("host@example.com"))).status, 200);
+
+  const noZip = assetsEnv(files, { RWK_DOWNLOAD_ZIP: "0" });
+  await putZip(noZip); // left by an older deploy
+  const check2 = await (await handleDownload(new Request(BASE + "/api/download?check=1"), noZip, as("host@example.com"))).json();
+  assert.equal(check2.ready, false, "an archive left in R2 is not offered");
+  assert.equal(check2.folder, true);
+  assert.equal((await handleDownload(new Request(BASE + "/api/download"), noZip, as("host@example.com"))).status, 404);
+  assert.equal((await handleDownloadList(new Request(BASE + "/api/download/list"), noZip, as("host@example.com"))).status, 200);
+});
+
 test("download list: paths that could leave the folder are dropped", async () => {
   const env = assetsEnv({
     [BUILD_MANIFEST]: manifestOf({ "/abs": 1, "a/../b": 2, "a//b": 3, "a\\b": 4, "": 5, "ok/file.png": 6, "rwk-build.json": 7 }),
@@ -354,6 +373,17 @@ test("download owners: downloadOwnersOf derives hashes from the account email an
   );
   assert.deepEqual(downloadOwnersOf({ download: false }, "host@example.com"), []);
   assert.deepEqual(downloadOwnersOf({}, undefined), []);
+  assert.deepEqual(downloadOwnersOf({ download: { folder: false } }, "host@example.com"), [], "no way left to download: nobody may");
+  assert.equal(downloadOwnersOf({ download: { folder: false, zip: true } }, "host@example.com").length, 1);
+});
+
+test("download ways: folder on unless turned off, ZIP only when asked for", () => {
+  assert.deepEqual(downloadWaysOf({}), { folder: true, zip: false });
+  assert.deepEqual(downloadWaysOf({ download: true }), { folder: true, zip: false });
+  assert.deepEqual(downloadWaysOf({ download: { zip: true } }), { folder: true, zip: true });
+  assert.deepEqual(downloadWaysOf({ download: { folder: false, zip: true } }), { folder: false, zip: true });
+  assert.deepEqual(downloadWaysOf({ download: false }), { folder: false, zip: false });
+  assert.deepEqual(downloadWaysOf({ download: { folder: false, zip: true }, lens: false }), { folder: false, zip: true });
 });
 
 test("download zip: opt-in only, and off when download is false", () => {
@@ -398,7 +428,8 @@ test("download owners: downloadOwnersForUpgrade keeps stored list or falls back 
   assert.deepEqual(downloadOwnersForUpgrade({}, "host@example.com"), [userHash("host@example.com")], "nothing stored: use the account");
   assert.deepEqual(downloadOwnersForUpgrade({ downloadOwners: ["abc"] }, "other@example.com"), ["abc"], "what the deploy stored is kept");
   assert.deepEqual(downloadOwnersForUpgrade({ download: false }, "host@example.com"), [], "switched off stays off");
-  assert.deepEqual(downloadOwnersForUpgrade({ downloadOwners: [] }, "host@example.com"), [], "a stored empty list (off) is not overridden");
+  assert.deepEqual(downloadOwnersForUpgrade({ downloadOwners: ["abc"], download: { folder: false } }, "host@example.com"), [], "turned off since the deploy: off");
+  assert.deepEqual(downloadOwnersForUpgrade({ downloadOwners: [] }, "host@example.com"), [userHash("host@example.com")], "off at the deploy, on again: from the account");
 });
 
 test("download owners: workerVars includes RWK_DOWNLOAD_OWNERS when non-empty, omits it otherwise", () => {
@@ -406,6 +437,13 @@ test("download owners: workerVars includes RWK_DOWNLOAD_OWNERS when non-empty, o
   const withOwners = workerVars({ ...base, downloadOwners: ["abc"] });
   assert.equal(withOwners.RWK_DOWNLOAD_OWNERS, '["abc"]');
   assert.ok(!("RWK_DOWNLOAD_OWNERS" in workerVars(base)));
+  assert.ok(!("RWK_DOWNLOAD_FOLDER" in withOwners) && !("RWK_DOWNLOAD_ZIP" in withOwners), "no ways given: both on, as before");
+  const folderOnly = workerVars({ ...base, downloadOwners: ["abc"], downloadWays: { folder: true, zip: false } });
+  assert.equal(folderOnly.RWK_DOWNLOAD_ZIP, "0");
+  assert.ok(!("RWK_DOWNLOAD_FOLDER" in folderOnly));
+  const zipOnly = workerVars({ ...base, downloadOwners: ["abc"], downloadWays: { folder: false, zip: true } });
+  assert.equal(zipOnly.RWK_DOWNLOAD_FOLDER, "0");
+  assert.ok(!("RWK_DOWNLOAD_ZIP" in zipOnly));
 });
 
 test("download plugin: RWK_Download is included in RUNTIME_PLUGINS and registers under share group", () => {
