@@ -10,8 +10,9 @@ On a phone or tablet, a toolbar comes with the [on-screen gamepad](/play/control
 | Icon | Where | Does |
 |---|---|---|
 | ⚙ | Left | Opens the [settings menu](/play/menu): saves, button layout… The game pauses meanwhile; the music keeps playing |
-| ⏩ ×2 | Left | [Fast forward](/play/speed#fast-forward): tap to turn on or off, hold to speed up only while held |
+| ⏩ | Left | [Fast forward](/play/speed#fast-forward): tap to turn on or off, hold to speed up only while held. Lit while on; the speed (×2, ×3, ×4) is picked in ⚙ |
 | ⌨ | Left | **Game keys**: the game's extra keys, with what each one does |
+| 📶 | Right | Connection speed, checked every 15 seconds: **green** fast (under 150 ms), **yellow** slow (under 400 ms), **red** very slow or offline. Tap it to check now and see the time |
 | ⟳ | Right | Full screen. It also turns a landscape game sideways |
 | 👁 | Right | Hide / show all the controls. Hidden, only 👁 stays on screen |
 

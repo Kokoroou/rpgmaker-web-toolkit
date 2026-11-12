@@ -15,7 +15,7 @@ What players see is on [Touch controls](/play/controls). This page is the `contr
   "dpad": true,
   "opacity": 0.2,
   "scale": 1,
-  "extras": ["fullscreen", "editLayout"],
+  "extras": ["fullscreen", "editLayout", "network"],
   "buttons": [
     { "key": "one", "label": "Items", "hint": "Inventory" },
     { "key": "five", "label": "Quickbar", "hint": "Show or hide the quickbar" },
@@ -36,7 +36,7 @@ These are the keys of *GameDev: The Beginning*, the game in this guide's screens
 | `dpad` | The D-pad | `true` |
 | `opacity` | 0 to 1 | `0.2` |
 | `scale` | Button size multiplier | `1` |
-| `extras` | `fullscreen` (a toolbar button on touch screens, ⚙ → Full screen otherwise) and `editLayout` (⚙ → Edit button layout) | both |
+| `extras` | `fullscreen` (a toolbar button on touch screens, ⚙ → Full screen otherwise) `editLayout` (⚙ → Edit button layout) and `network` (a toolbar button colored by the connection speed: green, yellow, red) | all three |
 
 ## Extra keys (`buttons`)
 

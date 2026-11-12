@@ -153,6 +153,9 @@
 .rwk-tools.stacked{flex-direction:column}
 .rwk-tool{width:max(44px,calc(var(--u)*.66));height:max(44px,calc(var(--u)*.66));border-radius:50%;font-size:calc(var(--u)*.3)}
 .rwk-tool svg{width:1.4em;height:1.4em;pointer-events:none}
+.rwk-tool-net.rwk-net-good{color:#4ade80}
+.rwk-tool-net.rwk-net-ok{color:#facc15}
+.rwk-tool-net.rwk-net-bad{color:#f87171}
 .rwk-pad.editing .rwk-item{outline:2px dashed #ffd54a;outline-offset:3px}
 .rwk-group-items{position:absolute;display:none;gap:8px;pointer-events:none}
 .rwk-group-items.open{display:flex}
@@ -489,7 +492,7 @@
 
   //---------------------------------------------------------------------------
   // Toolbar, in two groups: ⚙ menu, fast forward and ⌨ game keys on the
-  // left, full screen and show/hide on the right. Top corners in landscape,
+  // left, connection speed, full screen and show/hide on the right. Top corners in landscape,
   // in a column on a touch screen when a row would cover the game; in portrait both groups sit on the
   // L/R line, next to L and R, or in the top corners when they do not fit.
   // Hidden controls leave only the show/hide button.
@@ -558,7 +561,7 @@
     layoutPanel();
   }
 
-  const extrasTools = cfg.extras || ["fullscreen", "editLayout"];
+  const extrasTools = cfg.extras || ["fullscreen", "editLayout", "network"];
   toggleBtn = addTool(eyeIcon(true), "rwk-tool-toggle", () => setHidden(!pad.classList.contains("hidden")),
     "Hide or show the controls", toolbarRight);
 
@@ -586,6 +589,87 @@
     drawFullscreen();
     document.addEventListener("fullscreenchange", drawFullscreen);
     document.addEventListener("webkitfullscreenchange", drawFullscreen);
+  }
+
+  // Network: a round toolbar button colored by how fast the connection
+  // answers (green fast, yellow slow, red very slow or offline). Measured
+  // with a small HEAD request to the page itself (rwk-sw.js lets HEAD
+  // through to the network) every NET_EVERY_MS while the page is visible,
+  // and again on a tap, which also tells the time in a toast.
+  if (extrasTools.includes("network")) {
+    const NET_EVERY_MS = 15000;
+    const NET_TIMEOUT_MS = 5000;
+    const NET_LEVELS = {
+      good: { ms: 150, name: "Fast connection" },
+      ok: { ms: 400, name: "Slow connection" },
+      bad: { ms: Infinity, name: "Very slow connection" },
+    };
+    const netBtn = addTool(icons.signal, "rwk-tool-net", () => measureNet(true), "Connection speed", toolbarRight);
+    toolbarRight.insertBefore(netBtn, toolbarRight.firstChild);
+    let samples = []; // the last round trips, in ms
+    let netBusy = false;
+    const drawNet = (level, text) => {
+      netBtn.classList.remove("rwk-net-good", "rwk-net-ok", "rwk-net-bad");
+      if (level) netBtn.classList.add("rwk-net-" + level);
+      netBtn.title = text;
+      netBtn.setAttribute("aria-label", text);
+    };
+    // The browser's own estimate, where it has one (Chrome on Android), caps the level.
+    const browserCap = () => {
+      const type = navigator.connection && navigator.connection.effectiveType;
+      return type === "slow-2g" || type === "2g" ? "bad" : type === "3g" ? "ok" : "good";
+    };
+    const ORDER = Object.keys(NET_LEVELS);
+    const worse = (a, b) => (ORDER.indexOf(a) > ORDER.indexOf(b) ? a : b);
+    async function measureNet(tell) {
+      if (netBusy) return;
+      if (!navigator.onLine) {
+        samples = [];
+        drawNet("bad", "Offline");
+        if (tell) RWK.toast("Offline: no connection", "warn", 2000);
+        return;
+      }
+      netBusy = true;
+      const abort = window.AbortController ? new AbortController() : null;
+      const timer = setTimeout(() => abort && abort.abort(), NET_TIMEOUT_MS);
+      const start = performance.now();
+      let ms = Infinity;
+      try {
+        // redirect "manual": an expired login redirects, and that still answers.
+        await fetch(location.pathname + "?rwk-ping=" + Date.now(), {
+          method: "HEAD",
+          cache: "no-store",
+          redirect: "manual",
+          credentials: "same-origin",
+          signal: abort ? abort.signal : undefined,
+        });
+        ms = performance.now() - start;
+      } catch (e) {
+        // no answer in time, or no connection
+      }
+      clearTimeout(timer);
+      netBusy = false;
+      samples = [...samples, ms].slice(-3);
+      const finite = samples.filter(Number.isFinite);
+      const avg = finite.length === samples.length ? Math.round(finite.reduce((a, b) => a + b, 0) / finite.length) : Infinity;
+      const measured = ORDER.find((k) => avg < NET_LEVELS[k].ms) || "bad";
+      const level = worse(measured, browserCap());
+      const text = NET_LEVELS[level].name + (Number.isFinite(ms) ? ` · ${Math.round(ms)} ms` : " · no answer");
+      drawNet(level, text);
+      if (tell) RWK.toast(text, level === "good" ? "info" : "warn", 2000);
+    }
+    const netLoop = () => {
+      if (document.visibilityState !== "hidden") measureNet(false);
+      setTimeout(netLoop, NET_EVERY_MS);
+    };
+    drawNet("", "Connection speed");
+    setTimeout(netLoop, 1000);
+    window.addEventListener("online", () => measureNet(false));
+    window.addEventListener("offline", () => measureNet(false));
+    document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && measureNet(false));
+    if (navigator.connection && navigator.connection.addEventListener) {
+      navigator.connection.addEventListener("change", () => measureNet(false));
+    }
   }
 
   if (extrasTools.includes("editLayout")) {
