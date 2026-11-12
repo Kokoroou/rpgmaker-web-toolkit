@@ -86,7 +86,9 @@ When the download included your cloud saves (the checkbox, ticked by default), t
 
 The checkbox only appears when the game has cloud saves for your account. Leave it off to download only the build.
 
-**Stopped, or the connection dropped?** Start **Download game (folder)** again and choose the same place. The toolkit finds the folder it made, and a file already there with the same size is skipped, so only what is missing is fetched. Files you added to the folder yourself are left alone.
+**Stopped, or the connection dropped?** Press **Start again** in the download window (or start **Download game (folder)** again) and choose the same place. The toolkit finds the folder it made, and a file already there with the same size is skipped, so only what is missing is fetched. Files you added to the folder yourself are left alone.
+
+**A few files did not download?** The window names them, and the launchers are written anyway, so the game can already be played; **Start again** retries only those files. Empty files in the game (a plugin's blank `.ini`, for example) are created in the folder directly, without asking the site for them.
 
 ::: tip Browsers
 Only Chromium browsers (Chrome, Edge, Brave) offer this entry. Firefox and Safari have no File System Access API, so they cannot write into a folder you pick — and that is on purpose: this is a tool for a desktop, not a player feature. On those browsers the site shows no folder entry; the ZIP entry, when the site has one, works in any browser.

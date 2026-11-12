@@ -747,6 +747,14 @@ ${host}
     const dir = await dirFor(item.rel);
     const handle = await dir.getFileHandle(parts[parts.length - 1], { create: true });
     let writable = null;
+    // An empty file (a plugin's blank .ini, a placeholder) has nothing to
+    // fetch, and the site may not answer for it at all (Workers Assets does
+    // not serve every empty file): it is simply made, empty.
+    if (Number(item.size) === 0) {
+      writable = await handle.createWritable();
+      await writable.close();
+      return;
+    }
     try {
       const res = await fetch(keyOf(item.rel), { signal: run.signal });
       // Not a login page Access redirected to, nor a partial or failed answer.
@@ -857,11 +865,14 @@ ${host}
     return "Save the game to a folder on this PC (Chrome, Edge)";
   }
 
+  // The first few files a run could not write, for the messages.
+  const failedNames = (run) => run.failed.slice(0, 3).join(", ") + (run.failed.length > 3 ? ", …" : "");
+
   function outcome(run) {
     if (run.reason === "paused") RWK.toast("Download stopped. Start it again to continue: files already written are skipped.", "info", 6000);
     else if (run.reason === "offline") RWK.toast("Connection lost. Start the download again to continue where it stopped.", "warn", 6000);
     else if (run.reason === "signin") RWK.toast("You are signed out. Reload the page, sign in, then start again.", "warn", 6000);
-    else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download. Start again to retry them.`, "warn", 6000);
+    else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download (${failedNames(run)}). Game.bat is there; start the download again to retry them.`, "warn", 10000);
     else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in ${savesPath(layoutOf(RWK.engine))}.` : ""), "info", 5000);
   }
 
@@ -972,10 +983,13 @@ ${host}
     download(dirFor, plan.todo, run).then(
       async (result) => {
         active = null;
-        // The game is fully there: also leave the files that start it, so the
+        // The game is there: also leave the files that start it, so the
         // folder plays with a double-click. A stopped run writes none: half a
-        // folder is not playable yet.
-        if (result.reason === null) {
+        // folder is not playable yet. A run that went through the whole list
+        // but missed a few files does write them: everything else is there,
+        // and a file that fails every time would otherwise leave the folder
+        // with no way to start it, however often the host tries again.
+        if (result.reason === null || result.reason === "failed") {
           await writeLaunchers(gameDir, RWK.engine, name);
           if (answer.saves) result.saves = await writeSaves(webDir, saves);
         }
@@ -1194,11 +1208,22 @@ ${host}
     hideBtn.addEventListener("click", hide);
     const cancelBtn = el("button", { textContent: "Cancel", className: "rwk-dl-danger" });
     cancelBtn.addEventListener("click", () => active && active.controller.abort());
-    actions.append(hideBtn, cancelBtn);
+    // A run that stopped or missed files: pick the folder again (this click
+    // still allows the picker) and continue, skipping what is written.
+    const againBtn = el("button", { textContent: "Start again", className: "primary" });
+    againBtn.addEventListener("click", () => {
+      if (active) return;
+      latest = null;
+      hide();
+      hidePill();
+      downloadFolder();
+    });
+    actions.append(againBtn, hideBtn, cancelBtn);
 
     const render = () => {
       bar.hidden = true;
       cancelBtn.hidden = !active;
+      againBtn.hidden = !!active || !latest || latest.reason === null;
       const run = active ? active.run : latest;
       if (active) {
         bar.hidden = false;
@@ -1209,6 +1234,9 @@ ${host}
         const layout = layoutOf(RWK.engine);
         message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, ${layout.web ? `in ${layout.web}/` : "at the top of the folder"}, as a desktop ${RWK.engine === "MV" ? "MV" : "MZ"} game has it.`;
         note.textContent = `Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve the game and open it in your browser. It saves into ${savesPath(layout)}, the desktop game's own format.`;
+      } else if (run && run.reason === "failed") {
+        message.textContent = `${run.done} of ${run.total} file(s) were written to "${latestFolder}"; ${run.failed.length} did not download: ${failedNames(run)}.`;
+        note.textContent = "Game.bat (Windows) and Game.sh (macOS / Linux) are there, so the game can already be played. Start the download again from ⚙ → Share → Download game (folder) to retry the missing files.";
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
