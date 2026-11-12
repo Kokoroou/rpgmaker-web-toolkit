@@ -491,6 +491,23 @@ test("upgrade: which game a link names", () => {
   assert.throws(() => findGameBySite({}, "zzz"), /no games yet/);
 });
 
+test("upgrade: the Worker patch keeps who may download the game, and the ways turned off", () => {
+  const patch = keepAssetsPatch({
+    slug: "g",
+    bucket: "b",
+    overflowRels: [],
+    auth: { mode: "access", teamDomain: "t.cloudflareaccess.com", aud: "abc" },
+    toolkitRoot: path.join(import.meta.dirname, ".."),
+    toolkit: { names: [], plugins: {}, config: {}, keepOff: false },
+    downloadOwners: ["h"],
+    downloadWays: { folder: false, zip: true },
+  });
+  const vars = Object.fromEntries(patch.bindings.filter((b) => b.type === "plain_text").map((b) => [b.name, b.text]));
+  assert.equal(vars.RWK_DOWNLOAD_OWNERS, '["h"]');
+  assert.equal(vars.RWK_DOWNLOAD_FOLDER, "0");
+  assert.equal(vars.RWK_DOWNLOAD_ZIP, undefined);
+});
+
 test("upgrade: the Worker patch keeps the deployed files", async () => {
   const toolkit = { names: RUNTIME_PLUGINS, plugins: runtimeSources(), config: runtimeConfigOf("MV", { slug: "g", storageId: "first", sync: { enabled: true } }), keepOff: false };
   assert.equal(toolkit.config.gameId, "first");
@@ -822,6 +839,14 @@ test("settings without a redeploy: what the Worker reads from R2, and what still
   assert.deepEqual(upgradable(off, { ...cfg, lens: { owners: ["a@example.com"] } }), ["lens"], "back on with owners");
   assert.deepEqual(upgradable(cfg, { ...cfg, lens: { owners: ["a@example.com"] } }), [], "new owners need a deploy");
   assert.deepEqual(upgradable(cfg, { ...off, cache: false }), ["lens"], "cache still needs a deploy");
+
+  // …and a download way turned off, or the folder back on; not a new ZIP (made from the folder).
+  assert.deepEqual(upgradable(cfg, { ...cfg, download: { folder: false } }), ["download"], "folder off");
+  assert.deepEqual(upgradable(cfg, { ...cfg, download: false }), ["download"], "all off");
+  assert.deepEqual(upgradable({ ...cfg, download: false }, cfg), ["download"], "folder back on");
+  assert.deepEqual(upgradable({ ...cfg, download: { zip: true } }, cfg), ["download"], "ZIP off");
+  assert.deepEqual(upgradable(cfg, { ...cfg, download: { zip: true } }), [], "a ZIP to make needs a deploy");
+  assert.deepEqual(upgradable(cfg, { ...cfg, download: { owners: ["a@example.com"] } }), [], "new owners need a deploy");
 });
 
 test("cli files import the ui.js helpers they use", () => {

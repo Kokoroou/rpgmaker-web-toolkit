@@ -6,7 +6,7 @@
 // creator's current policy and is otherwise not read.
 
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, downloadOwnersForUpgrade, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
+import { apiToken, deleteBuildZip, downloadOwnersForUpgrade, downloadPlan, downloadWaysOf, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
 import { readProjectFile } from "../lib/project.js";
 import { publishedSiteOf } from "../lib/sites.js";
@@ -83,6 +83,7 @@ export async function upgrade(input) {
 
   const translate = translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE }));
   let lensOwners = lensOwnersForUpgrade(cfg, email);
+  const downloadOwners = downloadOwnersForUpgrade(cfg, email);
   log.step("Updating the Worker (the game files stay as uploaded)");
   const patchFor = (owners) => keepAssetsPatch({
     slug: cfg.slug,
@@ -96,6 +97,8 @@ export async function upgrade(input) {
     playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
     lensOwners: owners,
+    downloadOwners,
+    downloadWays: downloadWaysOf(cfg),
     translate,
   });
   const token = await apiToken();
@@ -115,8 +118,22 @@ export async function upgrade(input) {
     log.info(c.bold("Updating the Worker without MakerLens links"));
     await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch: patchFor(lensOwners) });
   }
+  // The download ZIP is made from the game folder, so only rwk deploy makes one;
+  // one the config no longer asks for is removed here, to free its R2 space.
+  const zipStep = downloadPlan(cfg, downloadOwners);
+  let downloadZip = cfg.downloadZip;
+  if (zipStep === "remove") {
+    try {
+      if (await deleteBuildZip({ bucket, slug: storageIdOf(cfg) })) log.info(c.dim("Removed the download ZIP from R2 (this config does not make one)."));
+      downloadZip = false;
+    } catch (err) {
+      log.warn(`Could not remove the download ZIP from R2: ${err.message}`);
+    }
+  } else if (zipStep === "make" && cfg.downloadZip !== true) {
+    log.info(c.dim("The download ZIP is made by the next rwk deploy from the game folder."));
+  }
   // liveSettings only once the policy is known; the version in any case, for rwk status.
-  const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION, lensOwners };
+  const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION, lensOwners, downloadOwners, downloadZip };
   if (JSON.stringify(updated) !== stored) {
     configs[fingerprint] = updated;
     await saveGameConfigs(bucket, configs);

@@ -5,7 +5,7 @@ lang: en
 
 # Customize the game
 
-`config` shows a menu and asks questions: no JSON to write. Pick what to change (features players can use, on-screen buttons, cloud saves, files, cache), answer, then choose **Save and finish**. Each game's settings are kept as a small JSON file in your Cloudflare account.
+`config` shows a menu and asks questions: no JSON to write. Pick what to change (features players can use, on-screen buttons, cloud saves, files, cache, what you can share from ⚙ → Share), answer, then choose **Save and finish**. Each game's settings are kept as a small JSON file in your Cloudflare account.
 
 ::: code-group
 ```powershell [Windows (PowerShell)]
@@ -18,7 +18,7 @@ rwk config ~/Games/"My Game"   # a menu: pick what to change, answer, save
 ```
 :::
 
-Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `config` names them and you publish again (`& $rwk deploy "D:\Games\My Game"`) to apply them. `lens` turned off or back on is the exception: `config` names `rwk upgrade <site name>`, which applies it without the game folder. A game last published with a toolkit older than this needs one more publish first; `config` says so.
+Changes to the in-game features (every key in [Common changes](#common-changes), `preset`, `players`, `controls`, `sync`) apply at once: players get them the next time they open the game, within a minute. The other keys (`include`, `exclude`, `cache`, `indexable`…) change the files of the web build, so `config` names them and you publish again (`& $rwk deploy "D:\Games\My Game"`) to apply them. `lens` turned off or back on, and a way to [download the game](/play/download) turned off (or the folder one back on), are the exception: `config` names `rwk upgrade <site name>`, which applies them without the game folder. A game last published with a toolkit older than this needs one more publish first; `config` says so.
 
 The menu's last entries are **Save and finish** and **Quit without saving**. For anything the questions do not cover (limits such as `speed` or `lock`, [settings for one player](#settings-for-one-player)), pick **Advanced: edit the JSON in a text editor**: Notepad opens (TextEdit on macOS, `$EDITOR` or nano on Linux; set `EDITOR`, for example `EDITOR="code --wait"`, to use another), and a JSON mistake reopens it. The tables below show the key behind each question. `slug` and `fingerprint` cannot be changed here: the site name changes with the [`rename`](/setup/updating#change-the-site-address) command. Every key: [Config keys](/reference/config).
 
@@ -58,6 +58,9 @@ rwk config my-game --set backlog=null           # back to the default
 | Turn on [cheats](/play/cheats), or only gold and items | `"cheats": true`, `"cheats": { "party": false, "battle": false, "switches": false, "movement": false }` |
 | Cheats for you only | `"players": { "me@example.com": { "cheats": true } }` |
 | Turn cloud saves off (each browser keeps its own) | `"sync": { "enabled": false }` |
+| Remove ⚙ → Share → MakerLens link | `"lens": false` |
+| Remove ⚙ → Share → Download game, or only the folder entry | `"download": false`, `"download": { "folder": false }` |
+| Also offer the game as a ZIP (a second copy in R2), or only as a ZIP | `"download": { "zip": true }`, `"download": { "zip": true, "folder": false }` |
 | Start players in a translation (`data-vi/`), or only offer the original | `"languages": { "default": "vi" }`, `"languages": false` ([Translations](/setup/languages)) |
 | Leave files out | `"exclude": ["data-tw/**", "img/pictures/unused_*", "*.txt"]` |
 | Publish a folder the first deploy skipped | `"include": ["live2d", "extra.json"]` |

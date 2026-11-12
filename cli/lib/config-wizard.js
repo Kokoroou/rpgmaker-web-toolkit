@@ -1,10 +1,11 @@
 // The guided editor behind `rwk config`: the same settings as the JSON,
 // changed by answering questions. It covers what most creators change (features,
-// on-screen buttons, cloud saves, files, cache); the rest stays in the JSON,
+// on-screen buttons, cloud saves, files, cache, sharing); the rest stays in the JSON,
 // one menu entry away, and keys the questions do not know are left as they are.
 //
 // io = { ask, confirm, choose } (ui.js); tests pass scripted ones.
 
+import { downloadWaysOf } from "./cloudflare.js";
 import { DEFAULT_PRESET, PRESETS, withPreset } from "./features.js";
 import * as ui from "./ui.js";
 
@@ -248,6 +249,51 @@ async function filesMenu(cfg, io) {
   }
 }
 
+// What the host may do from ⚙ → Share (an Access site only: a public site has
+// no owners). "lens": false turns MakerLens links off; "download" holds the
+// two ways to download the build: into a folder (on unless "folder": false)
+// and as a ZIP (only with "zip": true); false turns both off.
+function setDownloadWays(cfg, { folder, zip }) {
+  const d = isObject(cfg.download) ? { ...cfg.download } : {};
+  if (folder) delete d.folder;
+  else d.folder = false;
+  if (zip) d.zip = true;
+  else delete d.zip;
+  // Both off with nothing else to keep: the short form.
+  if (!folder && !zip && Object.keys(d).every((k) => k === "folder")) cfg.download = false;
+  else if (Object.keys(d).length) cfg.download = d;
+  else delete cfg.download;
+}
+
+function describeSharing(cfg) {
+  const ways = downloadWaysOf(cfg);
+  const download = [ways.folder && "folder", ways.zip && "ZIP"].filter(Boolean).join(" + ") || "off";
+  return `MakerLens ${yesNo(cfg.lens !== false)}, download ${download}`;
+}
+
+async function sharingMenu(cfg, io) {
+  for (;;) {
+    const ways = downloadWaysOf(cfg);
+    const options = [
+      { label: `MakerLens links: ${yesNo(cfg.lens !== false)}`, value: "lens" },
+      { label: `Download game into a folder: ${yesNo(ways.folder)}`, value: "folder" },
+      { label: `Download game as a ZIP: ${yesNo(ways.zip)}`, value: "zip" },
+      BACK,
+    ];
+    const pick = await io.choose("What you can do from ⚙ → Share in the game (the next rwk deploy or rwk upgrade applies it):", options, options.length - 1);
+    if (pick === "back") return;
+    if (pick === "lens") {
+      if (await io.confirm("Let you make MakerLens links to the game?", cfg.lens !== false)) {
+        if (cfg.lens === false) delete cfg.lens;
+      } else cfg.lens = false;
+    } else if (pick === "folder") {
+      setDownloadWays(cfg, { ...ways, folder: await io.confirm("Let you download the game into a folder (Chrome, Edge)?", ways.folder) });
+    } else {
+      setDownloadWays(cfg, { ...ways, zip: await io.confirm("Let you download the game as a ZIP? (a deploy keeps a second copy of the game in R2)", ways.zip) });
+    }
+  }
+}
+
 // -> the edited copy of cfg; null when the person quit without saving.
 // editJson: opens the raw JSON (the caller's editor) and returns the new config.
 export async function guidedEdit(source, { io: rawIo = ui, editJson } = {}) {
@@ -268,7 +314,7 @@ export async function guidedEdit(source, { io: rawIo = ui, editJson } = {}) {
       { label: `Cloud save sync: ${yesNo(!cfg.sync || cfg.sync.enabled !== false)}`, value: "sync" },
       { label: "Files in the web build (leave out, add)", value: "files" },
       { label: `Browser cache of pictures and sounds: ${yesNo(cfg.cache !== false)}`, value: "cache" },
-      ...(public_ ? [{ label: `Search engines may list the site: ${yesNo(!!cfg.indexable)}`, value: "indexable" }] : []),
+      ...(public_ ? [{ label: `Search engines may list the site: ${yesNo(!!cfg.indexable)}`, value: "indexable" }] : [{ label: `Sharing (⚙ → Share): ${describeSharing(cfg)}`, value: "sharing" }]),
       ...(editJson ? [{ label: "Advanced: edit the JSON in a text editor", value: "json" }] : []),
       { label: "Save and finish", value: "save" },
       { label: "Quit without saving", value: "quit" },
@@ -282,7 +328,8 @@ export async function guidedEdit(source, { io: rawIo = ui, editJson } = {}) {
     else if (pick === "cache") {
       if (await io.confirm("Let browsers keep the game's pictures and sounds between launches? (faster start)", cfg.cache !== false)) delete cfg.cache;
       else cfg.cache = false;
-    } else if (pick === "indexable") cfg.indexable = await io.confirm("Let search engines list the site?", !!cfg.indexable);
+    } else if (pick === "sharing") await sharingMenu(cfg, io);
+    else if (pick === "indexable") cfg.indexable = await io.confirm("Let search engines list the site?", !!cfg.indexable);
     else if (pick === "json") cfg = await editJson(cfg);
     else if (pick === "save") return cfg;
     else if (!changed || (await io.confirm("Quit and lose your changes?", false))) return null;

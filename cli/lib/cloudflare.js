@@ -448,7 +448,7 @@ export const COMPATIBILITY_DATE = "2026-09-01";
 // The Worker's environment variables (worker/index.js reads them).
 // saveHistory: from saveHistoryConfig() (stage.js); translate: null (no
 // Workers AI binding) or { model, dailyChars, on } (limits.js, worker/translate.js)
-export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [], downloadOwners = [] }) {
+export function workerVars({ gameId, auth, locked, indexable, saveHistory, translate = null, lensOwners = [], downloadOwners = [], downloadWays = { folder: true, zip: true } }) {
   const vars = {
     GAME_ID: gameId,
     AUTH_MODE: auth.mode || "locked",
@@ -461,15 +461,20 @@ export function workerVars({ gameId, auth, locked, indexable, saveHistory, trans
   if (translate) vars.RWK_TRANSLATE = JSON.stringify(translate);
   // Who may make MakerLens links from the game (worker/lens.js): hashes of emails.
   if (lensOwners.length) vars.RWK_LENS_OWNERS = JSON.stringify(lensOwners);
-  // Who may download the web build as a ZIP (worker/download.js): hashes of emails.
-  if (downloadOwners.length) vars.RWK_DOWNLOAD_OWNERS = JSON.stringify(downloadOwners);
+  // Who may download the web build (worker/download.js): hashes of emails, and
+  // the ways turned off (a Worker without these vars offers both).
+  if (downloadOwners.length) {
+    vars.RWK_DOWNLOAD_OWNERS = JSON.stringify(downloadOwners);
+    if (!downloadWays.folder) vars.RWK_DOWNLOAD_FOLDER = "0";
+    if (!downloadWays.zip) vars.RWK_DOWNLOAD_ZIP = "0";
+  }
   return vars;
 }
 
 // playerSettings: from playerOverrides() (stage.js). With a bucket or any
 // player settings, the Worker also serves js/plugins.js, to put the settings
 // from R2 (worker/settings.js) and each player's own in it.
-export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [], downloadOwners = [] }) {
+export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, overflowRels, auth, locked, toolkitRoot, indexable = false, saveHistory = false, playerSettings = {}, translate = null, lensOwners = [], downloadOwners = [], downloadWays }) {
   // Copied next to the config: the build folder may be on another drive.
   fs.cpSync(path.join(toolkitRoot, "worker"), path.join(buildDir, "worker"), { recursive: true });
   fs.writeFileSync(path.join(buildDir, "overflow.json"), JSON.stringify(overflowRels));
@@ -495,7 +500,7 @@ export function writeWorkerProject({ buildDir, slug, gameId = slug, bucket, over
       not_found_handling: "none",
       run_worker_first: locked ? true : overflowRoutes(overflowRels, bucket || Object.keys(playerSettings).length ? ["/js/plugins.js"] : []),
     },
-    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners, downloadOwners }),
+    vars: workerVars({ gameId, auth, locked, indexable, saveHistory, translate, lensOwners, downloadOwners, downloadWays }),
     observability: { enabled: false },
   };
   if (bucket) config.r2_buckets = [{ binding: "BUCKET", bucket_name: bucket }];
@@ -616,12 +621,24 @@ export function lensOwnersForUpgrade(cfg, email) {
   return lensOwnersOf(cfg, email);
 }
 
+// The ways the host may download the build: into a folder (on unless
+// "download": { "folder": false }) and as a ZIP (only with "zip": true).
+// "download": false turns both off. -> { folder, zip }
+export function downloadWaysOf(cfg) {
+  if (cfg.download === false) return { folder: false, zip: false };
+  const d = isPlainObject(cfg.download) ? cfg.download : {};
+  return { folder: d.folder !== false, zip: d.zip === true };
+}
+
+const isPlainObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+
 // Who may download the web build, as a ZIP or into a folder (⚙ → Share →
 // Download game; GET /api/download and /api/download/list): the Cloudflare
-// account's email and `download.owners`; "download": false turns both off.
+// account's email and `download.owners`; nobody when both ways are off.
 // -> hashes (worker/download.js)
 export function downloadOwnersOf(cfg, email) {
-  if (cfg.download === false) return [];
+  const ways = downloadWaysOf(cfg);
+  if (!ways.folder && !ways.zip) return [];
   const extra = cfg.download && Array.isArray(cfg.download.owners) ? cfg.download.owners : [];
   const emails = [email, ...extra].filter((e) => typeof e === "string" && /^[^@\s]+@[^@\s]+$/.test(e.trim()));
   return [...new Set(emails.map(userHash))];
@@ -631,13 +648,17 @@ export function downloadOwnersOf(cfg, email) {
 // ("download": { "zip": true }). Downloading into a folder needs no archive and
 // no R2 space, so it is the default; the ZIP costs as much as the build.
 export function downloadZipOf(cfg) {
-  return !!(cfg.download !== false && cfg.download && typeof cfg.download === "object" && cfg.download.zip === true);
+  return downloadWaysOf(cfg).zip;
 }
 
-// The owners for rwk upgrade: what the last deploy stored, or derived from the
-// account that runs the upgrade (same logic as lens).
+// The owners for rwk upgrade: what the last deploy stored, or, when it stored
+// none (download was off, or a game deployed before downloads), derived from
+// the account that runs the upgrade (same logic as lens): so rwk config + rwk
+// upgrade turns downloads off and back on without the game folder.
 export function downloadOwnersForUpgrade(cfg, email) {
-  if (Array.isArray(cfg.downloadOwners)) return cfg.downloadOwners;
+  const ways = downloadWaysOf(cfg);
+  if (!ways.folder && !ways.zip) return [];
+  if (Array.isArray(cfg.downloadOwners) && cfg.downloadOwners.length) return cfg.downloadOwners;
   return downloadOwnersOf(cfg, email);
 }
 
