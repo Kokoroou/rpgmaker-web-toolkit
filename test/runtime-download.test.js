@@ -227,7 +227,9 @@ function concat(parts) {
 
 // A folder the File System Access API would hand back: nested fake handles
 // that only remember what was "written" (nothing is on disk).
-function fakeFs(doc) {
+// refuse: names the "browser" will not touch, as Chrome on Windows refuses
+// .ini, .cfg, .dll… (a TypeError, "Name is not allowed.").
+function fakeFs(doc, refuse = /\.(ini|cfg|dll)$/i) {
   const dir = (name) => {
     const files = new Map();
     return {
@@ -241,13 +243,15 @@ function fakeFs(doc) {
         return dirs.get(`${name}/${child}`);
       },
       async getFileHandle(file, { create } = {}) {
+        if (refuse.test(file)) throw new TypeError("Name is not allowed.");
         if (!files.has(file)) {
           if (!create) throw Object.assign(new Error("not found"), { name: "NotFoundError" });
           files.set(file, { size: 0 });
         }
         return {
           async getFile() {
-            return files.get(file);
+            const f = files.get(file);
+            return { ...f, text: async () => f.text || "" };
           },
           // A real FileSystemWritableFileStream is a WritableStream that also
           // has write() / close(), which is how a launcher is written.
@@ -458,7 +462,7 @@ test("folder download: the launcher's server finds index.html where either layou
   // The game folder first (MZ, and an MZ copy that still has an older www/), then www/ (MV).
   assert.match(server, /const ROOT = !existsSync\(join\(HERE, "index\.html"\)\) && existsSync\(join\(HERE, "www", "index\.html"\)\) \? join\(HERE, "www"\) : HERE;/);
   // Beside an MZ build, the launchers are not the game's and are not served.
-  assert.match(server, /OWN_FILES = new Set\(\["rwk-serve\.mjs", "game\.bat", "game\.command", "game\.sh", "readme\.txt"\]\)/);
+  assert.match(server, /OWN_FILES = new Set\(\["rwk-serve\.mjs", "game\.bat", "game\.command", "game\.sh", "readme\.txt", "rwk-renames\.json"\]\)/);
   assert.match(server, /OWN_FILES\.has\(/);
   assert.equal(RWK.download.layoutOf("MV").web, "www");
   assert.equal(RWK.download.layoutOf("MZ").web, "");
@@ -644,14 +648,14 @@ test("folder download: the pill shows 100%, waits 5 s, then goes", async () => {
 });
 
 test("folder download: an empty file is made without asking the site for it", async () => {
-  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "data/ksysdoct/SysDocCfg.ini", size: 0 }] });
+  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "data/ksysdoct/blank.txt", size: 0 }] });
   await ui.flushStart();
   await ui.confirm();
   await ui.finished();
-  const ini = ui.fs.dirs.get("root/Test Game/data/ksysdoct").files.get("SysDocCfg.ini");
-  assert.ok(ini, "the empty file is in the folder");
-  assert.equal(ini.size, 0);
-  assert.equal(ui.fetched.some((url) => url.includes("SysDocCfg")), false, "never fetched: Workers Assets may not serve it");
+  const blank = ui.fs.dirs.get("root/Test Game/data/ksysdoct").files.get("blank.txt");
+  assert.ok(blank, "the empty file is in the folder");
+  assert.equal(blank.size, 0);
+  assert.equal(ui.fetched.some((url) => url.includes("blank")), false, "never fetched: Workers Assets may not serve it");
   assert.ok(ui.fs.dirs.get("root/Test Game").files.has("Game.bat"), "so the run finishes and leaves the launchers");
 });
 
@@ -681,4 +685,78 @@ test("folder download: Start again is hidden while a run goes and after one that
   await ui.finished();
   const panel = ui.doc.body.children.find((n) => n.className === "rwk-modal");
   assert.equal(byLabel(panel, "Start again").hidden, true);
+});
+
+test("folder download: a name the browser refuses is written as <name>.rwk-file and listed for the launcher", async () => {
+  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "data/ksysdoct/SysDocCfg.ini", size: 0 }, { rel: "data/a.cfg", size: 4 }] });
+  await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  assert.equal(ui.fs.dirs.get("root/Test Game/data/ksysdoct").files.get("SysDocCfg.ini.rwk-file").size, 0);
+  assert.equal(ui.fs.dirs.get("root/Test Game/data").files.get("a.cfg.rwk-file").size, 4);
+  const game = ui.fs.dirs.get("root/Test Game");
+  assert.ok(game.files.has("Game.bat"), "the run is not a failure: the launchers are there");
+  const list = JSON.parse(game.files.get("rwk-renames.json").text);
+  assert.deepEqual(list.files, { "data/ksysdoct/SysDocCfg.ini": { size: 0, done: false }, "data/a.cfg": { size: 4, done: false } });
+  assert.match(ui.panelText(), /saved as "<name>\.rwk-file"/);
+  assert.match(game.files.get("README.txt").text, /rwk-renames\.json/);
+
+  // A second run finds them under their stand-in name: nothing left to fetch.
+  ui.RWK.choose = async () => false;
+  byLabel(ui.doc.body.children.find((n) => n.className === "rwk-modal"), "Hide").click();
+  const toasts = ui.toasts.length;
+  ui.tools.find((t) => t.label === "Download game (folder)").onSelect();
+  await waitFor(() => ui.toasts.slice(toasts).some((t) => /Everything is already in/.test(t)));
+});
+
+test("folder download: once the launcher renamed them, a second run still counts them as there", async () => {
+  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "data/x.ini", size: 7 }] });
+  // The folder as rwk-serve.mjs leaves it: x.ini under its real name (which the
+  // browser cannot see) and rwk-renames.json saying so.
+  const game = await ui.fs.root.getDirectoryHandle("Test Game", { create: true });
+  const put = async (dir, name, text) => {
+    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+    await w.write(text);
+    await w.close();
+  };
+  await put(game, "index.html", "data");
+  await put(game, "rwk-renames.json", JSON.stringify({ v: 1, files: { "data/x.ini": { size: 7, done: true } } }));
+  await game.getDirectoryHandle("data", { create: true });
+  await ui.flushStart();
+  assert.ok(ui.toasts.some((t) => /Everything is already in/.test(t)), "nothing to fetch again");
+});
+
+test("folder download: rwk-serve.mjs gives the listed files their real name when it starts", async () => {
+  const { RWK } = load();
+  const { mkdtempSync, writeFileSync, mkdirSync, existsSync, readFileSync, rmSync } = fs;
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { spawn } = await import("node:child_process");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "rwk-serve-"));
+  try {
+    for (const f of RWK.download.launcherFiles("MZ", "Test Game")) writeFileSync(path.join(dir, f.rel), f.text);
+    writeFileSync(path.join(dir, "index.html"), "<html></html>");
+    mkdirSync(path.join(dir, "data", "k"), { recursive: true });
+    writeFileSync(path.join(dir, "data", "k", "Cfg.ini.rwk-file"), "");
+    writeFileSync(
+      path.join(dir, "rwk-renames.json"),
+      JSON.stringify({ v: 1, files: { "data/k/Cfg.ini": { size: 0, done: false }, "../evil.ini": { size: 0, done: false } } })
+    );
+    const child = spawn(process.execPath, [path.join(dir, "rwk-serve.mjs")], { env: { ...process.env, RWK_NO_OPEN: "1", RWK_PORT: "0" } });
+    try {
+      await new Promise((resolve, reject) => {
+        child.stdout.on("data", (d) => String(d).includes("Game:") && resolve());
+        child.on("exit", (code) => reject(new Error("server exited " + code)));
+      });
+    } finally {
+      child.kill();
+    }
+    assert.ok(existsSync(path.join(dir, "data", "k", "Cfg.ini")), "renamed to its real name");
+    assert.equal(existsSync(path.join(dir, "data", "k", "Cfg.ini.rwk-file")), false);
+    const list = JSON.parse(readFileSync(path.join(dir, "rwk-renames.json"), "utf8")).files;
+    assert.equal(list["data/k/Cfg.ini"].done, true, "and marked done for the next download");
+    assert.equal(list["../evil.ini"].done, false, "a path outside the game is never touched");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
