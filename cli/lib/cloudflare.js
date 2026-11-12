@@ -563,6 +563,12 @@ export async function probeLensBypass(url) {
   }
 }
 
+// Whether a deploy or an upgrade sees to the /_lens bypass at all: not for a game
+// whose links are off ("lens": false) or that has no owner to make them.
+export function lensBypassWanted(cfg) {
+  return cfg.lens !== false && Array.isArray(cfg.lensOwners) && cfg.lensOwners.length > 0;
+}
+
 // The dashboard steps for the /_lens bypass, as plain lines (the values to type are
 // in the lines, so each can be copied). Cloudflare's application form cannot be
 // filled in from a link, so the link opens the empty "Create new self-hosted

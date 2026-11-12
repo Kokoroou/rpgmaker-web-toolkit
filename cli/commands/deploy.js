@@ -15,6 +15,7 @@ import {
   loadPlayers,
   probeAccess,
   probeLensBypass,
+  lensBypassWanted,
   lensBypassSteps,
   saveGameConfigs,
   saveLiveSettings,
@@ -475,7 +476,7 @@ const ACCESS_TOKEN_HINT =
 // with the config in R2, so no later deploy asks again): the caller then puts the
 // Worker up again without owners, so the ⚙ → Share entry goes away at once.
 export async function ensureLensBypass(cfg, account) {
-  if (cfg.lens === false || !cfg.lensOwners || !cfg.lensOwners.length) return false;
+  if (!lensBypassWanted(cfg)) return false;
   const host = new URL(cfg.url).hostname;
   if ((await probeLensBypass(cfg.url)).open) return false; // already works (made by hand or by an earlier deploy)
   const token = await apiToken();

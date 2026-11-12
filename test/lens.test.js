@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { LENS_MANIFEST, lensAllowed, lensKey, sha256Hex } from "../worker/lens.js";
-import { lensOwnersForUpgrade, lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
+import { lensBypassWanted, lensOwnersForUpgrade, lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
 import { lensManifest } from "../cli/lib/stage.js";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
@@ -233,17 +233,10 @@ test("purge removes the link records too", () => {
   assert.ok(!keys.includes("rwk/lens/other/x.json"));
 });
 
-test("lens bypass: a game with links off is never asked about, nor the site probed", async () => {
-  const { ensureLensBypass } = await import("../cli/commands/deploy.js");
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = () => {
-    throw new Error("no request expected");
-  };
-  try {
-    const account = { id: "acc" };
-    assert.equal(await ensureLensBypass({ lens: false, lensOwners: ["abc"], url: BASE, slug: "g" }, account), false);
-    assert.equal(await ensureLensBypass({ lensOwners: [], url: BASE, slug: "g" }, account), false);
-  } finally {
-    globalThis.fetch = realFetch;
-  }
+test("lens bypass: a game with links off or no owner is never asked about", () => {
+  assert.equal(lensBypassWanted({ lensOwners: ["abc"] }), true);
+  assert.equal(lensBypassWanted({ lens: { owners: ["a@example.com"] }, lensOwners: ["abc"] }), true);
+  assert.equal(lensBypassWanted({ lens: false, lensOwners: ["abc"] }), false, "turned off at a deploy: not asked again");
+  assert.equal(lensBypassWanted({ lensOwners: [] }), false);
+  assert.equal(lensBypassWanted({}), false);
 });
