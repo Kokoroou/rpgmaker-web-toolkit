@@ -90,6 +90,8 @@ The checkbox only appears when the game has cloud saves for your account. Leave 
 
 **A few files did not download?** The window names them, and the launchers are written anyway, so the game can already be played; **Start again** retries only those files. Empty files in the game (a plugin's blank `.ini`, for example) are created in the folder directly, without asking the site for them.
 
+**Files ending in `.rwk-file`?** Chrome does not let a web page write some file names: on Windows, `.ini`, `.cfg`, `.dll`, `.manifest` and a few more, which some plugins ship. The download saves such a file as `<name>.rwk-file` and lists it in `rwk-renames.json`; `Game.bat` / `Game.sh` gives it its real name the first time it starts (with Node.js). Without Node.js, rename those files yourself by removing the `.rwk-file` ending.
+
 ::: tip Browsers
 Only Chromium browsers (Chrome, Edge, Brave) offer this entry. Firefox and Safari have no File System Access API, so they cannot write into a folder you pick — and that is on purpose: this is a tool for a desktop, not a player feature. On those browsers the site shows no folder entry; the ZIP entry, when the site has one, works in any browser.
 :::

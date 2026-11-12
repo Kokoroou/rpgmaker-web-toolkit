@@ -135,6 +135,15 @@
 
   const SERVER_FILE = "rwk-serve.mjs";
 
+  // Chrome will not let a page write some names: on Windows, every extension
+  // Safe Browsing rates DANGEROUS (.ini, .cfg, .dll, .manifest…), plus .lnk,
+  // .scf and .url everywhere (Chromium's IsSafePathComponent). getFileHandle
+  // then throws a TypeError, "Name is not allowed.". Such a file is written
+  // as "<name>.rwk-file" and listed in rwk-renames.json beside the launchers;
+  // rwk-serve.mjs gives it its real name when it starts.
+  const RENAMED_SUFFIX = ".rwk-file";
+  const RENAMES_FILE = "rwk-renames.json";
+
   // The port a downloaded game is served on, the same at every launch and
   // different from one game to the next. The browser keys everything a page
   // keeps (Service Worker, Cache Storage, localStorage) by origin, port
@@ -163,7 +172,7 @@
 // downloaded copy never talks to the internet.
 import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
-import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { exec } from "node:child_process";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -175,7 +184,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = !existsSync(join(HERE, "index.html")) && existsSync(join(HERE, "www", "index.html")) ? join(HERE, "www") : HERE;
 // The files this download added beside an MZ build: they are not the game's,
 // so the server does not hand them out (MV keeps them outside www/ anyway).
-const OWN_FILES = new Set(["rwk-serve.mjs", "game.bat", "game.command", "game.sh", "readme.txt"]);
+const OWN_FILES = new Set(["rwk-serve.mjs", "game.bat", "game.command", "game.sh", "readme.txt", "${RENAMES_FILE}"]);
 // Where this copy's saves live. The game reaches them through the small API
 // below, which stands in for the site's cloud saves.
 const SAVES = join(ROOT, "save");
@@ -430,9 +439,41 @@ function listen(port) {
   });
 }
 
+// Files the browser was not allowed to write under their own name (Chrome
+// refuses .ini, .cfg, .dll… on Windows), written as "<name>${RENAMED_SUFFIX}"
+// and listed in ${RENAMES_FILE}: they get their real name here, where Node
+// may write any name, before the game asks for them.
+async function applyRenames() {
+  const list = join(HERE, "${RENAMES_FILE}");
+  let data;
+  try {
+    data = JSON.parse(await readFile(list, "utf8"));
+  } catch (e) {
+    return; // none, or unreadable: nothing to do
+  }
+  const files = data && typeof data.files === "object" && data.files ? data.files : {};
+  let changed = false;
+  for (const [rel, entry] of Object.entries(files)) {
+    if (!entry || entry.done) continue;
+    const to = resolve(join(ROOT, rel));
+    const from = to + "${RENAMED_SUFFIX}";
+    if (!to.startsWith(ROOT + sep)) continue; // never outside the game
+    try {
+      await rename(from, to);
+      entry.done = true;
+      changed = true;
+    } catch (e) {
+      if (e.code === "ENOENT" && existsSync(to)) (entry.done = true), (changed = true);
+      else console.error("Could not rename " + rel + ": " + e.message);
+    }
+  }
+  if (changed) await writeFile(list, JSON.stringify({ v: 1, files }, null, 1)).catch(() => {});
+}
+await applyRenames();
+
 // This game's own port (see the download's portFor): another game downloaded
 // the same way gets another one, so the browser keeps their data apart.
-const wanted = process.env.RWK_PORT === undefined ? ${port} : Number(process.env.RWK_PORT);
+const wanted =process.env.RWK_PORT === undefined ? ${port} : Number(process.env.RWK_PORT);
 let server = null;
 for (let i = 0; i < 12 && !server; i++) {
   try {
@@ -528,8 +569,8 @@ before uploading it anywhere public.`
       : `This folder has RPG Maker MZ's desktop layout: index.html, js/, data/,
 img/... and save/ side by side, as beside a desktop MZ game's Game.exe. To
 publish it on a new domain, upload this folder WITHOUT Game.bat, Game.command,
-Game.sh, rwk-serve.mjs, README.txt and save/: the launchers are only for
-playing here, and save/ holds this copy's saves.`;
+Game.sh, rwk-serve.mjs, README.txt, rwk-renames.json and save/: the launchers
+are only for playing here, and save/ holds this copy's saves.`;
     return `How to play this game
 =====================
 
@@ -551,6 +592,14 @@ the game's save calls itself.
 
 This copy has no cloud saves, no older saves and no translation: those need the
 site. Play here, then copy a save over if you want to continue on the site.
+
+Files named *${RENAMED_SUFFIX}
+--------------------
+The browser does not let a web page write some file names (on Windows: .ini,
+.cfg, .dll...). The download saves such a file as "<name>${RENAMED_SUFFIX}" and lists it
+in ${RENAMES_FILE}; Game.bat / Game.sh gives it its real name the first time it
+starts with Node.js. Without Node.js, rename those files yourself (remove the
+${RENAMED_SUFFIX} ending).
 
 Host it on a web domain
 -----------------------
@@ -716,19 +765,75 @@ ${host}
     return { dirFor };
   }
 
+  // Whether the browser refused a file name itself (RENAMED_SUFFIX), rather
+  // than the file being absent or the disk failing. Chrome answers a TypeError,
+  // "Name is not allowed.".
+  const refusedName = (e) => !!e && (e.name === "TypeError" || /name is not allowed/i.test(String(e.message || "")));
+
+  // The handle a build file is written to: its own name, or its stand-in when
+  // the browser refuses that name. -> { handle, renamed }
+  async function fileHandleFor(dir, name) {
+    try {
+      return { handle: await dir.getFileHandle(name, { create: true }), renamed: false };
+    } catch (e) {
+      if (!refusedName(e)) throw e;
+      return { handle: await dir.getFileHandle(name + RENAMED_SUFFIX, { create: true }), renamed: true };
+    }
+  }
+
+  // rwk-renames.json beside the launchers: { rel: { size, done } }, {} when
+  // there is none.
+  async function readRenames(gameDir) {
+    try {
+      const file = await (await gameDir.getFileHandle(RENAMES_FILE)).getFile();
+      const data = JSON.parse(await file.text());
+      return data && data.files && typeof data.files === "object" ? data.files : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // Adds the files a run wrote under their stand-in name to rwk-renames.json,
+  // for rwk-serve.mjs to rename. A failure only warns: the launcher cannot
+  // rename them, but the rest of the game is there.
+  async function writeRenames(gameDir, renamed) {
+    if (!renamed.length) return;
+    try {
+      const files = await readRenames(gameDir);
+      for (const item of renamed) files[item.rel] = { size: item.size, done: false };
+      const handle = await gameDir.getFileHandle(RENAMES_FILE, { create: true });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify({ v: 1, files }, null, 1));
+      await writable.close();
+    } catch (e) {
+      RWK.toast(`Could not write ${RENAMES_FILE}: ` + (e.message || e), "warn", 6000);
+    }
+  }
+
   // The files of `list` already in the folder, with their sizes: a file handle
-  // that does not exist throws NotFoundError, which is simply "not there".
-  async function existingSizes(dirFor, files) {
+  // that does not exist throws NotFoundError, which is simply "not there". A
+  // name the browser refuses counts as there when its stand-in is, or when
+  // rwk-renames.json says the launcher has already renamed it (the browser
+  // cannot look at the file under its real name).
+  async function existingSizes(dirFor, files, renames = {}) {
     const found = new Map();
     for (const file of files) {
       const parts = pathSegments(file.rel);
       if (!parts.length) continue;
+      const name = parts[parts.length - 1];
+      let dir;
       try {
-        const dir = await dirFor(file.rel, false);
-        const handle = await dir.getFileHandle(parts[parts.length - 1]); // without create
+        dir = await dirFor(file.rel, false);
+        const handle = await dir.getFileHandle(name); // without create
         found.set(file.rel, (await handle.getFile()).size);
       } catch (e) {
-        // absent, or a directory where the file should be
+        if (!dir || !refusedName(e)) continue; // absent, or a directory where the file should be
+        try {
+          found.set(file.rel, (await (await dir.getFileHandle(name + RENAMED_SUFFIX)).getFile()).size);
+        } catch (e2) {
+          const entry = Object.hasOwn(renames, file.rel) ? renames[file.rel] : null;
+          if (entry && entry.done) found.set(file.rel, Number(entry.size) || 0);
+        }
       }
     }
     return found;
@@ -745,7 +850,7 @@ ${host}
     if (!parts.length) throw new Error("bad path");
     let counted = 0;
     const dir = await dirFor(item.rel);
-    const handle = await dir.getFileHandle(parts[parts.length - 1], { create: true });
+    const { handle, renamed } = await fileHandleFor(dir, parts[parts.length - 1]);
     let writable = null;
     // An empty file (a plugin's blank .ini, a placeholder) has nothing to
     // fetch, and the site may not answer for it at all (Workers Assets does
@@ -753,6 +858,7 @@ ${host}
     if (Number(item.size) === 0) {
       writable = await handle.createWritable();
       await writable.close();
+      if (renamed) run.renamed.push({ rel: item.rel, size: 0 });
       return;
     }
     try {
@@ -782,6 +888,7 @@ ${host}
         writable = null;
       }
       if (!counted) run.bytes += Number(item.size) || 0;
+      if (renamed) run.renamed.push({ rel: item.rel, size: Number(item.size) || 0 });
     } catch (e) {
       run.bytes -= counted; // started again from zero, or not at all
       if (writable) await writable.abort().catch(() => {});
@@ -797,6 +904,7 @@ ${host}
       bytesTotal: items.reduce((sum, item) => sum + (Number(item.size) || 0), 0),
       skipped,
       failed: [],
+      renamed: [], // [{ rel, size }] written as "<name>.rwk-file" (RENAMED_SUFFIX)
       reason: null,
       signal,
       onProgress,
@@ -866,7 +974,15 @@ ${host}
   }
 
   // The first few files a run could not write, for the messages.
-  const failedNames = (run) => run.failed.slice(0, 3).join(", ") + (run.failed.length > 3 ? ", …" : "");
+  const fewNames = (rels) => rels.slice(0, 3).join(", ") + (rels.length > 3 ? ", …" : "");
+  const failedNames = (run) => fewNames(run.failed);
+
+  // The panel's word on the files written under a stand-in name, or "".
+  function renamedNote(run) {
+    const renamed = (run && run.renamed) || [];
+    if (!renamed.length) return "";
+    return `\n\nThe browser does not let a web page write ${renamed.length} file(s) under their own name (${fewNames(renamed.map((r) => r.rel))}), so they were saved as "<name>${RENAMED_SUFFIX}". Game.bat / Game.sh gives them their real name the first time it starts (it needs Node.js for that).`;
+  }
 
   function outcome(run) {
     if (run.reason === "paused") RWK.toast("Download stopped. Start it again to continue: files already written are skipped.", "info", 6000);
@@ -931,7 +1047,7 @@ ${host}
     const { dirFor } = dirCacheFor(webDir);
     let plan;
     try {
-      plan = folderPlan(files, await existingSizes(dirFor, files));
+      plan = folderPlan(files, await existingSizes(dirFor, files, await readRenames(gameDir)));
     } catch (e) {
       RWK.toast("Could not read the folder: " + (e.message || e), "error", 5000);
       return;
@@ -990,6 +1106,7 @@ ${host}
         // and a file that fails every time would otherwise leave the folder
         // with no way to start it, however often the host tries again.
         if (result.reason === null || result.reason === "failed") {
+          await writeRenames(gameDir, result.renamed);
           await writeLaunchers(gameDir, RWK.engine, name);
           if (answer.saves) result.saves = await writeSaves(webDir, saves);
         }
@@ -1233,10 +1350,10 @@ ${host}
       } else if (run && run.reason === null) {
         const layout = layoutOf(RWK.engine);
         message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, ${layout.web ? `in ${layout.web}/` : "at the top of the folder"}, as a desktop ${RWK.engine === "MV" ? "MV" : "MZ"} game has it.`;
-        note.textContent = `Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve the game and open it in your browser. It saves into ${savesPath(layout)}, the desktop game's own format.`;
+        note.textContent = `Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve the game and open it in your browser. It saves into ${savesPath(layout)}, the desktop game's own format.` + renamedNote(run);
       } else if (run && run.reason === "failed") {
         message.textContent = `${run.done} of ${run.total} file(s) were written to "${latestFolder}"; ${run.failed.length} did not download: ${failedNames(run)}.`;
-        note.textContent = "Game.bat (Windows) and Game.sh (macOS / Linux) are there, so the game can already be played. Start the download again from ⚙ → Share → Download game (folder) to retry the missing files.";
+        note.textContent = "Game.bat (Windows) and Game.sh (macOS / Linux) are there, so the game can already be played. Start the download again from ⚙ → Share → Download game (folder) to retry the missing files." + renamedNote(run);
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
