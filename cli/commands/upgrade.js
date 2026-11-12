@@ -17,7 +17,7 @@ import { loadLimits } from "../lib/limits.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, ask, c, confirm, log } from "../lib/ui.js";
 import { deployKeepingAssets, keepAssetsPatch } from "../lib/workers-api.js";
-import { checkPlayers, isAuthReady, perPlayerSettings } from "./deploy.js";
+import { checkPlayers, ensureLensBypass, isAuthReady, perPlayerSettings } from "./deploy.js";
 import { connect, siteOf } from "../lib/session.js";
 
 export async function upgrade(input) {
@@ -81,9 +81,10 @@ export async function upgrade(input) {
   };
   const overflowRels = await loadOverflowRels(bucket, storageIdOf(cfg));
 
-  const lensOwners = lensOwnersForUpgrade(cfg, email);
+  const translate = translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE }));
+  let lensOwners = lensOwnersForUpgrade(cfg, email);
   log.step("Updating the Worker (the game files stay as uploaded)");
-  const patch = keepAssetsPatch({
+  const patchFor = (owners) => keepAssetsPatch({
     slug: cfg.slug,
     gameId: storageIdOf(cfg),
     bucket,
@@ -94,8 +95,8 @@ export async function upgrade(input) {
     saveHistory: toolkit.config.saveHistory,
     playerSettings: perPlayerSettings(cfg.engine, cfg, policy),
     toolkit,
-    lensOwners,
-    translate: translateWorker(cfg, policy, await loadLimits({ cacheFile: LIMITS_CACHE_FILE })),
+    lensOwners: owners,
+    translate,
   });
   const token = await apiToken();
   if (!token) throw new CliError("Not logged in to Cloudflare.", { hint: "Run the command in a terminal once to log in, or set CLOUDFLARE_API_TOKEN." });
@@ -104,8 +105,16 @@ export async function upgrade(input) {
   // game folder writes the first one.
   const known = cfg.policy !== undefined;
   if (known) await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(cfg.engine, cfg, policy));
-  await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch });
+  await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch: patchFor(lensOwners) });
   log.ok(`Worker "${cfg.slug}" updated`);
+  // Links turned (back) on need the /_lens bypass, as after a deploy; turning
+  // them off there puts the Worker up again without owners.
+  if (cfg.auth.mode === "access" && cfg.url && (await ensureLensBypass({ ...cfg, lensOwners }, account))) {
+    cfg.lens = false;
+    lensOwners = [];
+    log.info(c.bold("Updating the Worker without MakerLens links"));
+    await deployKeepingAssets({ token, accountId: account.id, slug: cfg.slug, patch: patchFor(lensOwners) });
+  }
   // liveSettings only once the policy is known; the version in any case, for rwk status.
   const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION, lensOwners };
   if (JSON.stringify(updated) !== stored) {

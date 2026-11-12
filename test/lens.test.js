@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorker } from "../worker/index.js";
 import { LENS_MANIFEST, lensAllowed, lensKey, sha256Hex } from "../worker/lens.js";
-import { lensOwnersForUpgrade, lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
+import { lensBypassWanted, lensOwnersForUpgrade, lensOwnersOf, userHash, workerVars } from "../cli/lib/cloudflare.js";
 import { userHash as workerUserHash } from "../worker/auth.js";
 import { lensManifest } from "../cli/lib/stage.js";
 import { overflowRoutes } from "../cli/lib/cloudflare.js";
@@ -222,11 +222,21 @@ test("upgrade: a game deployed before links gets its owner from the account that
   assert.deepEqual(lensOwnersForUpgrade({}, "me@example.com"), [userHash("me@example.com")], "no owners stored yet: the upgrading account");
   assert.deepEqual(lensOwnersForUpgrade({ lensOwners: ["abc"] }, "other@example.com"), ["abc"], "what the deploy stored is kept");
   assert.deepEqual(lensOwnersForUpgrade({ lens: false }, "me@example.com"), [], "switched off stays off");
-  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [] }, "me@example.com"), [], "a stored empty list (off at deploy) is not overridden");
+  assert.deepEqual(lensOwnersForUpgrade({ lens: false, lensOwners: ["abc"] }, "me@example.com"), [], "turned off after the deploy: off");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [] }, "me@example.com"), [userHash("me@example.com")], "off at deploy, back on in the config: the upgrading account");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [], lens: { owners: ["a@example.com"] } }, "me@example.com"), [userHash("me@example.com"), userHash("a@example.com")], "with the config's owners");
 });
 
 test("purge removes the link records too", () => {
   const keys = purgeObjects([{ key: "rwk/lens/my-game/aabbccddeeff.json", size: 1 }, { key: "rwk/lens/other/x.json", size: 1 }], "my-game").map((o) => o.key);
   assert.ok(keys.includes("rwk/lens/my-game/aabbccddeeff.json"));
   assert.ok(!keys.includes("rwk/lens/other/x.json"));
+});
+
+test("lens bypass: a game with links off or no owner is never asked about", () => {
+  assert.equal(lensBypassWanted({ lensOwners: ["abc"] }), true);
+  assert.equal(lensBypassWanted({ lens: { owners: ["a@example.com"] }, lensOwners: ["abc"] }), true);
+  assert.equal(lensBypassWanted({ lens: false, lensOwners: ["abc"] }), false, "turned off at a deploy: not asked again");
+  assert.equal(lensBypassWanted({ lensOwners: [] }), false);
+  assert.equal(lensBypassWanted({}), false);
 });

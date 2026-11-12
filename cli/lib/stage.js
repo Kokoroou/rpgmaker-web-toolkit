@@ -296,6 +296,14 @@ export function keysNeedingDeploy(before, after) {
   return out;
 }
 
+// Of the keys keysNeedingDeploy lists, those rwk upgrade also applies (it works
+// from R2, without the game folder): "lens" turned off or back on, which only
+// changes the Worker's owner list (lensOwnersForUpgrade) and the /_lens bypass.
+// New emails in lens.owners still need a deploy: upgrade keeps the stored list.
+export function keysForUpgrade(before, after, keys) {
+  return keys.filter((key) => key === "lens" && (before.lens === false) !== (after.lens === false));
+}
+
 // Folders whose files the Service Worker keeps, and the biggest file it keeps
 // (iOS limits what a site may store).
 const CACHED_DIRS = /^(img|audio|effects|data(?:[-_][^/]+)?|fonts|movies|js|css|icon)\//; // data-vi/… too: translations

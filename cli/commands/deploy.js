@@ -15,6 +15,7 @@ import {
   loadPlayers,
   probeAccess,
   probeLensBypass,
+  lensBypassWanted,
   lensBypassSteps,
   saveGameConfigs,
   saveLiveSettings,
@@ -249,7 +250,11 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
       log.warn("The site is still locked. Run this command again to finish setting up access protection.");
     }
   }
-  if (cfg.auth.mode === "access" && cfg.url && isAuthReady(cfg.auth)) await ensureLensBypass(cfg, account);
+  if (cfg.auth.mode === "access" && cfg.url && isAuthReady(cfg.auth) && (await ensureLensBypass(cfg, account))) {
+    await saveGameConfig();
+    log.info(c.bold("Redeploying without MakerLens links"));
+    await deployWorker(writeWorkerProject({ ...worker, lensOwners: [], auth: cfg.auth, locked: false }));
+  }
   if (authReady && cfg.auth.mode === "access" && cfg.url) {
     const probe = await probeAccess(cfg.url);
     if (probe.protected) log.ok("Cloudflare Access is protecting the site");
@@ -467,32 +472,52 @@ const ACCESS_TOKEN_HINT =
 
 // The Bypass application for /_lens (worker/lens.js): MakerLens links carry their
 // own token, which the Worker checks. Not fatal: the rest of the game works without it.
-async function ensureLensBypass(cfg, account) {
-  if (!cfg.lensOwners || !cfg.lensOwners.length) return;
+// -> true when the person turned MakerLens links off instead ("lens": false, saved
+// with the config in R2, so no later deploy asks again): the caller then puts the
+// Worker up again without owners, so the ⚙ → Share entry goes away at once.
+export async function ensureLensBypass(cfg, account) {
+  if (!lensBypassWanted(cfg)) return false;
   const host = new URL(cfg.url).hostname;
-  if ((await probeLensBypass(cfg.url)).open) return; // already works (made by hand or by an earlier deploy)
+  if ((await probeLensBypass(cfg.url)).open) return false; // already works (made by hand or by an earlier deploy)
   const token = await apiToken();
   if (token) {
     try {
       await enableLensBypass({ token, accountId: account.id, slug: cfg.slug, url: cfg.url });
-      return;
+      return false;
     } catch (err) {
       if (!(err instanceof AccessApiError)) throw err;
       // The API error itself is not shown: the dashboard steps below do the same job.
       if (err.denied) log.info(ACCESS_TOKEN_HINT);
     }
   }
-  await lensBypassByHand(cfg, account, host);
+  if ((await lensBypassByHand(cfg, account, host)) !== "off") return false;
+  cfg.lens = false;
+  cfg.lensOwners = [];
+  log.ok("MakerLens links are off for this game; later deploys do not ask about them.");
+  log.info(c.dim(`To turn them back on, even without the game folder: rwk config ${cfg.slug} --set lens=null, then rwk upgrade ${cfg.slug} (or rwk deploy from the folder).`));
+  return true;
 }
+
+// What the person may answer when the bypass is not there yet.
+const LENS_LATER = { label: "Not now (MakerLens links will not open; asked again at the next deploy)", value: "later" };
+const LENS_OFF = { label: 'Turn MakerLens links off for this game (never asked again; sets "lens": false)', value: "off" };
 
 // The same application made in the dashboard: steps as lines, the page opened,
 // then wait for the person to confirm (checked against the live site) or skip.
+// -> "done", "later" or "off".
 async function lensBypassByHand(cfg, account, host) {
   const { page, lines } = lensBypassSteps({ host, slug: cfg.slug });
   if (isUnattended()) {
     log.warn(`MakerLens links need an Access bypass for ${host}/_lens. Run rwk deploy in a terminal once to follow the dashboard steps for it. The rest of the game works without it.`);
-    return;
+    log.info(c.dim(`Not using MakerLens? rwk config ${cfg.slug} --set lens=false stops this warning.`));
+    return "later";
   }
+  const first = await choose(`MakerLens links (⚙ → Share) need an Access bypass for ${host}/_lens, made once in the Cloudflare dashboard`, [
+    { label: "Set it up now (the steps are listed and the page opens)", value: "now" },
+    LENS_LATER,
+    LENS_OFF,
+  ]);
+  if (first !== "now") return first;
   const dash = page(account.id);
   log.info("Follow these steps in the browser (opening Zero Trust → Access controls → Applications → Create new application):");
   lines.forEach(([what, value], i) => log.info(`  ${i + 1}. ${what}: ${c.bold(value)}`));
@@ -504,17 +529,15 @@ async function lensBypassByHand(cfg, account, host) {
     const probe = await probeLensBypass(cfg.url);
     if (probe.open) {
       log.ok("MakerLens links get through Access");
-      return;
+      return "done";
     }
     log.warn(probe.error ? `Could not reach the site: ${probe.error}` : "The sign-in still answers for /_lens (changes can take about a minute).");
-    const next = await choose("Next", [
-      { label: "Check again", value: "retry" },
-      { label: "Skip (MakerLens links will not open until it is done; run rwk deploy again later)", value: "skip" },
-    ]);
-    if (next === "skip") {
+    const next = await choose("Next", [{ label: "Check again", value: "retry" }, LENS_LATER, LENS_OFF]);
+    if (next === "later") {
       log.warn(`MakerLens links need an Access bypass for ${host}/_lens and it is not set up yet.`);
-      return;
+      return "later";
     }
+    if (next === "off") return "off";
   }
 }
 

@@ -10,7 +10,7 @@ import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNam
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
 import { cleanHint, gamepadKeys, pluginHint, scanKeys, stripComments } from "../cli/lib/keys.js";
 import { allowsPublic, applyPolicy, isIndexable, parsePolicy, readPolicy } from "../cli/lib/policy.js";
-import { LIVE_KEYS, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
+import { LIVE_KEYS, keysForUpgrade, keysNeedingDeploy, liveSettingsOf } from "../cli/lib/stage.js";
 import { RUNTIME_PLUGINS, generatedFiles, runtimeConfigOf, serviceWorkerSource, runtimeSources, backlogConfig, remapConfig, saveHistoryConfig, syncPublicDir, fastForwardConfig, messageModeConfig, alwaysDashConfig, saveToolsConfig, cheatsConfig, playerOverrides } from "../cli/lib/stage.js";
 import { UNSERVED_FILES } from "../worker/download.js";
 import { checkFeatureConfig, withPlayer, withPreset } from "../cli/lib/features.js";
@@ -813,6 +813,15 @@ test("settings without a redeploy: what the Worker reads from R2, and what still
   const after = { ...cfg, backlog: false, players: {}, exclude: ["*.txt"], cache: false, liveSettings: true, toolkitVersion: "9.9.9", url: "https://x" };
   assert.deepEqual(keysNeedingDeploy(cfg, after), ["exclude", "cache"]);
   assert.deepEqual(keysNeedingDeploy(cfg, { ...cfg }), []);
+
+  // rwk upgrade applies "lens" turned off or back on, not new owners.
+  const off = { ...cfg, lens: false };
+  const upgradable = (a, b) => keysForUpgrade(a, b, keysNeedingDeploy(a, b));
+  assert.deepEqual(upgradable(cfg, off), ["lens"], "turned off");
+  assert.deepEqual(upgradable(off, cfg), ["lens"], "back on (the key removed)");
+  assert.deepEqual(upgradable(off, { ...cfg, lens: { owners: ["a@example.com"] } }), ["lens"], "back on with owners");
+  assert.deepEqual(upgradable(cfg, { ...cfg, lens: { owners: ["a@example.com"] } }), [], "new owners need a deploy");
+  assert.deepEqual(upgradable(cfg, { ...off, cache: false }), ["lens"], "cache still needs a deploy");
 });
 
 test("cli files import the ui.js helpers they use", () => {

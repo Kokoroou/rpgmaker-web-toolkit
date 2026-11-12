@@ -563,6 +563,12 @@ export async function probeLensBypass(url) {
   }
 }
 
+// Whether a deploy or an upgrade sees to the /_lens bypass at all: not for a game
+// whose links are off ("lens": false) or that has no owner to make them.
+export function lensBypassWanted(cfg) {
+  return cfg.lens !== false && Array.isArray(cfg.lensOwners) && cfg.lensOwners.length > 0;
+}
+
 // The dashboard steps for the /_lens bypass, as plain lines (the values to type are
 // in the lines, so each can be copied). Cloudflare's application form cannot be
 // filled in from a link, so the link opens the empty "Create new self-hosted
@@ -600,10 +606,13 @@ export function lensOwnersOf(cfg, email) {
   return [...new Set(emails.map(userHash))];
 }
 
-// The owners for rwk upgrade: what the last deploy stored, or, for a game deployed
-// before MakerLens links, worked out from the account that runs the upgrade.
+// The owners for rwk upgrade: what the last deploy stored, or, when it stored none
+// (a game deployed before MakerLens links, or one whose links were off and that
+// "lens" now turns back on), worked out from the account that runs the upgrade:
+// so links can come back with rwk config + rwk upgrade, without the game folder.
 export function lensOwnersForUpgrade(cfg, email) {
-  if (Array.isArray(cfg.lensOwners)) return cfg.lensOwners;
+  if (cfg.lens === false) return [];
+  if (Array.isArray(cfg.lensOwners) && cfg.lensOwners.length) return cfg.lensOwners;
   return lensOwnersOf(cfg, email);
 }
 
