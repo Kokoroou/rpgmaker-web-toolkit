@@ -23,6 +23,10 @@
 // `require`, and an empty `versions` without `node-webkit`, so the engine's
 // `Utils.isNwjs()` and every `if (!Utils.isNwjs()) return` branch still see a
 // browser (a plugin that thought otherwise would call `require('fs')`).
+// It has a `mainModule` with an empty `filename`: RPG Maker MZ's own main.js
+// reads `process.mainModule.filename` as soon as `process` is an object
+// (Main.isPathRandomized, the macOS Gatekeeper check), and without it the
+// game stops on a black screen before Scene_Boot.
 //=============================================================================
 
 (() => {
@@ -40,6 +44,7 @@
       title: "browser",
       version: "",
       cwd: () => "/",
+      mainModule: { filename: "" }, // MZ main.js: isPathRandomized()
       nextTick: (fn, ...args) => setTimeout(() => fn(...args), 0),
     };
   }
