@@ -462,6 +462,7 @@ const ACCESS_TOKEN_HINT =
 async function ensureLensBypass(cfg, account) {
   if (!cfg.lensOwners || !cfg.lensOwners.length) return;
   const host = new URL(cfg.url).hostname;
+  if ((await probeLensBypass(cfg.url)).open) return; // already works (made by hand or by an earlier deploy)
   const token = await apiToken();
   if (token) {
     try {
@@ -469,23 +470,19 @@ async function ensureLensBypass(cfg, account) {
       return;
     } catch (err) {
       if (!(err instanceof AccessApiError)) throw err;
-      log.warn(`MakerLens links need an Access bypass for ${host}/_lens and it could not be made: ${err.message}`);
+      // The API error itself is not shown: the dashboard steps below do the same job.
       if (err.denied) log.info(ACCESS_TOKEN_HINT);
     }
-  } else if ((await probeLensBypass(cfg.url)).open) {
-    return; // made by hand earlier
-  } else {
-    log.warn(`MakerLens links need an Access bypass for ${host}/_lens, which the browser login cannot make.`);
   }
-  await lensBypassByHand(cfg, account);
+  await lensBypassByHand(cfg, account, host);
 }
 
 // The same application made in the dashboard: steps as lines, the page opened,
 // then wait for the person to confirm (checked against the live site) or skip.
-async function lensBypassByHand(cfg, account) {
-  const { page, lines } = lensBypassSteps({ host: new URL(cfg.url).hostname, slug: cfg.slug });
+async function lensBypassByHand(cfg, account, host) {
+  const { page, lines } = lensBypassSteps({ host, slug: cfg.slug });
   if (isUnattended()) {
-    log.info(c.dim("Run rwk deploy in a terminal once to follow the dashboard steps for it. The rest of the game works without it."));
+    log.warn(`MakerLens links need an Access bypass for ${host}/_lens. Run rwk deploy in a terminal once to follow the dashboard steps for it. The rest of the game works without it.`);
     return;
   }
   const dash = page(account.id);
@@ -506,7 +503,10 @@ async function lensBypassByHand(cfg, account) {
       { label: "Check again", value: "retry" },
       { label: "Skip (MakerLens links will not open until it is done; run rwk deploy again later)", value: "skip" },
     ]);
-    if (next === "skip") return;
+    if (next === "skip") {
+      log.warn(`MakerLens links need an Access bypass for ${host}/_lens and it is not set up yet.`);
+      return;
+    }
   }
 }
 
