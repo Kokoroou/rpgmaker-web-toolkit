@@ -4,7 +4,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_BUCKET, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
+import { DEFAULT_BUCKET, DEFAULT_PROFILE, TOOLKIT_ROOT, activeProfile, loadSettings } from "../lib/config.js";
 import { apiToken, askedAccount, matchAccount } from "../lib/cloudflare.js";
 import { CliError, log } from "../lib/ui.js";
 import { envApiToken } from "../lib/wrangler.js";
@@ -35,6 +35,7 @@ export async function runChecks({
   // The account a deploy would use: --account, else CLOUDFLARE_ACCOUNT_ID, else the saved choice.
   asked = askedAccount({ unattended: true }),
   savedAccountId = loadSettings().accountId,
+  profile = activeProfile(),
   fetchImpl = globalThis.fetch,
 } = {}) {
   const checks = [];
@@ -57,11 +58,14 @@ export async function runChecks({
     checks.push(check("fail", "Cloudflare login", `could not read it (${err.message})`));
     return checks;
   }
+  const named = profile.name !== DEFAULT_PROFILE;
+  const loginOf = `the toolkit's own login${named ? `, profile ${profile.name}` : ""}`;
   if (!token) {
-    checks.push(check("warn", "Cloudflare login", "not logged in", "The first deploy opens the browser to log in; in CI set CLOUDFLARE_API_TOKEN"));
+    const hint = named ? `Log in to it: rwk login --profile ${profile.name}` : "Log in with rwk login (the first deploy does it too); in CI set CLOUDFLARE_API_TOKEN";
+    checks.push(check("warn", "Cloudflare login", `not logged in${named ? ` (profile ${profile.name})` : ""}`, hint));
     return checks;
   }
-  checks.push(check("ok", "Cloudflare login", usingEnvToken ? "API token from CLOUDFLARE_API_TOKEN" : "the toolkit's own login"));
+  checks.push(check("ok", "Cloudflare login", usingEnvToken ? "API token from CLOUDFLARE_API_TOKEN" : loginOf));
 
   const call = async (route) => {
     try {
@@ -92,7 +96,8 @@ export async function runChecks({
   if (asked) {
     const match = matchAccount(list, asked.value);
     if (match.error) {
-      checks.push(check("fail", "Account", `${asked.from}: ${match.error}`, `Use one of these IDs or names with ${asked.from}`));
+      const other = usingEnvToken ? "" : "; an account under another email needs its own login: rwk login --profile <name>";
+      checks.push(check("fail", "Account", `${asked.from}: ${match.error}`, `Use one of these IDs or names with ${asked.from}${other}`));
       return checks;
     }
     account = match.account;

@@ -1,13 +1,14 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { TOOLKIT_ROOT } from "./config.js";
+import { TOOLKIT_ROOT, activeProfile, wranglerProfileOf } from "./config.js";
 import { isQuiet, progressLine } from "./ui.js";
 
 const WRANGLER_BIN = path.join(TOOLKIT_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 
-// The toolkit's own wrangler auth profile, so its narrow-scoped login never
-// replaces (or borrows) the user's default `wrangler login`.
-export const PROFILE = "rpgmaker-web-toolkit";
+// The toolkit's own wrangler auth profiles, so its narrow-scoped logins never
+// replace (or borrow) the user's default `wrangler login`. One per toolkit
+// profile (rwk login --profile <name>), each its own Cloudflare login.
+export const wranglerProfile = (name = activeProfile().name) => wranglerProfileOf(name);
 
 // Least privilege: deploy a Worker (static assets, workers.dev, R2 binding)
 // and read/write its R2 bucket. wrangler always adds offline_access.
@@ -39,7 +40,7 @@ export function wranglerRun(args, base = process.env) {
   if (accountId) env.CLOUDFLARE_ACCOUNT_ID = accountId;
   else delete env.CLOUDFLARE_ACCOUNT_ID;
   // With a token, wrangler reads it from the environment; a profile would win over it.
-  const extra = args[0] === "auth" || envToken ? [] : ["--profile", PROFILE];
+  const extra = args[0] === "auth" || envToken ? [] : ["--profile", wranglerProfile()];
   return { env, args: [...args, ...extra] };
 }
 
@@ -79,7 +80,7 @@ export function assetProgress(write, bar = progressLine()) {
 }
 
 // Runs the toolkit's pinned wrangler (no shell, so paths with spaces are safe).
-// Every command runs under PROFILE; `auth` commands name it themselves.
+// Every command runs under the run's profile; `auth` commands name it themselves.
 // interactive: hand the terminal to wrangler (login prompts).
 // quiet: capture output without echoing it.
 // progress: wrangler deploy's asset upload counts as one line (assetProgress).

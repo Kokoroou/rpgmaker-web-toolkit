@@ -10,7 +10,8 @@ import LZString from "lz-string";
 import { engineOf } from "./engines.js";
 import { CliError, NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
-import { PROFILE, SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow } from "./wrangler.js";
+import { DEFAULT_PROFILE, activeProfile, loadState } from "./config.js";
+import { SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow, wranglerProfile } from "./wrangler.js";
 import { writeZip } from "./zip.js";
 
 //---------------------------------------------------------------------------
@@ -28,6 +29,8 @@ export function setAccountFlag(value) {
 }
 
 const ACCOUNT_HINT = "Pass --account <ID or name>, or set CLOUDFLARE_ACCOUNT_ID to the account's ID.";
+// An account under another email is not one this login reaches: it takes its own login profile.
+const OTHER_LOGIN_HINT = "An account of another Cloudflare login (another email) needs its own profile: rwk login --profile <name>, then add --profile <name>.";
 
 // The account a run asked for by name, before the saved choice: --account, then
 // CLOUDFLARE_ACCOUNT_ID (read only by an unattended run, like the API token). -> { value, from } | null
@@ -48,19 +51,40 @@ export function matchAccount(accounts, wanted) {
   return { error: `This login has no Cloudflare account "${wanted}"${all ? `. It has: ${all}` : ""}.` };
 }
 
-export async function ensureLogin(settings) {
-  let who = await whoami();
+export async function ensureLogin(settings, { profile = activeProfile(), known = !!loadState().profiles[profile.name], readLogin = whoami, browserLogin = logIn } = {}) {
+  let who = await readLogin();
+  // A profile nobody made is a typo more often than a wish to log in: rwk login makes it.
+  if (!who.loggedIn && !envApiToken() && profile.name !== DEFAULT_PROFILE && !known) {
+    throw new CliError(`No login profile "${profile.name}" on this PC.`, { hint: `Make it (opens the browser): rwk login --profile ${profile.name}. List the profiles: rwk profiles` });
+  }
   if (!who.loggedIn && isUnattended()) throw new NeedsAnswer(`Not logged in to Cloudflare. ${TOKEN_HINT}`);
   if (!who.loggedIn) {
     log.info("Not logged in to Cloudflare: a browser window will open to log in…");
-    log.info(`The toolkit only asks for: ${SCOPES.join(", ")}.`);
-    await wranglerOrThrow(["auth", "create", PROFILE, "--scopes", ...SCOPES], { interactive: true });
-    who = await whoami();
-    if (!who.loggedIn) throw new Error("Cloudflare login failed.");
+    who = await browserLogin();
   }
   const account = await pickAccount(who.accounts || [], settings);
   useAccount(account.id);
   return { email: who.email, account };
+}
+
+// Opens the browser to log in to the run's profile (a new one, or again in an existing one,
+// which may then be another Cloudflare login) -> whoami()
+export async function logIn(name = activeProfile().name, { run = wranglerOrThrow, readLogin = whoami } = {}) {
+  log.info(`The toolkit only asks for: ${SCOPES.join(", ")}.`);
+  await run(["auth", "create", wranglerProfile(name), "--scopes", ...SCOPES], { interactive: true });
+  const who = await readLogin();
+  if (!who.loggedIn) throw new Error("Cloudflare login failed.");
+  return who;
+}
+
+// Logs the profile out (Cloudflare revokes its token) and removes it from wrangler.
+// -> false when wrangler had no such profile
+export async function logOut(name = activeProfile().name, { run = wrangler } = {}) {
+  const res = await run(["auth", "delete", wranglerProfile(name)], { quiet: true });
+  if (res.code === 0) return true;
+  if (/does not exist/i.test(res.output)) return false;
+  const tail = res.output.trim().split("\n").slice(-4).join("\n");
+  throw new Error(`wrangler auth delete failed (exit code ${res.code})\n${tail}`);
 }
 
 // The account to work in: the one asked for (an unknown one is an error, never a fallback),
@@ -70,7 +94,10 @@ export async function pickAccount(accounts, settings, asked = askedAccount()) {
   if (!accounts.length) throw new Error("This login has no Cloudflare account.");
   if (asked) {
     const { account, error } = matchAccount(accounts, asked.value);
-    if (error) throw new CliError(`${asked.from}: ${error}`, { hint: asked.from === "--account" ? "Use one of the IDs or names above." : "Set CLOUDFLARE_ACCOUNT_ID to one of the IDs above." });
+    if (error) {
+      const fix = asked.from === "--account" ? "Use one of the IDs or names above." : "Set CLOUDFLARE_ACCOUNT_ID to one of the IDs above.";
+      throw new CliError(`${asked.from}: ${error}`, { hint: envApiToken() ? fix : `${fix} ${OTHER_LOGIN_HINT}` });
+    }
     return account;
   }
   const saved = accounts.find((a) => a.id === settings.accountId);
@@ -90,7 +117,7 @@ export async function pickAccount(accounts, settings, asked = askedAccount()) {
 
 // `wrangler whoami` only reads the default profile, so ask the API with the
 // toolkit profile's token (wrangler refreshes it when expired).
-async function whoami() {
+export async function whoami() {
   const token = await apiToken();
   if (!token) return { loggedIn: false };
   // An API token may lack "User Details: Read": the email is only a default answer.
@@ -102,7 +129,7 @@ async function whoami() {
 // -> the toolkit profile's API token, or null when not logged in
 export async function apiToken() {
   if (envApiToken()) return envApiToken();
-  const res = await wrangler(["auth", "token", "--json", "--profile", PROFILE], { quiet: true });
+  const res = await wrangler(["auth", "token", "--json", "--profile", wranglerProfile()], { quiet: true });
   try {
     return JSON.parse(res.stdout.slice(res.stdout.indexOf("{"))).token || null;
   } catch {
