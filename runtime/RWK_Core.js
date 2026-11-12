@@ -292,6 +292,8 @@
     };
   }
 
+  const touchDevice = () => !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
   const isField = (node) => !!node && /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName);
 
   // A listener of the toolkit's own on window, document or body that must still
@@ -1028,7 +1030,8 @@
     menuDone = panel(overlay, {
       box,
       close: backOrClose,
-      focus: () => (search.hidden ? list.querySelector("button") : search) || closeBtn,
+      // On a phone, focusing the search field raises the keyboard over the menu.
+      focus: () => (search.hidden || touchDevice() ? list.querySelector("button") : search) || closeBtn,
     });
   }
 
