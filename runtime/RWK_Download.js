@@ -135,7 +135,24 @@
 
   const SERVER_FILE = "rwk-serve.mjs";
 
-  const SERVER_SOURCE = `// Plays this game on this PC: serves the game beside this file (in www/ for
+  // The port a downloaded game is served on, the same at every launch and
+  // different from one game to the next. The browser keys everything a page
+  // keeps (Service Worker, Cache Storage, localStorage) by origin, port
+  // included: two games on the same http://localhost:8000 would share them, and
+  // the Service Worker one game left behind would hand its pictures and data
+  // to the other (a game without encrypted pictures asking for .rpgmvp files).
+  // -> 20000..29999, away from the ports dev servers use.
+  function portFor(name) {
+    let hash = 0x811c9dc5; // FNV-1a
+    const text = String(name || "");
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return 20000 + (hash % 10000);
+  }
+
+  const serverSource = (port) => `// Plays this game on this PC: serves the game beside this file (in www/ for
 // MV, this folder itself for MZ) over http://127.0.0.1 and opens it in a
 // browser. Written by rpgmaker-web-toolkit's Download game (folder). Needs
 // Node.js 18 or newer and nothing else; close the window to stop the server.
@@ -337,6 +354,25 @@ async function onApi(req, res, pathname) {
   return jsonReply(res, 404, { error: "Not available offline" });
 }
 
+// The game's files are on this PC: the site's Service Worker (rwk-sw.js) has
+// nothing to save here, and one that stays would answer with the files it kept
+// even after the folder changes (a new download, or another game that was
+// served on this port before). In its place, a worker that empties the cache,
+// removes itself and reloads the tabs it was answering, so they read the
+// files on disk.
+const NO_SERVICE_WORKER = [
+  '"use strict";',
+  "self.addEventListener(\\"install\\", () => self.skipWaiting());",
+  "self.addEventListener(\\"activate\\", (event) => {",
+  "  event.waitUntil((async () => {",
+  "    await caches.delete(\\"rwk-files\\");",
+  "    await self.registration.unregister();",
+  "    for (const client of await self.clients.matchAll({ type: \\"window\\" })) client.navigate(client.url);",
+  "  })());",
+  "});",
+  "",
+].join("\\n");
+
 async function onRequest(req, res) {
   let pathname = "/";
   try {
@@ -345,6 +381,7 @@ async function onRequest(req, res) {
     return fail(res, 400, "Bad request");
   }
   if (pathname === "/api" || pathname.startsWith("/api/")) return onApi(req, res, pathname);
+  if (pathname === "/rwk-sw.js") return reply(res, 200, NO_SERVICE_WORKER, { "content-type": TYPES[".js"] });
   let file = resolve(join(ROOT, pathname));
   // Nothing outside this folder, however the path was spelled.
   if (file !== ROOT && !file.startsWith(ROOT + sep)) return fail(res, 403, "Forbidden");
@@ -393,14 +430,16 @@ function listen(port) {
   });
 }
 
-const wanted = process.env.RWK_PORT === undefined ? null : Number(process.env.RWK_PORT);
+// This game's own port (see the download's portFor): another game downloaded
+// the same way gets another one, so the browser keeps their data apart.
+const wanted = process.env.RWK_PORT === undefined ? ${port} : Number(process.env.RWK_PORT);
 let server = null;
 for (let i = 0; i < 12 && !server; i++) {
-  const port = wanted === null ? 8000 + i : wanted + i;
   try {
-    server = await listen(port);
+    server = await listen(wanted + i);
   } catch (e) {
-    if (e.code !== "EADDRINUSE") throw e; // a port in use: try the next one
+    // A port in use, or one Windows keeps for itself: try the next one.
+    if (e.code !== "EADDRINUSE" && e.code !== "EACCES") throw e;
   }
 }
 if (!server) {
@@ -424,7 +463,8 @@ console.log("Game: " + url + "  (close this window to stop the server)");
   // server has no save API, so the game stores its saves in the browser
   // instead of save/ (and says so in the folder's README).
   // dir: the folder Python serves, "." for MZ (the game folder) or "www" for MV.
-  const shellLauncher = (dir, where) => `#!/bin/sh
+  // port: the game's own (portFor), the one rwk-serve.mjs starts from too.
+  const shellLauncher = (dir, where, port) => `#!/bin/sh
 # Starts the game: serves ${where} over http://localhost and opens it in a
 # browser.
 # Needs Node.js 18+ (https://nodejs.org) or Python 3.
@@ -434,16 +474,16 @@ if command -v node >/dev/null 2>&1; then
   exec node ${SERVER_FILE}
 fi
 if command -v python3 >/dev/null 2>&1; then
-  python3 -m http.server 8000 --directory ${dir} &
+  python3 -m http.server ${port} --directory ${dir} &
   sleep 1
-  command -v open >/dev/null 2>&1 && open http://localhost:8000/ || xdg-open http://localhost:8000/ >/dev/null 2>&1
+  command -v open >/dev/null 2>&1 && open http://localhost:${port}/ || xdg-open http://localhost:${port}/ >/dev/null 2>&1
   wait
   exit 0
 fi
 echo "To play this game, install Node.js (https://nodejs.org) or Python 3."
 `;
 
-  const batLauncher = (dir, where) => `@echo off
+  const batLauncher = (dir, where, port) => `@echo off
 rem Starts the game: serves ${where} over http://localhost and opens it in a
 rem browser.
 rem Needs Node.js 18+ (https://nodejs.org) or Python 3.
@@ -456,14 +496,14 @@ if not errorlevel 1 (
 )
 where py >nul 2>nul
 if not errorlevel 1 (
-  start "" http://localhost:8000/
-  py -m http.server 8000 --directory ${dir}
+  start "" http://localhost:${port}/
+  py -m http.server ${port} --directory ${dir}
   goto :end
 )
 where python >nul 2>nul
 if not errorlevel 1 (
-  start "" http://localhost:8000/
-  python -m http.server 8000 --directory ${dir}
+  start "" http://localhost:${port}/
+  python -m http.server ${port} --directory ${dir}
   goto :end
 )
 echo To play this game, install Node.js (https://nodejs.org) or Python 3.
@@ -519,15 +559,17 @@ ${host}
   }
 
   // The files a download leaves in the game folder so it can be played by
-  // double-clicking one of them, for the engine's layout. -> [{ rel, text }]
-  function launcherFiles(engine) {
+  // double-clicking one of them, for the engine's layout. name: the game's
+  // folder name, which picks its port. -> [{ rel, text }]
+  function launcherFiles(engine, name = gameFolderName()) {
     const layout = layoutOf(engine);
     const dir = layout.web || ".";
     const where = layout.web ? `the ${layout.web}/ folder beside this file` : "the game in this folder";
-    const shell = shellLauncher(dir, where);
+    const port = portFor(name);
+    const shell = shellLauncher(dir, where, port);
     return [
-      { rel: SERVER_FILE, text: SERVER_SOURCE },
-      { rel: "Game.bat", text: batLauncher(dir, where) },
+      { rel: SERVER_FILE, text: serverSource(port) },
+      { rel: "Game.bat", text: batLauncher(dir, where, port) },
       { rel: "Game.command", text: shell },
       { rel: "Game.sh", text: shell },
       { rel: "README.txt", text: readme(engine) },
@@ -538,9 +580,9 @@ ${host}
   // them on a second run keeps the folder playable after an older download).
   // A failure only warns: the game itself is complete, and any local server
   // plays it. -> true when every file was written.
-  async function writeLaunchers(dir, engine) {
+  async function writeLaunchers(dir, engine, name) {
     try {
-      for (const file of launcherFiles(engine)) {
+      for (const file of launcherFiles(engine, name)) {
         const handle = await dir.getFileHandle(file.rel, { create: true });
         const writable = await handle.createWritable();
         await writable.write(file.text);
@@ -885,7 +927,7 @@ ${host}
     }
     const saves = await cloudSaves();
     if (!plan.todo.length) {
-      await writeLaunchers(gameDir, RWK.engine); // an older download may not have them yet
+      await writeLaunchers(gameDir, RWK.engine, name); // an older download may not have them yet
       if (saves.length) {
         const copy = await RWK.choose(
           "Download game (folder)",
@@ -934,7 +976,7 @@ ${host}
         // folder plays with a double-click. A stopped run writes none: half a
         // folder is not playable yet.
         if (result.reason === null) {
-          await writeLaunchers(gameDir, RWK.engine);
+          await writeLaunchers(gameDir, RWK.engine, name);
           if (answer.saves) result.saves = await writeSaves(webDir, saves);
         }
         latest = result;
@@ -1182,7 +1224,7 @@ ${host}
   }
 
   // The pure parts, for the tests (no DOM, no File System Access API).
-  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom, launcherFiles, layoutOf, desktopSave, cloudSaves, writeSaves };
+  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom, portFor, launcherFiles, layoutOf, desktopSave, cloudSaves, writeSaves };
 
   //---------------------------------------------------------------------------
   // The menu entries. /api/download?check=1 answers 403 to everyone but the
