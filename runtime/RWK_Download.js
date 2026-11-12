@@ -9,10 +9,11 @@
 //   - (folder): writes every file into a folder the user picks, through the
 //     File System Access API. Chromium only (Chrome, Edge, Brave); nothing
 //     else has showDirectoryPicker, and that is on purpose: this is a tool for
-//     a desktop, not a player feature. The folder gets the standard RPG Maker
-//     layout — the build in www/, a launcher per desktop OS beside it
-//     (Game.bat / Game.command / Game.sh) — and the launcher's server answers
-//     the game's save calls from www/save/, so the copy plays and keeps its
+//     a desktop, not a player feature. The folder gets the engine's own
+//     desktop layout — MZ's build at the top of the folder, MV's in www/ —
+//     with a launcher per desktop OS beside it (Game.bat / Game.command /
+//     Game.sh), and the launcher's server answers the game's save calls from
+//     the engine's save/ folder, so the copy plays and keeps its
 //     saves on its own, with no site and no cloud. The saves it writes are the
 //     desktop game's own files, so they can be copied between the two.
 //   - (ZIP): the archive the deploy made and keeps in R2, shown only when the
@@ -103,6 +104,27 @@
   }
 
   //---------------------------------------------------------------------------
+  // Where the build goes in the game folder: the layout a desktop game of that
+  // engine has, so the folder can be dropped beside (or over) a desktop copy
+  // and `rwk deploy` reads it back like any game (cli/lib/game.js looks for
+  // index.html + js/ in the folder, then in its www/; saves in save/ beside
+  // them). web: the folder the build goes into, "" for the game folder itself.
+  //   MZ: Game.exe, index.html, js/, data/… and save/ side by side.
+  //   MV: Game.exe beside www/, which holds index.html, js/, data/… and save/.
+  //---------------------------------------------------------------------------
+
+  const LAYOUTS = {
+    MZ: { web: "" },
+    MV: { web: "www" },
+  };
+
+  // The layout of an engine name, MZ's for anything unknown (as cli/lib/engines.js).
+  const layoutOf = (engine) => LAYOUTS[engine] || LAYOUTS.MZ;
+
+  // "www/save/" or "save/": where the copy's saves are, for the messages.
+  const savesPath = (layout) => (layout.web ? layout.web + "/" : "") + "save/";
+
+  //---------------------------------------------------------------------------
   // Launchers: one small file per desktop OS, written into the game folder, so
   // the host plays the build by double-clicking it instead of remembering a
   // server command. A file:// page cannot load the game (XMLHttpRequest is
@@ -113,13 +135,13 @@
 
   const SERVER_FILE = "rwk-serve.mjs";
 
-  const SERVER_SOURCE = `// Plays this game on this PC: serves the www/ folder beside this file over
-// http://127.0.0.1 and opens it in a browser. Written by
-// rpgmaker-web-toolkit's Download game (folder). Needs Node.js 18 or newer and
-// nothing else; close the window to stop the server.
+  const SERVER_SOURCE = `// Plays this game on this PC: serves the game beside this file (in www/ for
+// MV, this folder itself for MZ) over http://127.0.0.1 and opens it in a
+// browser. Written by rpgmaker-web-toolkit's Download game (folder). Needs
+// Node.js 18 or newer and nothing else; close the window to stop the server.
 //
 // It also answers the few /api/ calls the game makes, from the save/ folder
-// inside www/: the saves of this copy ARE the files there, in the format a
+// beside the game's index.html: the saves of this copy ARE the files there, in the format a
 // desktop RPG Maker game writes, so they can be copied between the two. The
 // downloaded copy never talks to the internet.
 import { createServer } from "node:http";
@@ -130,9 +152,13 @@ import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// The game lives in www/ (a normal RPG Maker web build); an older folder made
-// before that layout is served from where this file is.
-const ROOT = existsSync(join(HERE, "www", "index.html")) ? join(HERE, "www") : HERE;
+// Where the game's index.html is: this folder for MZ, www/ for MV (the
+// desktop layouts), the same two places rwk deploy looks. This folder first:
+// an MZ copy downloaded before its build went here may still have a www/.
+const ROOT = !existsSync(join(HERE, "index.html")) && existsSync(join(HERE, "www", "index.html")) ? join(HERE, "www") : HERE;
+// The files this download added beside an MZ build: they are not the game's,
+// so the server does not hand them out (MV keeps them outside www/ anyway).
+const OWN_FILES = new Set(["rwk-serve.mjs", "game.bat", "game.command", "game.sh", "readme.txt"]);
 // Where this copy's saves live. The game reaches them through the small API
 // below, which stands in for the site's cloud saves.
 const SAVES = join(ROOT, "save");
@@ -184,7 +210,7 @@ function rangeOf(value, size) {
 
 //---------------------------------------------------------------------------
 // The save API: the same few calls the deployed site answers, answered here
-// from www/save/ instead of the cloud. RWK_SaveSync reads and writes a save as
+// from the game's save/ folder instead of the cloud. RWK_SaveSync reads and writes a save as
 // an engine string, which is what the desktop file holds, so a save made here
 // opens in a desktop game and the other way round. The metadata the site keeps
 // (etag, device, when) is not needed: one machine, one player.
@@ -322,6 +348,7 @@ async function onRequest(req, res) {
   let file = resolve(join(ROOT, pathname));
   // Nothing outside this folder, however the path was spelled.
   if (file !== ROOT && !file.startsWith(ROOT + sep)) return fail(res, 403, "Forbidden");
+  if (ROOT === HERE && dirname(file) === HERE && OWN_FILES.has(file.slice(HERE.length + 1).toLowerCase())) return fail(res, 404, "Not found: " + pathname);
   let info = null;
   try {
     info = await stat(file);
@@ -395,10 +422,11 @@ console.log("Game: " + url + "  (close this window to stop the server)");
   // A launcher that finds the folder, uses Node when it is there, and falls
   // back to Python's http.server, which needs no script of its own. Python's
   // server has no save API, so the game stores its saves in the browser
-  // instead of www/save/ (and says so in the folder's README).
-  const SHELL_LAUNCHER = `#!/bin/sh
-# Starts the game: serves the www/ folder beside this file over
-# http://localhost and opens it in a browser.
+  // instead of save/ (and says so in the folder's README).
+  // dir: the folder Python serves, "." for MZ (the game folder) or "www" for MV.
+  const shellLauncher = (dir, where) => `#!/bin/sh
+# Starts the game: serves ${where} over http://localhost and opens it in a
+# browser.
 # Needs Node.js 18+ (https://nodejs.org) or Python 3.
 # macOS / Linux: run it with "sh Game.sh" (or "chmod +x Game.sh" once).
 cd "$(dirname "$0")" || exit 1
@@ -406,7 +434,7 @@ if command -v node >/dev/null 2>&1; then
   exec node ${SERVER_FILE}
 fi
 if command -v python3 >/dev/null 2>&1; then
-  python3 -m http.server 8000 --directory www &
+  python3 -m http.server 8000 --directory ${dir} &
   sleep 1
   command -v open >/dev/null 2>&1 && open http://localhost:8000/ || xdg-open http://localhost:8000/ >/dev/null 2>&1
   wait
@@ -415,9 +443,9 @@ fi
 echo "To play this game, install Node.js (https://nodejs.org) or Python 3."
 `;
 
-  const BAT_LAUNCHER = `@echo off
-rem Starts the game: serves the www/ folder beside this file over
-rem http://localhost and opens it in a browser.
+  const batLauncher = (dir, where) => `@echo off
+rem Starts the game: serves ${where} over http://localhost and opens it in a
+rem browser.
 rem Needs Node.js 18+ (https://nodejs.org) or Python 3.
 setlocal
 cd /d "%~dp0"
@@ -429,13 +457,13 @@ if not errorlevel 1 (
 where py >nul 2>nul
 if not errorlevel 1 (
   start "" http://localhost:8000/
-  py -m http.server 8000 --directory www
+  py -m http.server 8000 --directory ${dir}
   goto :end
 )
 where python >nul 2>nul
 if not errorlevel 1 (
   start "" http://localhost:8000/
-  python -m http.server 8000 --directory www
+  python -m http.server 8000 --directory ${dir}
   goto :end
 )
 echo To play this game, install Node.js (https://nodejs.org) or Python 3.
@@ -443,7 +471,26 @@ pause
 :end
 `;
 
-  const README = `How to play this game
+  // The folder's README, in the words of its layout.
+  function readme(engine) {
+    const layout = layoutOf(engine);
+    const index = (layout.web ? layout.web + "/" : "") + "index.html";
+    const saves = savesPath(layout);
+    const ext = engine === "MV" ? ".rpgsave" : ".rmmzsave";
+    const host = layout.web
+      ? `This folder has RPG Maker MV's desktop layout: the web build is in www/,
+where a desktop MV game keeps it. To publish it on a new domain, upload the
+CONTENTS of www/ to the domain (or point its web root at www/). The launcher
+files are only for playing here.
+
+Careful: www/ also holds this copy's saves, in www/save/. Delete that folder
+before uploading it anywhere public.`
+      : `This folder has RPG Maker MZ's desktop layout: index.html, js/, data/,
+img/... and save/ side by side, as beside a desktop MZ game's Game.exe. To
+publish it on a new domain, upload this folder WITHOUT Game.bat, Game.command,
+Game.sh, rwk-serve.mjs, README.txt and save/: the launchers are only for
+playing here, and save/ holds this copy's saves.`;
+    return `How to play this game
 =====================
 
 Windows: double-click Game.bat.
@@ -452,13 +499,13 @@ Linux: run "sh Game.sh".
 
 The launcher starts a small web server and opens the game in your browser. It
 needs Node.js 18+ (https://nodejs.org) or Python 3. The game cannot run by
-opening www/index.html directly: a file:// page cannot load the game's data.
+opening ${index} directly: a file:// page cannot load the game's data.
 
 Your saves
 ----------
-They are in www/save/, one file per slot (fileN.rmmzsave for MZ, or
-fileN.rpgsave for MV), written the way a desktop RPG Maker game writes them.
-Copy them into a desktop game's save/ folder to continue there, or copy that
+They are in ${saves}, one file per slot (fileN${ext}), written the way a
+desktop RPG Maker ${engine === "MV" ? "MV" : "MZ"} game writes them, in the same place.
+Copy them into a desktop game's ${saves} folder to continue there, or copy that
 folder's saves in here. Nothing leaves this PC: the launcher's server answers
 the game's save calls itself.
 
@@ -467,23 +514,23 @@ site. Play here, then copy a save over if you want to continue on the site.
 
 Host it on a web domain
 -----------------------
-This folder has the standard RPG Maker layout: the web build is in www/. To
-publish it on a new domain, upload the CONTENTS of www/ to the domain (or point
-its web root at www/). The launcher files are only for playing here.
-
-Careful: www/ also holds this copy's saves, in www/save/. Delete that folder
-before uploading it anywhere public.
+${host}
 `;
+  }
 
   // The files a download leaves in the game folder so it can be played by
-  // double-clicking one of them. -> [{ rel, text }]
-  function launcherFiles() {
+  // double-clicking one of them, for the engine's layout. -> [{ rel, text }]
+  function launcherFiles(engine) {
+    const layout = layoutOf(engine);
+    const dir = layout.web || ".";
+    const where = layout.web ? `the ${layout.web}/ folder beside this file` : "the game in this folder";
+    const shell = shellLauncher(dir, where);
     return [
       { rel: SERVER_FILE, text: SERVER_SOURCE },
-      { rel: "Game.bat", text: BAT_LAUNCHER },
-      { rel: "Game.command", text: SHELL_LAUNCHER },
-      { rel: "Game.sh", text: SHELL_LAUNCHER },
-      { rel: "README.txt", text: README },
+      { rel: "Game.bat", text: batLauncher(dir, where) },
+      { rel: "Game.command", text: shell },
+      { rel: "Game.sh", text: shell },
+      { rel: "README.txt", text: readme(engine) },
     ];
   }
 
@@ -491,9 +538,9 @@ before uploading it anywhere public.
   // them on a second run keeps the folder playable after an older download).
   // A failure only warns: the game itself is complete, and any local server
   // plays it. -> true when every file was written.
-  async function writeLaunchers(dir) {
+  async function writeLaunchers(dir, engine) {
     try {
-      for (const file of launcherFiles()) {
+      for (const file of launcherFiles(engine)) {
         const handle = await dir.getFileHandle(file.rel, { create: true });
         const writable = await handle.createWritable();
         await writable.write(file.text);
@@ -507,7 +554,8 @@ before uploading it anywhere public.
   }
 
   //---------------------------------------------------------------------------
-  // The cloud saves of the account signed in, written into www/save/ so the
+  // The cloud saves of the account signed in, written into the layout's save/
+  // folder (www/save/ for MV, save/ for MZ) so the
   // copy starts with the player's own progress. Optional: the checkbox in the
   // confirmation (on by default) asks for them. They are the desktop game's
   // files, and the launcher's server reads them back.
@@ -542,6 +590,7 @@ before uploading it anywhere public.
 
   // -> how many save files were written. One unreadable save does not stop the
   // others, and a folder that refuses save/ only warns.
+  // webDir: the folder that holds the build's index.html.
   async function writeSaves(webDir, items) {
     let saveDir;
     try {
@@ -771,7 +820,7 @@ before uploading it anywhere public.
     else if (run.reason === "offline") RWK.toast("Connection lost. Start the download again to continue where it stopped.", "warn", 6000);
     else if (run.reason === "signin") RWK.toast("You are signed out. Reload the page, sign in, then start again.", "warn", 6000);
     else if (run.reason === "failed") RWK.toast(`${run.failed.length} file(s) did not download. Start again to retry them.`, "warn", 6000);
-    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in www/save/.` : ""), "info", 5000);
+    else RWK.toast(`Game saved to the folder "${latestFolder}": ${run.done} file(s), ${megabytes(run.bytes)}.` + (run.saves ? ` ${run.saves} save(s) in ${savesPath(layoutOf(RWK.engine))}.` : ""), "info", 5000);
   }
 
   // Reads the build's file list and the folder, asks, then writes. The folder
@@ -808,17 +857,24 @@ before uploading it anywhere public.
     }
 
     RWK.toast("Checking the folder…", "info", 2000);
-    // The standard RPG Maker layout: the web build goes into www/, so the
-    // folder can be uploaded to a new domain (serve www/) or dropped beside a
-    // desktop game's files. The launchers stay outside it, and the saves go in
-    // www/save/, where the launcher's server hands them to the game.
-    let webDir;
-    try {
-      webDir = await gameDir.getDirectoryHandle("www", { create: true });
-    } catch (e) {
-      RWK.toast(`Could not make the folder "${name}/www": ` + (e.message || e), "error", 5000);
-      return;
+    // The engine's desktop layout (LAYOUTS): MV's build goes into www/, MZ's
+    // straight into the game folder, so the folder matches a desktop copy of
+    // the game and rwk deploy reads it back. The saves go in save/ beside the
+    // build's index.html, where the launcher's server hands them to the game.
+    const layout = layoutOf(RWK.engine);
+    let webDir = gameDir;
+    if (layout.web) {
+      try {
+        webDir = await gameDir.getDirectoryHandle(layout.web, { create: true });
+      } catch (e) {
+        RWK.toast(`Could not make the folder "${name}/${layout.web}": ` + (e.message || e), "error", 5000);
+        return;
+      }
     }
+    // An MZ game downloaded before the layout followed the engine has its
+    // build in www/: the launchers now serve the top of the folder, so that
+    // copy is no longer used, and the host may delete it.
+    const stale = !layout.web && (await hasOldWww(gameDir));
     const { dirFor } = dirCacheFor(webDir);
     let plan;
     try {
@@ -829,11 +885,11 @@ before uploading it anywhere public.
     }
     const saves = await cloudSaves();
     if (!plan.todo.length) {
-      await writeLaunchers(gameDir); // an older download may not have them yet
+      await writeLaunchers(gameDir, RWK.engine); // an older download may not have them yet
       if (saves.length) {
         const copy = await RWK.choose(
           "Download game (folder)",
-          `Everything is already in "${name}".\n\nSave your ${saves.length} cloud save(s) into the save/ folder as well?`,
+          `Everything is already in "${name}".\n\nSave your ${saves.length} cloud save(s) into the ${savesPath(layout)} folder as well?`,
           [
             { label: "Save them", value: true, primary: true },
             { label: "Cancel", value: false, cancel: true },
@@ -842,7 +898,7 @@ before uploading it anywhere public.
         if (!copy) return;
         const written = await writeSaves(webDir, saves);
         RWK.toast(
-          written ? `${written} cloud save(s) saved to "www/save/".` : "Could not save the cloud saves. Try again.",
+          written ? `${written} cloud save(s) saved to "${savesPath(layout)}".` : "Could not save the cloud saves. Try again.",
           written ? "info" : "warn",
           5000
         );
@@ -854,8 +910,9 @@ before uploading it anywhere public.
 
     const lines = [`Save ${plan.todo.length} file(s), ${megabytes(plan.bytes)}, into the folder "${name}"?`];
     if (plan.skipped) lines.push(`${plan.skipped} file(s) are already there and are skipped.`);
+    if (stale) lines.push(`"${name}/www" is from an older download: an MZ game now goes at the top of the folder, as beside Game.exe. Delete www/ once this download is done.`);
     lines.push("Keep this page open while it runs. You can stop it and start again later: files already written are skipped.");
-    const answer = await askDownload(lines, saves.length);
+    const answer = await askDownload(lines, saves.length, savesPath(layout));
     if (!answer) return;
 
     const controller = new AbortController();
@@ -877,7 +934,7 @@ before uploading it anywhere public.
         // folder plays with a double-click. A stopped run writes none: half a
         // folder is not playable yet.
         if (result.reason === null) {
-          await writeLaunchers(gameDir);
+          await writeLaunchers(gameDir, RWK.engine);
           if (answer.saves) result.saves = await writeSaves(webDir, saves);
         }
         latest = result;
@@ -893,6 +950,18 @@ before uploading it anywhere public.
         if (pill) pill.render();
       }
     );
+  }
+
+  // Whether the game folder still holds the www/index.html of a download made
+  // before an MZ build went at the top of the folder. Looks only: nothing is made.
+  async function hasOldWww(gameDir) {
+    try {
+      const www = await gameDir.getDirectoryHandle("www");
+      await www.getFileHandle("index.html");
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // Called by the menu entry. showDirectoryPicker must run before any await,
@@ -1016,7 +1085,7 @@ before uploading it anywhere public.
   // cloud saves) a checkbox to copy them too, on by default. RWK.choose has
   // buttons only, and this needs a checkbox. -> { saves: boolean } when
   // Download was pressed, null when cancelled.
-  function askDownload(lines, saveCount) {
+  function askDownload(lines, saveCount, saveFolder) {
     return new Promise((resolve) => {
       const overlay = el("div", { className: "rwk-modal" });
       const box = el("div", { className: "rwk-modal-box" });
@@ -1028,7 +1097,7 @@ before uploading it anywhere public.
         const row = el("label", { className: "rwk-dl-saves" });
         checkbox = el("input", { type: "checkbox" });
         checkbox.checked = true;
-        row.append(checkbox, el("span", { textContent: `Also save my cloud saves (${saveCount} save${saveCount === 1 ? "" : "s"}) into www/save/` }));
+        row.append(checkbox, el("span", { textContent: `Also save my cloud saves (${saveCount} save${saveCount === 1 ? "" : "s"}) into ${saveFolder}` }));
         box.appendChild(row);
       }
       const actions = el("div", { className: "rwk-modal-actions" });
@@ -1095,8 +1164,9 @@ before uploading it anywhere public.
         message.textContent = `Saving ${megabytes(active.run.bytes)} of ${megabytes(active.run.bytesTotal)} · ${active.run.done} of ${active.run.total} files into "${active.folder}"`;
         note.textContent = active.run.skipped ? `${active.run.skipped} file(s) were already in the folder and were skipped.` : "";
       } else if (run && run.reason === null) {
-        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, in www/.`;
-        note.textContent = "Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve www/ and open the game in your browser. It saves into www/save/, the desktop game's own format.";
+        const layout = layoutOf(RWK.engine);
+        message.textContent = `Saved ${run.done} file(s), ${megabytes(run.bytes)}, to the folder "${latestFolder}". It holds the same build the site serves, ${layout.web ? `in ${layout.web}/` : "at the top of the folder"}, as a desktop ${RWK.engine === "MV" ? "MV" : "MZ"} game has it.`;
+        note.textContent = `Play it with Game.bat (Windows) or Game.sh (macOS / Linux): they serve the game and open it in your browser. It saves into ${savesPath(layout)}, the desktop game's own format.`;
       } else if (run) {
         message.textContent = `${run.done} of ${run.total} file(s) were written before the download stopped.`;
         note.textContent = "Start it again from ⚙ → Share → Download game (folder): files already written are skipped, so only the rest is fetched.";
@@ -1112,7 +1182,7 @@ before uploading it anywhere public.
   }
 
   // The pure parts, for the tests (no DOM, no File System Access API).
-  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom, launcherFiles, desktopSave, cloudSaves, writeSaves };
+  RWK.download = { folderPlan, pathSegments, keyOf, signedOut, folderNameFrom, launcherFiles, layoutOf, desktopSave, cloudSaves, writeSaves };
 
   //---------------------------------------------------------------------------
   // The menu entries. /api/download?check=1 answers 403 to everyone but the
