@@ -13,7 +13,7 @@ import { guidedEdit } from "../lib/config-wizard.js";
 import { IDENTITY_KEYS, getSetting, parseAssignment, setSetting, splitKey } from "../lib/config-keys.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { readPolicy } from "../lib/policy.js";
-import { keysNeedingDeploy, liveSettingsOf } from "../lib/stage.js";
+import { keysForUpgrade, keysNeedingDeploy, liveSettingsOf } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
 import { CliError, NeedsAnswer, ask, c, isUnattended, log } from "../lib/ui.js";
 import { addNewKeys, editInEditor } from "./deploy.js";
@@ -101,11 +101,15 @@ export async function editConfig(input, { get, set } = {}) {
   await saveLiveSettings(bucket, storageIdOf(cfg), liveSettingsOf(cfg.engine, cfg, policy));
   log.ok("Config saved to R2.");
   const rebuild = keysNeedingDeploy(before, cfg);
+  const upgradable = keysForUpgrade(before, cfg, rebuild);
+  const deployOnly = rebuild.filter((k) => !upgradable.includes(k));
+  const quoted = (keys) => keys.map((k) => `"${k}"`).join(", ");
   return {
     ...siteOf(cfg),
     next: [
       "Players get the new settings the next time they open the game (within a minute).",
-      ...(rebuild.length ? [`Run rwk deploy again to apply ${rebuild.map((k) => `"${k}"`).join(", ")}: only a deploy changes these.`] : []),
+      ...(deployOnly.length ? [`Run rwk deploy again to apply ${quoted(deployOnly)}: only a deploy changes these.`] : []),
+      ...(upgradable.length ? [`Run rwk upgrade ${cfg.slug} to apply ${quoted(upgradable)} (no game folder needed)${deployOnly.length ? ", or let that deploy do it" : ", or rwk deploy from the game folder"}.`] : []),
     ],
   };
 }
