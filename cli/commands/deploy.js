@@ -44,7 +44,7 @@ import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { PROJECT_FILE, readProjectFile, showProjectFile, withProjectPatterns } from "../lib/project.js";
 import { newSiteKey, siteOfFolder, sitesOfGame } from "../lib/sites.js";
-import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, planSteps } from "../lib/ui.js";
+import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, planSteps, warnings } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
 // dryRun (rename and saves import only; deploy --dry-run is analyze): reads R2, then says what would
@@ -471,6 +471,7 @@ async function retireWorkers(cfg) {
 
 const ACCESS_TOKEN_HINT =
   'Give the API token the "Access: Apps and Policies → Edit" and "Access: Organizations, Identity Providers, and Groups → Read" permissions (see the guide, "Run without questions"), or run the command once in a terminal.';
+let accessHintShown = false;
 
 // The Bypass application for /_lens (worker/lens.js): MakerLens links carry their
 // own token, which the Worker checks. Not fatal: the rest of the game works without it.
@@ -489,7 +490,9 @@ export async function ensureLensBypass(cfg, account) {
     } catch (err) {
       if (!(err instanceof AccessApiError)) throw err;
       // The API error itself is not shown: the dashboard steps below do the same job.
-      if (err.denied) log.info(ACCESS_TOKEN_HINT);
+      // Said once per run: the Access step may have shown it already.
+      if (err.denied && !accessHintShown) log.info(ACCESS_TOKEN_HINT);
+      accessHintShown ||= err.denied;
     }
   }
   if ((await lensBypassByHand(cfg, account, host)) !== "off") return false;
@@ -558,6 +561,7 @@ async function accessThroughApi(cfg, account, email) {
     return true;
   } catch (err) {
     if (!(err instanceof AccessApiError)) throw err;
+    if (err.denied) accessHintShown = true;
     return fail(err.denied ? `${err.message}\n${ACCESS_TOKEN_HINT}` : err.message);
   }
 
@@ -567,7 +571,15 @@ async function accessThroughApi(cfg, account, email) {
   }
 }
 
+// The warnings on the way (API refused, "not protected yet" before a re-check)
+// are gone from the closing summary once Access is on in the end.
 async function setupAuth(cfg, account, policy, email) {
+  const mark = warnings.length;
+  await chooseAuth(cfg, account, policy, email);
+  if (cfg.auth.mode === "access" && isAuthReady(cfg.auth)) warnings.splice(mark);
+}
+
+async function chooseAuth(cfg, account, policy, email) {
   log.step("Access protection");
   if (isUnattended()) {
     // Nobody to ask: Access is the only safe answer, and a public site stays a person's call.
