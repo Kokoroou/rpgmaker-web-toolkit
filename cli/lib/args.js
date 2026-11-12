@@ -23,9 +23,12 @@ export const COMMANDS = [
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
     targets: ["folder"],
-    options: { name: "The site name on the first deploy, without the question (default: the name in rwk.json, else from the folder's name); a published game must already have it" },
-    switches: { "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)" },
-    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy --dry-run   (in the game folder)"],
+    options: { name: "The site name on the first deploy, without the question (default: the name in rwk.json, else from the folder's name); for a published game, which of its sites to update" },
+    switches: {
+      "new-site": "Publish the game as one more site, beside the ones it has (e.g. my-game-v2): its own link, settings and saves",
+      "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)",
+    },
+    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy ./game --new-site --name my-game-v2", "rwk deploy ./game --name my-game-v2   (update that site)", "rwk deploy --dry-run   (in the game folder)"],
   },
   {
     name: "analyze",
@@ -43,6 +46,7 @@ export const COMMANDS = [
     name: "saves import",
     summary: "Upload the game's save/ folder to the cloud (overwrites same-name cloud saves)",
     targets: ["folder"],
+    options: { name: "Which of the game's sites, when it has several (default: the name in rwk.json, else the question)" },
     switches: { "dry-run": "List the saves that would be uploaded and where, and upload nothing" },
     examples: ['rwk saves import "D:\\Games\\My Game"'],
   },
@@ -60,7 +64,7 @@ export const COMMANDS = [
     name: "rename",
     summary: "Move the site to a new name (address); saves carry over",
     targets: ["folder"],
-    options: { to: "The new site name; without it the command asks" },
+    options: { to: "The new site name; without it the command asks", name: "Which of the game's sites to rename, when it has several (default: the name in rwk.json, else the question)" },
     switches: { "dry-run": "Check the new name and say what the rename would do; changes nothing" },
     examples: ['rwk rename "D:\\Games\\My Game" --to new-name'],
   },
@@ -248,7 +252,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -264,6 +268,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         verbose: { type: "boolean" },
         "dry-run": { type: "boolean" },
         purge: { type: "boolean" },
+        "new-site": { type: "boolean" },
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
@@ -293,6 +298,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     noColor: !!values["no-color"],
     dryRun: !!values["dry-run"],
     purge: !!values.purge,
+    newSite: !!values["new-site"],
     help: !!values.help,
     version: !!values.version,
     account: values.account,
@@ -337,7 +343,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
   }
   if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
-  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge]]) {
+  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;

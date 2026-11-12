@@ -38,7 +38,7 @@ test("args: analyze, doctor and deploy --dry-run", () => {
   const dry = parse(["deploy", "--dry-run", "g"]);
   assert.deepEqual([dry.spec.name, dry.target, dry.flags.dryRun], ["deploy", "g", true]);
   assert.equal(parse(["deploy", "g"]).flags.dryRun, false);
-  assert.match(commandHelp(dry.spec), /Usage:\n  rwk deploy <game folder> \[--name <site name>\] \[--dry-run\] \[flags\]/);
+  assert.match(commandHelp(dry.spec), /Usage:\n  rwk deploy <game folder> \[--name <site name>\] \[--new-site\] \[--dry-run\] \[flags\]/);
   assert.match(commandHelp(dry.spec), /--dry-run\s+Only check the game/);
   assert.equal(parse(["rename", "g", "--to", "n", "--dry-run"]).flags.dryRun, true);
   assert.equal(parse(["saves", "import", "g", "--dry-run"]).flags.dryRun, true);

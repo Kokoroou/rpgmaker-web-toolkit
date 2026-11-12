@@ -4,7 +4,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { detectEngine, engineOf, markerList } from "./engines.js";
-import { CliError } from "./ui.js";
 
 // Top-level folders a browser build needs.
 const WEB_DIRS = new Set(["audio", "css", "data", "effects", "fonts", "icon", "img", "js", "movies"]);
@@ -249,9 +248,3 @@ export function findGameBySite(configs, name) {
   );
 }
 
-// The stored config of the game in a folder -> [fingerprint, cfg]
-export function publishedEntry(configs, game, folder) {
-  const cfg = configs[game.fingerprint];
-  if (!cfg) throw new CliError("This game is not published yet, so there is nothing to upgrade.", { hint: `Publish it first: rwk deploy "${folder}"` });
-  return [game.fingerprint, cfg];
-}

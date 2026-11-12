@@ -40,13 +40,14 @@ import { engineOf } from "../lib/engines.js";
 import { connect, siteOf } from "../lib/session.js";
 import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
-import { PROJECT_FILE, readProjectFile, showProjectFile, siteNameFor, withProjectPatterns } from "../lib/project.js";
+import { PROJECT_FILE, readProjectFile, showProjectFile, withProjectPatterns } from "../lib/project.js";
+import { newSiteKey, siteOfFolder, sitesOfGame } from "../lib/sites.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, planSteps } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
 // dryRun (rename and saves import only; deploy --dry-run is analyze): reads R2, then says what would
 // happen and stops; nothing in the account is created or changed.
-export async function deploy(inputPath, { importOnly = false, rename = false, to, dryRun = false, name } = {}) {
+export async function deploy(inputPath, { importOnly = false, rename = false, to, dryRun = false, name, newSite = false } = {}) {
   const usage = importOnly ? 'rwk saves import "<game folder>"' : rename ? 'rwk rename "<game folder>" --to <new name>' : 'rwk deploy "<game folder>"';
   if (!inputPath) {
     inputPath = await ask("Drag and drop or paste the game folder path", "", null, { hint: `Pass it after the command: ${usage}` });
@@ -66,30 +67,37 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   const settings = loadSettings();
   const { email, account } = await connect(settings);
   const bucket = DEFAULT_BUCKET;
-  if (dryRun) return preview(game, policy, await loadConfigsIfAny(bucket), { inputPath, rename, to });
+  if (dryRun) return preview(game, policy, await loadConfigsIfAny(bucket), { inputPath, rename, to, name, project });
   await ensureBucket(bucket, account.id);
 
   const configs = await loadGameConfigs(bucket);
   let saved = "";
+  // The site's key in the configs: the game's fingerprint for its first site (see sites.js).
+  let key = null;
   // Writes the shared config back to R2, skipping the call when nothing changed.
   const saveGameConfig = async () => {
     const next = JSON.stringify(cfg);
     if (next === saved) return;
-    configs[game.fingerprint] = cfg;
+    configs[key] = cfg;
     await saveGameConfigs(bucket, configs);
     saved = next;
   };
 
-  let cfg = configs[game.fingerprint];
-  const slug = checkSiteName(siteNameFor(name, project, cfg), cfg, takenNames(configs, game.fingerprint), inputPath);
+  const site = await siteOfFolder(configs, game, { name, project, newSite, folder: inputPath });
+  let cfg = site.cfg;
+  key = site.key;
   if (cfg) {
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
   } else if (rename) {
     throw new CliError("This game is not published yet, so it has no site to rename.", { hint: `Publish it first: rwk deploy "${inputPath}"` });
   } else {
-    log.info("First deploy of this game: answer a few questions (Enter = use the default).");
-    cfg = await createConfig(game, takenNames(configs, game.fingerprint), slug, project);
+    // Every other site's name is taken, the game's own sites too.
+    const taken = takenNames(configs, null);
+    const slug = checkSiteName(site.name, null, taken, inputPath);
+    log.info(`${newSite && sitesOfGame(configs, game.fingerprint).length ? "New site of this game" : "First deploy of this game"}: answer a few questions (Enter = use the default).`);
+    cfg = await createConfig(game, taken, slug, project);
+    key = newSiteKey(configs, game.fingerprint, cfg.slug);
   }
   await addNewKeys(game, cfg);
   // Kept for upgrade, which has no game folder to read it from.
@@ -99,7 +107,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   // Then deploys as usual, under the new name.
   if (rename) {
     const from = cfg.slug;
-    if (!(await renameSite(cfg, takenNames(configs, game.fingerprint), to))) return siteOf(cfg);
+    if (!(await renameSite(cfg, takenNames(configs, key), to))) return siteOf(cfg);
     await saveGameConfig();
     if (project && project.name === from) log.info(`Change "name" in ${PROJECT_FILE} to "${cfg.slug}" too.`);
   }
@@ -324,7 +332,7 @@ async function createConfig(game, takenSlugs, name, project) {
     (await ask("Site name (becomes <name>.<username>.workers.dev)", suggestSlug(game), (v) => {
       const problem = validateSlug(v);
       if (problem) return problem;
-      return takenSlugs.has(v) ? `"${v}" is already used by another game; choose another name.` : null;
+      return takenSlugs.has(v) ? `"${v}" is already used by another site; choose another name.` : null;
     }, { hint: "Pass it with --name <site name>." }));
   if (name) log.ok(`Site name: ${name}`);
 

@@ -7,6 +7,8 @@
 import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
 import { loadGameConfigs, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
+import { readProjectFile } from "../lib/project.js";
+import { publishedSiteOf } from "../lib/sites.js";
 import { guidedEdit } from "../lib/config-wizard.js";
 import { IDENTITY_KEYS, getSetting, parseAssignment, setSetting, splitKey } from "../lib/config-keys.js";
 import { checkFeatureConfig } from "../lib/features.js";
@@ -46,9 +48,7 @@ export async function editConfig(input, { get, set } = {}) {
   let fingerprint;
   let cfg;
   if (game) {
-    fingerprint = game.fingerprint;
-    cfg = configs[fingerprint];
-    if (!cfg) throw new CliError("This game is not published yet, so it has no settings to edit.", { hint: `Publish it first: rwk deploy "${target.value}"` });
+    [fingerprint, cfg] = await publishedSiteOf(configs, game, { project: readProjectFile(game), folder: target.value, command: "config" });
     await addNewKeys(game, cfg);
     // Recorded from the game folder, for the commands that have none.
     const policy = readPolicy(game);

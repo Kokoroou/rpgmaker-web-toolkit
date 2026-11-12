@@ -7,7 +7,9 @@
 
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
 import { apiToken, downloadOwnersForUpgrade, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
-import { analyzeGame, findGameBySite, publishedEntry, storageIdOf } from "../lib/game.js";
+import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
+import { readProjectFile } from "../lib/project.js";
+import { publishedSiteOf } from "../lib/sites.js";
 import { applyPolicy, isIndexable, readPolicy } from "../lib/policy.js";
 import { checkFeatureConfig } from "../lib/features.js";
 import { RUNTIME_PLUGINS, TOOLKIT_VERSION, guardSource, liveSettingsOf, runtimeConfigOf, runtimeSources, translateWorker } from "../lib/stage.js";
@@ -40,7 +42,7 @@ export async function upgrade(input) {
 
   log.step("Finding the game");
   const configs = await loadGameConfigs(bucket);
-  const [fingerprint, cfg] = game ? publishedEntry(configs, game, target.value) : findGameBySite(configs, siteNameOf(target));
+  const [fingerprint, cfg] = game ? await publishedSiteOf(configs, game, { project: readProjectFile(game), folder: target.value, command: "upgrade" }) : findGameBySite(configs, siteNameOf(target));
   log.ok(`${cfg.engine} · ${cfg.title}${game ? ` (site name: ${cfg.slug})` : ""}`);
   if (cfg.url) log.info(c.dim(cfg.url));
   const stored = JSON.stringify(cfg);
