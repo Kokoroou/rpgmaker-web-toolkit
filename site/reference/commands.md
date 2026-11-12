@@ -40,7 +40,7 @@ Flags may come before or after the command. A command comes first, then the game
 
 | Command | Does | Target | Guide |
 |---|---|---|---|
-| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game without uploading it again; the game files stay as uploaded. From a folder it only reads the site name and the creator's policy | folder, link, name | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
@@ -90,7 +90,8 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
-| `--name <site name>` | Only `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it |
+| `--name <site name>` | `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it. For a game with [several sites](/setup/updating#publish-a-second-site-of-the-same-game), `deploy`, `rename` and `saves import` take it to say which one |
+| `--new-site` | Only `deploy`: publish the game as one more site beside the ones it has, with its own link, settings and saves. See [Publish a second site](/setup/updating#publish-a-second-site-of-the-same-game) |
 | `--to <name>` | Only `rename`: the new site name |
 | `--purge` | Only `delete`: also deletes what the game keeps in R2 |
 | `--email <address>`, `--out <folder>` | `saves export`: whose saves, and where to write them. `saves delete`: whose saves |

@@ -72,7 +72,7 @@ async function main() {
 
   switch (name) {
     case "deploy":
-      return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name });
+      return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name, newSite: flags.newSite });
     case "analyze":
       return analyze(target);
     case "login":
@@ -90,11 +90,11 @@ async function main() {
     case "upgrade":
       return upgrade(target);
     case "saves import":
-      return deploy(target, { importOnly: true, dryRun: flags.dryRun });
+      return deploy(target, { importOnly: true, dryRun: flags.dryRun, name: flags.name });
     case "config":
       return editConfig(target, { get: flags.get, set: flags.set });
     case "rename":
-      return deploy(target, { rename: true, to: flags.to, dryRun: flags.dryRun });
+      return deploy(target, { rename: true, to: flags.to, dryRun: flags.dryRun, name: flags.name });
     case "status":
       return status(target);
     case "saves export":

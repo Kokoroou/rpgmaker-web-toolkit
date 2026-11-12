@@ -85,4 +85,31 @@ Without `--to`, it asks for the new site name. It then deploys the game under it
 
 Players open the new link. On their devices, saves come from the cloud on the first visit; saves that were never uploaded (made offline) stay on the old address.
 
+## Publish a second site of the same game
+
+To keep a version online while players try another (`game1v1` and `game1v2`, for example), publish the folder once more as a new site:
+
+```powershell
+& $rwk deploy "D:\Games\My Game" --new-site --name game1v2     # Windows
+```
+
+```sh
+rwk deploy ~/Games/"My Game" --new-site --name game1v2          # macOS / Linux
+```
+
+Unlike [`rename`](#change-the-site-address), the first site stays as it is. The new site is a site of its own, set up like a first deploy (the questions, then [Access](/setup/access)):
+
+- its link, `https://game1v2.<username>.workers.dev`;
+- its settings (`rwk config game1v2`), Access application and player list;
+- its own cloud saves: a player starts it without the first site's saves. A player carries one over with [Export](/play/save-files) on the first site and [Import](/play/save-files#import) on the new one; `rwk saves export game1v1 --email <address>` keeps a copy of all of them.
+
+From then on, a command given the game **folder** asks which site it means. Name it with `--name` (`deploy`, `rename`, `saves import`), with [`"name"` in `rwk.json`](/reference/config#rwk-json-in-the-game-folder) (one per branch of a repository, for example), or give the command the site name or link instead of the folder (`rwk upgrade game1v2`). A run without a terminal stops with exit code 2 rather than guess. Commands given a link or a site name work as before. `rwk list` says which sites are the same game.
+
+```sh
+rwk deploy ~/Games/"My Game" --name game1v2     # update game1v2 only
+rwk delete game1v1                               # retire the first site; game1v2 stays
+```
+
+Each site counts as one Worker on the [free plan](/reference/limits), and its files over 25 MiB are stored once more in R2.
+
 Other commands, and running a fixed toolkit version: [Commands](/reference/commands).

@@ -47,7 +47,7 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 `{}` locks the site on the next deploy and runs the Access setup again. `{ "mode": "none" }` makes it public, after asking why.
 :::
 
-All games' settings live in `rwk/games.json` in the R2 bucket `rpgmaker-web-toolkit`, keyed by `fingerprint` ([storage](/reference/how-it-works#storage)).
+All games' settings live in `rwk/games.json` in the R2 bucket `rpgmaker-web-toolkit`, keyed by `fingerprint`, and `<fingerprint>@<first site name>` for each [further site of a game](/setup/updating#publish-a-second-site-of-the-same-game) ([storage](/reference/how-it-works#storage)).
 
 ## rwk.json in the game folder
 
@@ -63,7 +63,7 @@ The settings above live in your Cloudflare account. A few can also travel with t
 
 | Key | Meaning |
 |---|---|
-| `name` | The site name of the first deploy, so neither the question nor `--name` is needed. A published game keeps its name: when they differ, the toolkit warns and uses the published one ([`rename`](/setup/updating#change-the-site-address) moves the site) |
+| `name` | The site name of the first deploy, so neither the question nor `--name` is needed. A published game keeps its name: when they differ, the toolkit warns and uses the published one ([`rename`](/setup/updating#change-the-site-address) moves the site). For a game published as [several sites](/setup/updating#publish-a-second-site-of-the-same-game), the site commands from the folder work on |
 | `include` | Added to the `include` above: extra top-level folders / files to publish, or patterns of files to keep. A folder listed here is not asked about on the first deploy |
 | `exclude` | Added to the `exclude` above: patterns of files to leave out |
 

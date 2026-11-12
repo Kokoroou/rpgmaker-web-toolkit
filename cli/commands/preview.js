@@ -7,6 +7,7 @@ import { listSaveFiles } from "../lib/cloudflare.js";
 import { takenNames, validateSlug } from "../lib/game.js";
 import { applyPolicy } from "../lib/policy.js";
 import { siteOf } from "../lib/session.js";
+import { siteOfFolder } from "../lib/sites.js";
 import { CliError, ask, log } from "../lib/ui.js";
 
 // --name: the first deploy's site name, or a check that the published game has it.
@@ -51,16 +52,17 @@ export async function askNewName(cfg, taken, to) {
   return slug;
 }
 
-export async function preview(game, policy, configs, { inputPath, rename, to }) {
-  const cfg = configs[game.fingerprint];
+export async function preview(game, policy, configs, { inputPath, rename, to, name, project }) {
+  const { key, cfg } = await siteOfFolder(configs, game, { name, project, folder: inputPath });
   const command = rename ? "rename" : "saves import";
+  const which = name !== undefined ? ` --name ${name}` : "";
   if (!cfg) throw new CliError(`This game is not published yet, so there is nothing to ${rename ? "rename" : "import saves into"}.`, { hint: `Check what a first deploy would do: rwk deploy --dry-run "${inputPath}"` });
   log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
   const done = (facts, todo) => ({ ...siteOf(cfg), dryRun: true, facts, next: [todo ? `Nothing was changed. To do it: ${todo}` : "Nothing was changed."] });
 
   if (rename) {
-    const slug = await askNewName(cfg, takenNames(configs, game.fingerprint), to);
-    return done([["New name", slug]], `rwk ${command} "${inputPath}" --to ${slug}`);
+    const slug = await askNewName(cfg, takenNames(configs, key), to);
+    return done([["New name", slug]], `rwk ${command} "${inputPath}"${which} --to ${slug}`);
   }
 
   log.step("Local saves");
@@ -76,5 +78,5 @@ export async function preview(game, policy, configs, { inputPath, rename, to }) 
   log.info(`Found ${saves.length} save(s) in ${game.saveDir}: ${saves.map((s) => s.name).join(", ")}`);
   const owner = cfg.auth?.mode === "none" ? "the site's shared saves (a public site has no sign-in)" : "the email you sign in with through Access (asked when you run it)";
   log.info(`They would go to ${owner}, overwriting cloud saves with the same name.`);
-  return done([["Saves", `${saves.length} would be uploaded`]], `rwk ${command} "${inputPath}"`);
+  return done([["Saves", `${saves.length} would be uploaded`]], `rwk ${command} "${inputPath}"${which}`);
 }

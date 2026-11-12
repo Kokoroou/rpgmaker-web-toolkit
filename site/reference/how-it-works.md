@@ -115,7 +115,7 @@ A script upload with `keep_assets: true` also keeps the files, but it keeps the 
 Static files are **Workers Static Assets** (free, unmetered bandwidth). One R2 bucket, `rpgmaker-web-toolkit`, holds the rest:
 
 ```
-rwk/games.json                       settings of every game (keyed by fingerprint)
+rwk/games.json                       settings of every site (keyed by fingerprint; fingerprint@<name> for a game's further sites)
 assets/<slug>/<path>                 files over 25 MiB
 assets/<slug>/.rwk-manifest.json     hashes of those files
 assets/<slug>/rwk.zip                the whole web build, for the host's Download game (ZIP); only with "download": { "zip": true }
