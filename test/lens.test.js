@@ -222,11 +222,28 @@ test("upgrade: a game deployed before links gets its owner from the account that
   assert.deepEqual(lensOwnersForUpgrade({}, "me@example.com"), [userHash("me@example.com")], "no owners stored yet: the upgrading account");
   assert.deepEqual(lensOwnersForUpgrade({ lensOwners: ["abc"] }, "other@example.com"), ["abc"], "what the deploy stored is kept");
   assert.deepEqual(lensOwnersForUpgrade({ lens: false }, "me@example.com"), [], "switched off stays off");
-  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [] }, "me@example.com"), [], "a stored empty list (off at deploy) is not overridden");
+  assert.deepEqual(lensOwnersForUpgrade({ lens: false, lensOwners: ["abc"] }, "me@example.com"), [], "turned off after the deploy: off");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [] }, "me@example.com"), [userHash("me@example.com")], "off at deploy, back on in the config: the upgrading account");
+  assert.deepEqual(lensOwnersForUpgrade({ lensOwners: [], lens: { owners: ["a@example.com"] } }, "me@example.com"), [userHash("me@example.com"), userHash("a@example.com")], "with the config's owners");
 });
 
 test("purge removes the link records too", () => {
   const keys = purgeObjects([{ key: "rwk/lens/my-game/aabbccddeeff.json", size: 1 }, { key: "rwk/lens/other/x.json", size: 1 }], "my-game").map((o) => o.key);
   assert.ok(keys.includes("rwk/lens/my-game/aabbccddeeff.json"));
   assert.ok(!keys.includes("rwk/lens/other/x.json"));
+});
+
+test("lens bypass: a game with links off is never asked about, nor the site probed", async () => {
+  const { ensureLensBypass } = await import("../cli/commands/deploy.js");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    throw new Error("no request expected");
+  };
+  try {
+    const account = { id: "acc" };
+    assert.equal(await ensureLensBypass({ lens: false, lensOwners: ["abc"], url: BASE, slug: "g" }, account), false);
+    assert.equal(await ensureLensBypass({ lensOwners: [], url: BASE, slug: "g" }, account), false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

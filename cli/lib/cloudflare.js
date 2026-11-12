@@ -600,10 +600,13 @@ export function lensOwnersOf(cfg, email) {
   return [...new Set(emails.map(userHash))];
 }
 
-// The owners for rwk upgrade: what the last deploy stored, or, for a game deployed
-// before MakerLens links, worked out from the account that runs the upgrade.
+// The owners for rwk upgrade: what the last deploy stored, or, when it stored none
+// (a game deployed before MakerLens links, or one whose links were off and that
+// "lens" now turns back on), worked out from the account that runs the upgrade:
+// so links can come back with rwk config + rwk upgrade, without the game folder.
 export function lensOwnersForUpgrade(cfg, email) {
-  if (Array.isArray(cfg.lensOwners)) return cfg.lensOwners;
+  if (cfg.lens === false) return [];
+  if (Array.isArray(cfg.lensOwners) && cfg.lensOwners.length) return cfg.lensOwners;
   return lensOwnersOf(cfg, email);
 }
 
