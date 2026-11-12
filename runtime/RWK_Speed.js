@@ -65,7 +65,9 @@
   function refresh() {
     if (!button) return;
     button.classList.toggle("rwk-active", toggled || holds > 0);
-    button.querySelector("small").textContent = "×" + speed;
+    // A plain round button: the speed is in its name and in the ⚙ menu.
+    button.title = `Fast forward ×${speed} (tap: on / off, hold: while held)`;
+    button.setAttribute("aria-label", button.title);
   }
 
   function setToggled(on) {
@@ -116,15 +118,13 @@
   if (RWK.controls) {
     const style = document.createElement("style");
     style.textContent = `
-.rwk-tool.rwk-tool-speed{width:auto;min-width:calc(var(--u)*.66);padding:0 .45em;gap:.15em;border-radius:999px}
-.rwk-tool.rwk-tool-speed small{font-size:calc(var(--u)*.22)}
 .rwk-tool.rwk-tool-speed.rwk-active{background:rgba(90,140,255,.8);border-color:#fff}
 `;
     document.head.appendChild(style);
     let timer = 0;
     let held = false;
     button = RWK.controls.addTool(
-      RWK.icons.fastForward + "<small></small>",
+      RWK.icons.fastForward,
       "rwk-tool-speed",
       () => {
         clearTimeout(timer);

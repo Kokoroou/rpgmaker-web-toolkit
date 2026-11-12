@@ -578,6 +578,7 @@
     ),
     cloudAlert: svg('<path d="M12 12v4M12 20h.01"/><path d="M17 18h.5a1 1 0 0 0 0-9h-1.79A7 7 0 1 0 7 17.71"/>'),
     fastForward: svg('<path d="M13 19l9-7-9-7zM2 19l9-7-9-7z"/>'),
+    signal: svg('<path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/>'),
     gauge: svg('<path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>'),
     message: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7M17 12H7"/>'),
     list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
