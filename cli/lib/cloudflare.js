@@ -51,7 +51,7 @@ export function matchAccount(accounts, wanted) {
   return { error: `This login has no Cloudflare account "${wanted}"${all ? `. It has: ${all}` : ""}.` };
 }
 
-export async function ensureLogin(settings, { profile = activeProfile(), known = !!loadState().profiles[profile.name], readLogin = whoami } = {}) {
+export async function ensureLogin(settings, { profile = activeProfile(), known = !!loadState().profiles[profile.name], readLogin = whoami, browserLogin = logIn } = {}) {
   let who = await readLogin();
   // A profile nobody made is a typo more often than a wish to log in: rwk login makes it.
   if (!who.loggedIn && !envApiToken() && profile.name !== DEFAULT_PROFILE && !known) {
@@ -60,7 +60,7 @@ export async function ensureLogin(settings, { profile = activeProfile(), known =
   if (!who.loggedIn && isUnattended()) throw new NeedsAnswer(`Not logged in to Cloudflare. ${TOKEN_HINT}`);
   if (!who.loggedIn) {
     log.info("Not logged in to Cloudflare: a browser window will open to log in…");
-    who = await logIn();
+    who = await browserLogin();
   }
   const account = await pickAccount(who.accounts || [], settings);
   useAccount(account.id);
@@ -69,18 +69,18 @@ export async function ensureLogin(settings, { profile = activeProfile(), known =
 
 // Opens the browser to log in to the run's profile (a new one, or again in an existing one,
 // which may then be another Cloudflare login) -> whoami()
-export async function logIn(name = activeProfile().name) {
+export async function logIn(name = activeProfile().name, { run = wranglerOrThrow, readLogin = whoami } = {}) {
   log.info(`The toolkit only asks for: ${SCOPES.join(", ")}.`);
-  await wranglerOrThrow(["auth", "create", wranglerProfile(name), "--scopes", ...SCOPES], { interactive: true });
-  const who = await whoami();
+  await run(["auth", "create", wranglerProfile(name), "--scopes", ...SCOPES], { interactive: true });
+  const who = await readLogin();
   if (!who.loggedIn) throw new Error("Cloudflare login failed.");
   return who;
 }
 
 // Logs the profile out (Cloudflare revokes its token) and removes it from wrangler.
 // -> false when wrangler had no such profile
-export async function logOut(name = activeProfile().name) {
-  const res = await wrangler(["auth", "delete", wranglerProfile(name)], { quiet: true });
+export async function logOut(name = activeProfile().name, { run = wrangler } = {}) {
+  const res = await run(["auth", "delete", wranglerProfile(name)], { quiet: true });
   if (res.code === 0) return true;
   if (/does not exist/i.test(res.output)) return false;
   const tail = res.output.trim().split("\n").slice(-4).join("\n");

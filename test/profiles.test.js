@@ -8,8 +8,10 @@ import path from "node:path";
 import test from "node:test";
 import { commandHelp, COMMANDS, generalHelp, parseCommandLine } from "../cli/lib/args.js";
 import { runChecks } from "../cli/commands/doctor.js";
-import { login, logout, profiles, useProfile } from "../cli/commands/login.js";
-import { ensureLogin, pickAccount } from "../cli/lib/cloudflare.js";
+import { login, logout, profiles, useProfile, whoamiCommand } from "../cli/commands/login.js";
+import { ensureLogin, logIn, logOut, pickAccount } from "../cli/lib/cloudflare.js";
+import { connect } from "../cli/lib/session.js";
+import { useEnvToken } from "../cli/lib/wrangler.js";
 import { activeProfile, loadSettings, loadState, normalizeState, saveSettings, setProfileFlag, validateProfileName, wranglerProfileOf } from "../cli/lib/config.js";
 import { NeedsAnswer, setQuiet, setUnattended } from "../cli/lib/ui.js";
 
@@ -205,4 +207,66 @@ test("doctor: names the profile it checks", async () => {
   assert.match(out.find((x) => x.label === "Cloudflare login").hint, /rwk login --profile work/);
   const def = await runChecks({ ...base, getToken: async () => "tok", profile: { name: "default", from: "default" } });
   assert.equal(def.find((x) => x.label === "Cloudflare login").detail, "the toolkit's own login");
+});
+
+test("ensureLogin: not logged in, in a terminal: the browser login, then the account", async (t) => {
+  quietly(t);
+  const who = { loggedIn: true, email: "a@example.com", accounts: [{ id: "a1", name: "Alice" }] };
+  const session = await ensureLogin({}, { profile: { name: "default", from: "default" }, known: false, readLogin: async () => ({ loggedIn: false }), browserLogin: async () => who });
+  assert.deepEqual(session, { email: "a@example.com", account: { id: "a1", name: "Alice" } });
+});
+
+test("logIn / logOut: the profile's own wrangler auth profile", async (t) => {
+  quietly(t);
+  const runs = [];
+  const who = { loggedIn: true, email: "b@example.com", accounts: [] };
+  const run = async (args) => {
+    runs.push(args);
+    return { code: 0, output: "" };
+  };
+  assert.equal(await logIn("work", { run, readLogin: async () => who }), who);
+  assert.deepEqual(runs[0].slice(0, 3), ["auth", "create", "rpgmaker-web-toolkit-work"]);
+  assert.ok(runs[0].includes("--scopes"));
+  await assert.rejects(logIn("work", { run, readLogin: async () => ({ loggedIn: false }) }), /login failed/);
+
+  assert.equal(await logOut("default", { run }), true);
+  assert.deepEqual(runs.at(-1), ["auth", "delete", "rpgmaker-web-toolkit"]);
+  assert.equal(await logOut("work", { run: async () => ({ code: 1, output: 'Profile "rpgmaker-web-toolkit-work" does not exist.' }) }), false);
+  await assert.rejects(logOut("work", { run: async () => ({ code: 1, output: "boom" }) }), /auth delete failed \(exit code 1\)\nboom/);
+});
+
+test("connect: saves the account and email in the run's profile, not with a token", async (t) => {
+  quietly(t);
+  t.after(() => useEnvToken({}));
+  setProfileFlag("work");
+  const saved = [];
+  const logInto = async (settings) => {
+    settings.accountId = "b1";
+    return { email: "b@example.com", account: { id: "b1", name: "Bob" } };
+  };
+  const session = await connect({}, { logInto, save: (s, name) => saved.push([name, s]) });
+  assert.equal(session.account.id, "b1");
+  assert.deepEqual(saved, [["work", { accountId: "b1", accountName: "Bob", email: "b@example.com" }]]);
+
+  useEnvToken({ CLOUDFLARE_API_TOKEN: "tok" });
+  await connect({}, { logInto, save: (s, name) => saved.push([name, s]) });
+  assert.equal(saved.length, 1, "a token run leaves the profiles as they are");
+});
+
+test("whoami: the profile's login and accounts, or how to log in", async (t) => {
+  quietly(t);
+  setProfileFlag("work");
+  const mem = memoryState({ profiles: { work: { accountId: "b2" } } });
+  const accounts = [
+    { id: "b1", name: "Bob" },
+    { id: "b2", name: "Team" },
+  ];
+  const result = await whoamiCommand({ ...mem, whoami: async () => ({ loggedIn: true, email: "b@example.com", accounts }) });
+  assert.equal(result.profile, "work");
+  assert.equal(result.email, "b@example.com");
+  assert.equal(result.accountId, "b2");
+  assert.deepEqual(result.facts[0], ["Login", "profile work, from --profile"]);
+  await assert.rejects(whoamiCommand({ ...mem, whoami: async () => ({ loggedIn: false }) }), (err) => /Not logged in/.test(err.message) && /rwk login --profile work/.test(err.hint));
+  setProfileFlag("default");
+  await assert.rejects(whoamiCommand({ ...mem, whoami: async () => ({ loggedIn: false }) }), (err) => err.hint === "Log in: rwk login");
 });

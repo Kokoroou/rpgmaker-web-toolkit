@@ -9,13 +9,13 @@ import { log } from "./ui.js";
 // The run's result (cli/lib/report.js) for a command that stops before the build.
 export const siteOf = (cfg) => ({ site: cfg.slug, url: cfg.url || null });
 
-export async function connect(settings) {
+export async function connect(settings, { logInto = ensureLogin, save = saveSettings } = {}) {
   log.step("Cloudflare");
-  const session = await ensureLogin(settings);
+  const session = await logInto(settings);
   const profile = activeProfile();
   // A CI token is not a profile's login: it leaves the profiles as they are.
   if (!envApiToken()) {
-    saveSettings({ accountId: settings.accountId, accountName: session.account.name, ...(session.email ? { email: session.email } : {}) }, profile.name);
+    save({ accountId: settings.accountId, accountName: session.account.name, ...(session.email ? { email: session.email } : {}) }, profile.name);
   }
   const login = envApiToken() ? "" : profile.name !== DEFAULT_PROFILE ? ` (profile ${profile.name}${session.email ? `, ${session.email}` : ""})` : session.email ? ` (${session.email})` : "";
   log.ok(`Account: ${session.account.name}${login}`);
