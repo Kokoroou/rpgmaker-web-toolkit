@@ -88,7 +88,7 @@ export async function whoamiCommand(deps = {}) {
     throw new CliError(`Not logged in (${source}).`, { hint: `Log in: rwk login${profile.name === DEFAULT_PROFILE ? "" : ` --profile ${profile.name}`}` });
   }
   log.ok(`${source}: ${who.email || "email not readable with this token"}`);
-  for (const a of who.accounts) log.info(`${a.id === entry.accountId ? c.green("•") : " "} ${a.name} (${a.id})`);
+  log.table(who.accounts.map((a) => [a.id === entry.accountId ? c.green("•") : " ", `${a.name} (${a.id})`]));
   return {
     profile: envApiToken() ? null : profile.name,
     email: who.email || null,
@@ -112,12 +112,10 @@ export async function profiles(deps = {}) {
   if (!names.includes(DEFAULT_PROFILE)) names.unshift(DEFAULT_PROFILE);
   names.sort((a, b) => (a === DEFAULT_PROFILE ? -1 : b === DEFAULT_PROFILE ? 1 : a.localeCompare(b)));
   log.step("Login profiles");
-  const width = Math.max(...names.map((n) => n.length)) + 2;
-  for (const name of names) {
+  log.table(names.map((name) => {
     const entry = state.profiles[name];
-    const mark = name === used ? c.green("•") : " ";
-    log.info(`${mark} ${name.padEnd(width)}${entry ? describe(entry) : c.dim("not logged in yet")}`);
-  }
+    return [`${name === used ? c.green("•") : " "} ${name}`, entry ? describe(entry) : c.dim("not logged in yet")];
+  }));
   log.info(c.dim("(• the one commands use) Add one: rwk login --profile <name>. Switch: rwk profiles use <name>."));
   return {
     profile: used,

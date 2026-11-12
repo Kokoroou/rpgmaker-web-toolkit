@@ -83,3 +83,25 @@ test("terminal: colors and symbols follow NO_COLOR, TERM and the locale", () => 
   assert.equal(supportsUnicode({ RWK_ASCII: "1" }), false);
   assert.equal(supportsUnicode({ TERM: "dumb" }), false);
 });
+
+test("upgrade: several games or --all", () => {
+  const several = parse(["upgrade", "one", "two", "https://three.alice.workers.dev"]);
+  assert.deepEqual(several.targets, ["one", "two", "https://three.alice.workers.dev"]);
+  assert.deepEqual(parse(["upgrade", "one"]).targets, ["one"]);
+  assert.deepEqual(parse(["upgrade"]).targets, []);
+  assert.deepEqual(parse(["upgrade", "D:\\Games\\My", "Game"]).targets, ["D:\\Games\\My Game"], "a path with spaces stays one game");
+  assert.equal(parse(["upgrade", "--all"]).flags.all, true);
+  assert.throws(() => parse(["upgrade", "--all", "one"]), (err) => err.exitCode === 64 && /--all takes no game/.test(err.message));
+  assert.throws(() => parse(["deploy", "g", "--all"]), (err) => err.exitCode === 64 && /Unknown option --all/.test(err.message));
+  assert.match(commandHelp(COMMANDS.find((cmd) => cmd.name === "upgrade")), /rwk upgrade <game folder \| game link \| site name>\.\.\. \[--all\]/);
+});
+
+test("help: commands listed by group, each once", () => {
+  const help = generalHelp();
+  const at = ["Publish:", "Manage a site:", "Cloud saves:", "Account:"].map((g) => help.indexOf(g));
+  assert.ok(at.every((n) => n >= 0) && at.every((n, i) => !i || n > at[i - 1]), "groups in order");
+  for (const cmd of COMMANDS) {
+    assert.ok(cmd.group, `${cmd.name} has a group`);
+    assert.equal(help.split("\n").filter((l) => l.startsWith(`  ${cmd.name.padEnd(Math.max(...COMMANDS.map((x) => x.name.length)) + 2)}`)).length, 1, cmd.name);
+  }
+});

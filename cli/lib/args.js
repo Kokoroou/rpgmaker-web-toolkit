@@ -18,7 +18,16 @@ const TARGET_HELP = {
   profile: "the login profile's name",
 };
 
-export const COMMANDS = [
+// Commands by what they are for; `rwk --help` lists them in this order.
+const GROUP_ORDER = ["Publish", "Manage a site", "Cloud saves", "Account"];
+const GROUP_OF = {
+  deploy: "Publish", analyze: "Publish", upgrade: "Publish", rename: "Publish", delete: "Publish",
+  list: "Manage a site", status: "Manage a site", open: "Manage a site", logs: "Manage a site", config: "Manage a site",
+  "saves import": "Cloud saves", "saves export": "Cloud saves", "saves move": "Cloud saves", "saves delete": "Cloud saves",
+  login: "Account", logout: "Account", whoami: "Account", profiles: "Account", "profiles use": "Account", doctor: "Account",
+};
+
+const SPECS = [
   {
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
@@ -28,19 +37,21 @@ export const COMMANDS = [
       "new-site": "Publish the game as one more site, beside the ones it has (e.g. my-game-v2): its own link, settings and saves",
       "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)",
     },
-    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy ./game --new-site --name my-game-v2", "rwk deploy ./game --name my-game-v2   (update that site)", "rwk deploy --dry-run   (in the game folder)"],
+    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy ./game --new-site --name my-game-v2", "rwk deploy ./game --name my-game-v2   # update that site", "rwk deploy --dry-run   # in the game folder"],
   },
   {
     name: "analyze",
-    summary: "Check the game without Cloudflare: warnings and file count; logs in to nothing, changes nothing",
+    summary: "Check a game folder for web problems: warnings and file count (no login, nothing published)",
     targets: ["folder"],
-    examples: ['rwk analyze "D:\\Games\\My Game"', "rwk analyze --json   (in the game folder)"],
+    examples: ['rwk analyze "D:\\Games\\My Game"', "rwk analyze --json   # in the game folder"],
   },
   {
     name: "upgrade",
-    summary: "Update the toolkit of a deployed game; the game files stay as uploaded",
+    summary: "Update the toolkit of deployed games (several at once, or --all); the game files stay as uploaded",
     targets: ["folder", "link", "name"],
-    examples: ["rwk upgrade https://my-game.alice.workers.dev", "rwk upgrade my-game", "rwk upgrade   (in the game folder: its site name, nothing uploaded)"],
+    multiple: true,
+    switches: { all: "Update every game in this Cloudflare account, skipping the ones already on this toolkit version" },
+    examples: ["rwk upgrade my-game", "rwk upgrade my-game other-game https://third.alice.workers.dev", "rwk upgrade --all", "rwk upgrade   # in the game folder: its site name, nothing uploaded"],
   },
   {
     name: "saves import",
@@ -52,7 +63,7 @@ export const COMMANDS = [
   },
   {
     name: "config",
-    summary: "Change the game's settings (buttons, features, files…) by answering questions, or one at a time with --get / --set",
+    summary: "Change the game's settings (buttons, features, files…) by questions, or one at a time with --get / --set",
     targets: ["folder", "link", "name"],
     options: {
       get: "Print one setting and change nothing, e.g. --get fastForward.maxSpeed",
@@ -97,7 +108,7 @@ export const COMMANDS = [
   },
   {
     name: "logs",
-    summary: "Show the site's Worker logs as they happen, until Ctrl+C",
+    summary: "Show the site's Worker logs live, until Ctrl+C",
     targets: ["link", "name"],
     examples: ["rwk logs my-game"],
   },
@@ -122,13 +133,13 @@ export const COMMANDS = [
   },
   {
     name: "login",
-    summary: "Log in to Cloudflare in the browser, in the profile --profile names (default: the current one); later commands use it",
+    summary: "Log in to Cloudflare in the browser, in a profile (--profile; default: the current one)",
     targets: [],
-    examples: ["rwk login", "rwk login --profile work   (another email: a second login)", "rwk login --profile work --account Team"],
+    examples: ["rwk login", "rwk login --profile work   # another email: a second login", "rwk login --profile work --account Team"],
   },
   {
     name: "logout",
-    summary: "Log out of the profile --profile names (default: the current one) and forget it; its games stay published",
+    summary: "Log out of a profile (--profile; default: the current one); its games stay published",
     targets: [],
     examples: ["rwk logout --profile work"],
   },
@@ -158,6 +169,9 @@ export const COMMANDS = [
   },
 ];
 
+// Sorted by group (the list above keeps each command's own order within it).
+export const COMMANDS = SPECS.map((spec) => ({ ...spec, group: GROUP_OF[spec.name] })).sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group));
+
 const GROUPS = [...new Set(COMMANDS.filter((cmd) => cmd.name.includes(" ")).map((cmd) => cmd.name.split(" ")[0]))];
 
 export const FLAGS = [
@@ -178,7 +192,7 @@ export const FLAGS = [
 const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
-  const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>` : "";
+  const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>${spec.multiple ? "..." : ""}` : "";
   const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${OPTION_VALUES[o] || "value"}>]`).join("") : "";
   const switches = spec.switches ? Object.keys(spec.switches).map((o) => ` [--${o}]`).join("") : "";
   return `rwk ${spec.name}${target}${options}${switches} [flags]`;
@@ -193,11 +207,9 @@ export function generalHelp(bold = (s) => s) {
     bold("Usage:"),
     "  rwk <command> [<target>] [flags]",
     "",
-    bold("Commands:"),
-    ...COMMANDS.map((cmd) => `  ${cmd.name.padEnd(width)}${cmd.summary}`),
-    "",
+    ...GROUP_ORDER.flatMap((group) => [bold(`${group}:`), ...COMMANDS.filter((cmd) => cmd.group === group).map((cmd) => `  ${cmd.name.padEnd(width)}${cmd.summary}`), ""]),
     bold("The target"),
-    "  One argument names the game, in any form the command accepts:",
+    "  The game, in any form the command accepts (upgrade takes several links or site names):",
     `    ${"folder".padEnd(8)}${"the game folder on this PC".padEnd(28)}~/Games/"My Game"`,
     `    ${"link".padEnd(8)}${"the deployed game's link".padEnd(28)}https://my-game.alice.workers.dev`,
     `    ${"name".padEnd(8)}${"the site name".padEnd(28)}my-game`,
@@ -252,7 +264,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
+//   { spec, target, targets (the games named: several only for a command with `multiple`), flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, all, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -269,6 +281,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         "dry-run": { type: "boolean" },
         purge: { type: "boolean" },
         "new-site": { type: "boolean" },
+        all: { type: "boolean" },
         "no-color": { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
@@ -299,6 +312,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     dryRun: !!values["dry-run"],
     purge: !!values.purge,
     newSite: !!values["new-site"],
+    all: !!values.all,
     help: !!values.help,
     version: !!values.version,
     account: values.account,
@@ -343,12 +357,16 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
   }
   if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
-  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite]]) {
+  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite], ["all", flags.all]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;
   // An unquoted path with spaces arrives as several words: join them back.
   const rest = words.slice(spec.name.split(" ").length);
   result.target = rest.length ? rest.join(" ") : undefined;
+  // Several games: each word is a link or a site name (a path with spaces is not).
+  result.targets = rest.length ? [result.target] : [];
+  if (spec.multiple && rest.length > 1 && rest.every((word) => ["link", "name"].includes(classifyTarget(word).kind))) result.targets = rest;
+  if (flags.all && result.targets.length) throw new UsageError("--all takes no game: it updates every game in the account.", { hint: `Usage: ${usageOf(spec)}` });
   return result;
 }

@@ -62,7 +62,7 @@ async function main() {
   }
 
   // No target: the current directory, when it holds a game.
-  if (spec && !target && spec.targets.includes("folder")) {
+  if (spec && !target && !flags.all && spec.targets.includes("folder")) {
     const here = currentGameFolder();
     if (here) {
       target = here;
@@ -88,7 +88,8 @@ async function main() {
     case "doctor":
       return doctor({ envTokenIgnored: !isUnattended() && !!process.env.CLOUDFLARE_API_TOKEN });
     case "upgrade":
-      return upgrade(target);
+      // Several games: the words as parsed; one game (maybe a folder with spaces): the target, which may be the folder found above.
+      return upgrade(cli.targets.length > 1 ? cli.targets : target, { all: flags.all });
     case "saves import":
       return deploy(target, { importOnly: true, dryRun: flags.dryRun, name: flags.name });
     case "config":

@@ -111,10 +111,10 @@ export async function list(deps = {}) {
   for (const cfg of games) count[cfg.fingerprint] = (count[cfg.fingerprint] || 0) + 1;
   const others = (cfg) => (cfg.fingerprint && count[cfg.fingerprint] > 1 ? games.filter((x) => x !== cfg && x.fingerprint === cfg.fingerprint).map((x) => x.slug) : []);
   log.step("Games in this account");
-  for (const cfg of games) {
+  log.table(games.map((cfg) => {
     const also = others(cfg);
-    log.info(`${cfg.slug.padEnd(24)} ${cfg.engine}  ${cfg.url || c.dim("(no link recorded)")}${also.length ? c.dim(`  same game as ${also.join(", ")}`) : ""}`);
-  }
+    return [cfg.slug, `${cfg.engine}  ${cfg.url || c.dim("(no link recorded)")}${also.length ? c.dim(`  same game as ${also.join(", ")}`) : ""}`];
+  }));
   if (!games.length) log.info("None yet: rwk deploy <game folder>");
   return {
     sites: games.map((cfg) => ({ site: cfg.slug, url: cfg.url || null, engine: cfg.engine, title: cfg.title, sameGame: others(cfg) })),
