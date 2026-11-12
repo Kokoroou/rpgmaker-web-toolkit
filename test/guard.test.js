@@ -624,6 +624,17 @@ test("process: no require, so the engine still sees a browser", () => {
   assert.equal(typeof process === "object" && typeof win.require === "function", false, "so Utils.isNwjs() is false");
 });
 
+test("process: MZ main.js still boots the game (isPathRandomized)", () => {
+  // RPG Maker MZ main.js, Main.isPathRandomized(), run from onWindowLoad:
+  // with `process` an object it reads process.mainModule.filename, and a throw
+  // there leaves the game on a black screen.
+  const { process } = loadWithProcess();
+  const isPathRandomized = () =>
+    typeof process === "object" && process.mainModule.filename.startsWith("/private/var");
+  assert.doesNotThrow(isPathRandomized);
+  assert.equal(isPathRandomized(), false, "the game boots instead of asking to move Game.app");
+});
+
 test("process: a real process the page already has is kept, not replaced", () => {
   const real = { versions: { "node-webkit": "0.60.0" }, keep: true };
   const { process } = loadWithProcess({ process: real });
