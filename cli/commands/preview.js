@@ -43,12 +43,11 @@ export async function askNewName(cfg, taken, to) {
         });
   const access = cfg.auth.mode === "access";
   log.info("What the rename does:");
-  log.info(`  1. The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`);
-  if (access) {
-    log.info("  2. Cloudflare Access is set up again for the new address (the steps open in the browser).");
-    log.info("     Emails you allowed on the old site must be allowed again in the new Access policy.");
-  }
-  log.info(`  ${access ? 3 : 2}. The old Worker "${cfg.slug}" is deleted: its link stops working.`);
+  log.list([
+    `The game is deployed as a new Worker "${slug}". Saves and older saves carry over.`,
+    ...(access ? ["Cloudflare Access is set up again for the new address (the steps open in the browser).\nEmails you allowed on the old site must be allowed again in the new Access policy."] : []),
+    `The old Worker "${cfg.slug}" is deleted: its link stops working.`,
+  ]);
   return slug;
 }
 

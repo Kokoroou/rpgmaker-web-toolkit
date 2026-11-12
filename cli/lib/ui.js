@@ -63,18 +63,39 @@ function stepNumber() {
   return c.dim(`[${n}/${total}]`) + " ";
 }
 
+// One margin for every line of the log: a message starts two columns in, a
+// detail under it four. A message of several lines keeps its margin on each
+// line (hanging indent: the lines after the first line up with its text).
+const MARGIN = "  ";
+const visibleLength = (s) => [...String(s).replace(/\x1b\[[0-9;]*m/g, "")].length;
+export function indented(prefix, msg) {
+  const hang = " ".repeat(visibleLength(prefix));
+  return `${prefix}${String(msg).split("\n").join(`\n${hang}`)}`;
+}
+
 export const log = {
   step: (msg) => say(`\n${c.cyan(sym.step)} ${stepNumber()}${c.bold(msg)}`),
-  info: (msg) => say(`  ${msg}`),
-  ok: (msg) => say(`  ${c.green(sym.ok)} ${msg}`),
+  info: (msg) => say(indented(MARGIN, msg)),
+  // A detail of the line above it, one level in.
+  sub: (msg) => say(indented(`${MARGIN}${MARGIN}`, msg)),
+  // A bold line inside a step (a part of it that is not a numbered step itself).
+  phase: (msg) => say(indented(MARGIN, c.bold(msg))),
+  // A numbered or bulleted list: the number in the margin, text lines up under the text.
+  list: (items) => items.forEach((item, i) => say(indented(`${MARGIN}${i + 1}. `, item))),
+  // Rows of label + value, the values in one column.
+  table: (rows) => {
+    const width = Math.max(0, ...rows.map(([label]) => visibleLength(label)));
+    rows.forEach(([label, value]) => say(indented(`${MARGIN}${label}${" ".repeat(width - visibleLength(label))}  `, value)));
+  },
+  ok: (msg) => say(indented(`${MARGIN}${c.green(sym.ok)} `, msg)),
   warn: (msg) => {
     warnings.push(msg);
-    print(`  ${c.yellow(sym.warn)} ${msg}`);
+    print(indented(`${MARGIN}${c.yellow(sym.warn)} `, msg));
   },
   // What went wrong, then what to do about it.
   error: (msg, hint) => {
-    print(`${c.red(sym.error)} ${msg}`);
-    if (hint) print(`  ${c.cyan(sym.arrow)} ${hint}`);
+    print(indented(`${c.red(sym.error)} `, msg));
+    if (hint) print(indented(`${MARGIN}${c.cyan(sym.arrow)} `, hint));
   },
 };
 

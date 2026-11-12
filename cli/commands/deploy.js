@@ -246,7 +246,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
       worker.playerSettings = perPlayerSettings(game.engine, cfg, policy);
       await publishSettings();
       // Part of the Access step, so the numbered steps stay as planned.
-      log.info(c.bold("Redeploying with access protection"));
+      log.phase("Redeploying with access protection");
       url = await deployWorker(writeWorkerProject({ ...worker, auth: cfg.auth, locked: false }));
     } else {
       log.warn("The site is still locked. Run this command again to finish setting up access protection.");
@@ -254,7 +254,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   }
   if (cfg.auth.mode === "access" && cfg.url && isAuthReady(cfg.auth) && (await ensureLensBypass(cfg, account))) {
     await saveGameConfig();
-    log.info(c.bold("Redeploying without MakerLens links"));
+    log.phase("Redeploying without MakerLens links");
     await deployWorker(writeWorkerProject({ ...worker, lensOwners: [], auth: cfg.auth, locked: false }));
   }
   if (authReady && cfg.auth.mode === "access" && cfg.url) {
@@ -367,7 +367,7 @@ async function createConfig(game, takenSlugs, name, project) {
   cfg.controls.scannedKeys = keys.map((k) => k.key);
   if (keys.length) {
     log.info("The game's plugins use keys a touch screen cannot press:");
-    for (const k of keys) log.info(`    ${c.bold(k.key.padEnd(10))} ${c.dim(k.plugins.join(", "))}`);
+    log.table(keys.map((k) => [c.bold(k.key), c.dim(k.plugins.join(", "))]));
   } else {
     log.info("No plugin uses special keys.");
   }
@@ -482,10 +482,14 @@ export async function ensureLensBypass(cfg, account) {
   if (!lensBypassWanted(cfg)) return false;
   const host = new URL(cfg.url).hostname;
   if ((await probeLensBypass(cfg.url)).open) return false; // already works (made by hand or by an earlier deploy)
+  // Warnings on the way ("still answers for /_lens" before a re-check) are gone from
+  // the closing summary once the bypass works or the person turned the links off.
+  const mark = warnings.length;
   const token = await apiToken();
   if (token) {
     try {
       await enableLensBypass({ token, accountId: account.id, slug: cfg.slug, url: cfg.url });
+      warnings.splice(mark);
       return false;
     } catch (err) {
       if (!(err instanceof AccessApiError)) throw err;
@@ -495,7 +499,9 @@ export async function ensureLensBypass(cfg, account) {
       accessHintShown ||= err.denied;
     }
   }
-  if ((await lensBypassByHand(cfg, account, host)) !== "off") return false;
+  const byHand = await lensBypassByHand(cfg, account, host);
+  if (byHand !== "later") warnings.splice(mark);
+  if (byHand !== "off") return false;
   cfg.lens = false;
   cfg.lensOwners = [];
   log.ok("MakerLens links are off for this game; later deploys do not ask about them.");
@@ -525,8 +531,8 @@ async function lensBypassByHand(cfg, account, host) {
   if (first !== "now") return first;
   const dash = page(account.id);
   log.info("Follow these steps in the browser (opening Zero Trust → Access controls → Applications → Create new application):");
-  lines.forEach(([what, value], i) => log.info(`  ${i + 1}. ${what}: ${c.bold(value)}`));
-  log.info(c.dim(`  ${dash}`));
+  log.list(lines.map(([what, value]) => `${what}: ${c.bold(value)}`));
+  log.sub(c.dim(dash));
   openBrowser(dash);
 
   for (;;) {
@@ -607,12 +613,14 @@ async function chooseAuth(cfg, account, policy, email) {
   log.info("Doing it in the dashboard instead:");
   const dash = `https://dash.cloudflare.com/${account.id}/workers/services/view/${cfg.slug}/production/access`;
   log.info("Follow these steps in the browser (opening the Worker's Access page):");
-  log.info(`  1. Select ${c.bold("Protect this Worker behind Access")}.`);
-  log.info(`  2. Scope: ${c.bold("All traffic")} (${c.bold("Previews only")} leaves the game itself open).`);
-  log.info(`  3. Authentication policy: ${c.bold("Add policy")} → ${c.bold("Cloudflare account")}, then ${c.bold("Apply Access")}.`);
-  log.info("  4. If Cloudflare asks to set up Zero Trust (first time): pick a team name and the Free plan.");
-  log.info(`  Only the Cloudflare account's email may sign in at first. To invite players, see "Protect the site and invite players" in the guide.`);
-  log.info(c.dim(`  ${dash}`));
+  log.list([
+    `Select ${c.bold("Protect this Worker behind Access")}.`,
+    `Scope: ${c.bold("All traffic")} (${c.bold("Previews only")} leaves the game itself open).`,
+    `Authentication policy: ${c.bold("Add policy")} → ${c.bold("Cloudflare account")}, then ${c.bold("Apply Access")}.`,
+    "If Cloudflare asks to set up Zero Trust (first time): pick a team name and the Free plan.",
+  ]);
+  log.info(`Only the Cloudflare account's email may sign in at first. To invite players, see "Protect the site and invite players" in the guide.`);
+  log.sub(c.dim(dash));
   openBrowser(dash);
 
   for (;;) {

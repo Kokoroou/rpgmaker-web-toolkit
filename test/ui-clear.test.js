@@ -71,3 +71,20 @@ test("confirm with clear erases its line", async () => {
   assert.equal(yes, true);
   assert.equal(erased(text), 1);
 });
+
+test("log: a message of several lines keeps its margin; tables line up", async () => {
+  const { indented, log, setQuiet } = await import("../cli/lib/ui.js");
+  assert.equal(indented("  1. ", "a\nb"), "  1. a\n     b");
+  assert.equal(indented("  ! ", "\x1b[33mx\x1b[0m\ny"), "  ! \x1b[33mx\x1b[0m\n    y", "colour codes take no width");
+  const lines = [];
+  const original = console.error;
+  console.error = (m) => lines.push(m);
+  try {
+    setQuiet(false);
+    log.table([["a", "1"], ["longer", "2"]]);
+    log.list(["one", "two\nmore"]);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(lines.join("\n").split("\n"), ["  a       1", "  longer  2", "  1. one", "  2. two", "     more"]);
+});
