@@ -286,6 +286,7 @@ function loadUi({
   files = [{ rel: "index.html", size: 4 }, { rel: "js/main.js", size: 6 }],
   saves = [],
   enc = "latin1",
+  engine = "MZ",
 } = {}) {
   const { doc, make } = fakeDom();
   const fs = fakeFs(doc);
@@ -295,7 +296,7 @@ function loadUi({
   const win = {
     RWK: {
       config: { gameId: "g", sync: { enabled: true } },
-      engine: "MZ",
+      engine,
       tools: { add: (t) => tools.push(t) },
       icons: { download: "<svg/>", folderOpen: "<svg/>" },
       toast: (message) => toasts.push(message),
@@ -394,17 +395,29 @@ const all = (node, out = []) => {
 };
 const byLabel = (node, label) => all(node).find((n) => n.tagName === "BUTTON" && n.textContent === label);
 
-test("folder download: the build goes into www/ inside a folder named after the game", async () => {
+test("folder download: an MZ build goes at the top of a folder named after the game, as beside Game.exe", async () => {
   const ui = loadUi();
   await ui.flushStart(); // the picker, then start(), which stops at the question
   assert.ok(ui.fs.dirs.has("root/Test Game"), "a folder named after the game, inside the one picked");
-  assert.ok(ui.fs.dirs.has("root/Test Game/www"), "the web build goes into www/, the standard layout");
+  assert.equal(ui.fs.dirs.has("root/Test Game/www"), false, "no www/: a desktop MZ game has none");
+  await ui.confirm();
+  await ui.finished();
+  const game = ui.fs.dirs.get("root/Test Game");
+  assert.equal(game.files.get("index.html").size, 4, "the build is written into the game folder itself");
+  assert.ok(ui.fs.dirs.get("root/Test Game/js").files.has("main.js"));
+});
+
+test("folder download: an MV build goes into www/, as beside Game.exe", async () => {
+  const ui = loadUi({ engine: "MV" });
+  await ui.flushStart();
+  assert.ok(ui.fs.dirs.has("root/Test Game/www"), "MV's desktop layout keeps the build in www/");
   await ui.confirm();
   await ui.finished();
   assert.equal(ui.fs.dirs.get("root/Test Game/www").files.get("index.html").size, 4, "and the build is written into it");
+  assert.equal(ui.fs.dirs.get("root/Test Game").files.has("index.html"), false, "not beside the launchers");
 });
 
-test("folder download: a finished run leaves the launchers beside www/", async () => {
+test("folder download: a finished run leaves the launchers in the game folder (MZ)", async () => {
   const ui = loadUi();
   await ui.flushStart();
   await ui.confirm();
@@ -413,12 +426,54 @@ test("folder download: a finished run leaves the launchers beside www/", async (
   for (const name of ["Game.bat", "Game.command", "Game.sh", "rwk-serve.mjs", "README.txt"]) {
     assert.ok(game.files.has(name), name + " is written");
   }
-  assert.ok(!game.files.has("www"), "and not into www/");
-  assert.match(game.files.get("Game.bat").text, /--directory www/, "the Python fallback serves www/");
-  assert.match(game.files.get("rwk-serve.mjs").text, /join\(HERE, "www"\)/, "the Node server serves www/");
+  assert.match(game.files.get("Game.bat").text, /--directory \.\r?\n/, "the Python fallback serves the game folder");
+  assert.match(game.files.get("Game.sh").text, /--directory \. &/);
+  assert.match(game.files.get("README.txt").text, /in save\/, one file per slot \(fileN\.rmmzsave\)/);
+  assert.doesNotMatch(game.files.get("README.txt").text, /www/, "the MZ README never sends the host to a www/ that is not there");
 });
 
-test("folder download: the launcher's server answers the game's save calls from www/save/", async () => {
+test("folder download: a finished run leaves the launchers beside www/ (MV)", async () => {
+  const ui = loadUi({ engine: "MV" });
+  await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  const game = ui.fs.dirs.get("root/Test Game");
+  for (const name of ["Game.bat", "Game.command", "Game.sh", "rwk-serve.mjs", "README.txt"]) {
+    assert.ok(game.files.has(name), name + " is written");
+    assert.equal(ui.fs.dirs.get("root/Test Game/www").files.has(name), false, "and not into www/");
+  }
+  assert.match(game.files.get("Game.bat").text, /--directory www/, "the Python fallback serves www/");
+  assert.match(game.files.get("README.txt").text, /in www\/save\/, one file per slot \(fileN\.rpgsave\)/);
+});
+
+test("folder download: the launcher's server finds index.html where either layout has it", () => {
+  const { RWK } = load();
+  const server = RWK.download.launcherFiles("MZ").find((f) => f.rel === "rwk-serve.mjs").text;
+  // The game folder first (MZ, and an MZ copy that still has an older www/), then www/ (MV).
+  assert.match(server, /const ROOT = !existsSync\(join\(HERE, "index\.html"\)\) && existsSync\(join\(HERE, "www", "index\.html"\)\) \? join\(HERE, "www"\) : HERE;/);
+  // Beside an MZ build, the launchers are not the game's and are not served.
+  assert.match(server, /OWN_FILES = new Set\(\["rwk-serve\.mjs", "game\.bat", "game\.command", "game\.sh", "readme\.txt"\]\)/);
+  assert.match(server, /OWN_FILES\.has\(/);
+  assert.equal(RWK.download.layoutOf("MV").web, "www");
+  assert.equal(RWK.download.layoutOf("MZ").web, "");
+  assert.equal(RWK.download.layoutOf("XP").web, "", "anything unknown is treated as MZ, as the CLI does");
+});
+
+test("folder download: an MZ folder with an older download's www/ says it can go", async () => {
+  const ui = loadUi();
+  // What an earlier toolkit version left: the MZ build inside www/.
+  const game = await ui.fs.root.getDirectoryHandle("Test Game", { create: true });
+  const www = await game.getDirectoryHandle("www", { create: true });
+  await www.getFileHandle("index.html", { create: true });
+  await ui.flushStart();
+  const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  assert.match(all(ask).map((n) => n.textContent).join(" "), /"Test Game\/www" is from an older download/);
+  await ui.confirm();
+  await ui.finished();
+  assert.equal(ui.fs.dirs.get("root/Test Game").files.get("index.html").size, 4, "the build still goes at the top");
+});
+
+test("folder download: the launcher's server answers the game's save calls from save/", async () => {
   const ui = loadUi();
   await ui.flushStart();
   await ui.confirm();
@@ -427,14 +482,14 @@ test("folder download: the launcher's server answers the game's save calls from 
 
   // A downloaded copy has no site behind it: the save API has to come from the
   // server the launcher starts, or the game's saves have nowhere to go.
-  assert.match(server, /const SAVES = join\(ROOT, "save"\)/, "saves live in www/save/");
+  assert.match(server, /const SAVES = join\(ROOT, "save"\)/, "saves live in save/ beside index.html");
   assert.match(server, /pathname === "\/api\/saves"/, "the list the game asks for first");
   assert.match(server, /readFile\(file\)/, "GET hands a save back");
   assert.match(server, /writeFile\(file, saveFile\(buf, req\.headers\["x-rwk-enc"\]\)\)/, "PUT writes one");
   assert.match(server, /unlink\(file\)/, "DELETE removes one");
   // The extension is the engine's, read from the build rather than assumed.
   assert.match(server, /existsSync\(join\(ROOT, "js", "rmmz_core\.js"\)\) \? "\.rmmzsave" : "\.rpgsave"/);
-  // A name that could leave www/save/, and a body that is too big, are refused.
+  // A name that could leave save/, and a body that is too big, are refused.
   assert.match(server, /if \(!SAVE_RE\.test\(name\)\) return jsonReply\(res, 400/);
   assert.match(server, /size > MAX_SAVE\) throw new Error\("too large"\)/);
   // What a downloaded copy must not offer: it is already on this PC, and the
@@ -452,7 +507,7 @@ test("folder download: the launcher's server answers the game's save calls from 
   assert.match(server, /items\.push\(\{ name, size: st\.size, etag: etagOf\(st\)/, "and so does the list");
 });
 
-test("folder download: the checkbox copies the account's cloud saves into www/save/", async () => {
+test("folder download: the checkbox copies the account's cloud saves into save/ (MZ)", async () => {
   const ui = loadUi({ saves: ["file1", "global", "notes"] });
   await ui.flushStart();
   const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
@@ -462,13 +517,25 @@ test("folder download: the checkbox copies the account's cloud saves into www/sa
   byLabel(ask, "Download").click();
   await ui.finished();
 
-  const save = ui.fs.dirs.get("root/Test Game/www/save");
-  assert.ok(save, "a save/ folder inside www/, where the launcher's server reads it");
+  const save = ui.fs.dirs.get("root/Test Game/save");
+  assert.ok(save, "a save/ folder beside index.html, where a desktop MZ game and the launcher's server read it");
   assert.ok(save.files.has("file1.rmmzsave"), "MZ's extension");
   assert.ok(save.files.has("global.rmmzsave"));
   assert.equal(save.files.has("notes.rmmzsave"), false, "only the engine's own save names");
   // The blob was the engine string as latin1 bytes; the file is that string in UTF-8.
   assert.equal(Buffer.from(await save.files.get("file1.rmmzsave").bytes()).toString("utf8"), "save:file1");
+});
+
+test("folder download: the checkbox copies the account's cloud saves into www/save/ (MV)", async () => {
+  const ui = loadUi({ saves: ["file1"], engine: "MV" });
+  await ui.flushStart();
+  const ask = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  assert.match(all(ask).map((n) => n.textContent).join(" "), /into www\/save\//);
+  byLabel(ask, "Download").click();
+  await ui.finished();
+  const save = ui.fs.dirs.get("root/Test Game/www/save");
+  assert.ok(save && save.files.has("file1.rpgsave"), "MV keeps its saves in www/save/, with its own extension");
+  assert.equal(ui.fs.dirs.has("root/Test Game/save"), false);
 });
 
 test("folder download: unticking the checkbox leaves save/ out", async () => {
@@ -478,7 +545,7 @@ test("folder download: unticking the checkbox leaves save/ out", async () => {
   all(ask).find((n) => n.tagName === "INPUT").checked = false;
   byLabel(ask, "Download").click();
   await flush();
-  assert.equal(ui.fs.dirs.has("root/Test Game/www/save"), false, "no save/ folder");
+  assert.equal(ui.fs.dirs.has("root/Test Game/save"), false, "no save/ folder");
 });
 
 test("folder download: Hide and Cancel keep their identity across the progress redraws", async () => {

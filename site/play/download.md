@@ -25,11 +25,24 @@ While it runs the window has **Hide** and **Cancel**. **Hide** puts the toolkit 
 
 ### What the folder holds
 
-The folder has the **standard RPG Maker layout**, so it can be uploaded to a web domain or dropped beside a desktop game's files:
+The folder has the **same layout as a desktop copy of the game**, which differs between the two engines. The web build (exactly as the site serves it) goes where that engine's desktop game keeps it, and the saves go where that engine writes them. So the folder can be dropped beside or over a desktop game's files, and [`rwk deploy`](/reference/commands) can publish it again like any game.
 
-```
+::: code-group
+```text [MZ]
 My Game/
-├── www/            the whole web build, exactly as the site serves it
+├── index.html      the whole web build, as beside an MZ game's Game.exe
+├── js/  data/  img/  audio/  …
+├── save/           this copy's saves, when you play it (see below)
+├── Game.bat        Windows: double-click to play
+├── Game.command    macOS: double-click to play
+├── Game.sh         Linux: run "sh Game.sh"
+├── rwk-serve.mjs   the small server the launchers use
+└── README.txt
+```
+
+```text [MV]
+My Game/
+├── www/            the whole web build, as beside an MV game's Game.exe
 │   ├── index.html
 │   ├── js/  data/  img/  audio/  …
 │   └── save/       this copy's saves, when you play it (see below)
@@ -39,32 +52,35 @@ My Game/
 ├── rwk-serve.mjs   the small server the launchers use
 └── README.txt
 ```
+:::
+
+An MZ game downloaded with an older toolkit version has its build in `www/`. Download it again into the same place: the build now goes at the top of the folder, and the confirmation says the old `www/` can be deleted.
 
 ### Playing it
 
 **Double-click `Game.bat` (Windows) or `Game.command` (macOS), or run `sh Game.sh` (Linux).** The launcher starts a small web server and opens the game in your browser. It needs [Node.js](https://nodejs.org) 18 or newer, or Python 3 — either one is enough. `README.txt` says the same in the folder itself.
 
-The game cannot run by opening `www/index.html` directly: RPG Maker loads its data and plugins with `XMLHttpRequest`, which a `file://` page cannot use, and the game shows a black screen. Any local web server does the same job — for example `npx serve www` or `python -m http.server --directory www`.
+The game cannot run by opening `index.html` (MV: `www/index.html`) directly: RPG Maker loads its data and plugins with `XMLHttpRequest`, which a `file://` page cannot use, and the game shows a black screen. Any local web server does the same job — for example `npx serve` in the folder that holds `index.html`, or `python -m http.server`.
 
 ### Playing it without the site
 
-The copy plays on its own: **no internet, no sign-in, no cloud**. Its saves are files in `www/save/`, and the launcher's server answers the game's save calls from that folder, so saving works exactly as on a desktop game.
+The copy plays on its own: **no internet, no sign-in, no cloud**. Its saves are files in `save/` (MV: `www/save/`), and the launcher's server answers the game's save calls from that folder, so saving works exactly as on a desktop game.
 
 Only Node.js does that: the Python fallback serves files but has no save API, so the game keeps its saves in the browser's storage there. If saving matters, install Node.js.
 
 What the copy does not have, because it needs the site: cloud saves (there is one account per copy — yours, on this PC), the older copies of a save (⚙ → Saves → Older saves), and live translation. Play here, then copy a save over if you want to continue with your account.
 
-⚙ → Saves → **Cloud saves** still says *In sync* in a downloaded copy: the line reports whether the saves are written, and here they go to `www/save/` instead of the cloud. There is nothing to sign in to and no upload anywhere.
+⚙ → Saves → **Cloud saves** still says *In sync* in a downloaded copy: the line reports whether the saves are written, and here they go to `save/` (MV: `www/save/`) instead of the cloud. There is nothing to sign in to and no upload anywhere.
 
 ### Publishing it on a domain
 
-Upload the **contents of `www/`** to the new domain (or point its web root at `www/`). The launchers and `README.txt` are only for playing on this PC, and are not part of the build.
+Upload the build to the new domain: for **MZ**, the folder **without** `Game.bat`, `Game.command`, `Game.sh`, `rwk-serve.mjs` and `README.txt`; for **MV**, the **contents of `www/`** (or point the web root at `www/`). The launchers and `README.txt` are only for playing on this PC, and are not part of the build.
 
-**Delete `www/save/` first**, or this copy's saves go up with the game. Uploading with the toolkit instead is unaffected: `rwk deploy` never publishes a `save` folder.
+**Leave out `save/` (MV: `www/save/`)**, or this copy's saves go up with the game. Uploading with the toolkit instead is unaffected: `rwk deploy` never publishes a `save` folder.
 
 ### Your saves
 
-`www/save/` holds one file per slot (`fileN.rmmzsave` for MZ, `fileN.rpgsave` for MV), written the way a desktop RPG Maker game writes them. Copy them into a desktop game's `save/` folder to continue there, or copy that folder's saves in.
+`save/` (MZ) or `www/save/` (MV) holds one file per slot (`fileN.rmmzsave` for MZ, `fileN.rpgsave` for MV), written the way and in the place a desktop RPG Maker game writes them. Copy them into the desktop game's own save folder (the same path beside its `Game.exe`) to continue there, or copy that folder's saves in.
 
 When the download included your cloud saves (the checkbox, ticked by default), they are written there too, so the copy starts with your progress.
 
