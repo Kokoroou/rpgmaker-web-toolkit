@@ -14,6 +14,8 @@ import { classifyTarget, currentGameFolder } from "./lib/target.js";
 import { UsageError, ask, c, isUnattended, log, print, setColor, setLive, setQuiet, setUnattended, warnings } from "./lib/ui.js";
 import { useEnvToken } from "./lib/wrangler.js";
 import { setAccountFlag } from "./lib/cloudflare.js";
+import { setProfileFlag } from "./lib/config.js";
+import { login, logout, profiles, useProfile, whoamiCommand } from "./commands/login.js";
 
 const argv = process.argv.slice(2);
 const json = argv.includes("--json");
@@ -43,7 +45,11 @@ async function main() {
   setUnattended(cli.unattended);
   setQuiet(flags.quiet);
   setAccountFlag(flags.account);
-  if (isUnattended() && useEnvToken()) log.info(c.dim("Using the Cloudflare API token in CLOUDFLARE_API_TOKEN."));
+  setProfileFlag(flags.profile);
+  if (isUnattended() && useEnvToken()) {
+    log.info(c.dim("Using the Cloudflare API token in CLOUDFLARE_API_TOKEN."));
+    if (flags.profile) log.warn(`--profile ${flags.profile} is ignored: this run logs in with CLOUDFLARE_API_TOKEN.`);
+  }
 
   let { target } = cli;
   let name = spec && spec.name;
@@ -69,6 +75,16 @@ async function main() {
       return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name });
     case "analyze":
       return analyze(target);
+    case "login":
+      return login();
+    case "logout":
+      return logout();
+    case "whoami":
+      return whoamiCommand();
+    case "profiles":
+      return profiles();
+    case "profiles use":
+      return useProfile(target);
     case "doctor":
       return doctor({ envTokenIgnored: !isUnattended() && !!process.env.CLOUDFLARE_API_TOKEN });
     case "upgrade":

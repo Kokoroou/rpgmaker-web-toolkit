@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseCommandLine } from "../cli/lib/args.js";
 import { NeedsAnswer, ask, choose, confirm, isUnattended, pause, setUnattended } from "../cli/lib/ui.js";
-import { PROFILE, envApiToken, useEnvToken, wranglerRun } from "../cli/lib/wrangler.js";
+import { setProfileFlag } from "../cli/lib/config.js";
+import { envApiToken, useEnvToken, wranglerRun } from "../cli/lib/wrangler.js";
 
 test("non-interactive: --yes, --json or no terminal on stdin", () => {
   const parse = (args, stdinIsTTY = true) => parseCommandLine(args, { stdinIsTTY });
@@ -47,12 +48,16 @@ test("non-interactive: questions take their default, or stop the run", async (t)
 });
 
 test("non-interactive: CLOUDFLARE_API_TOKEN replaces the toolkit's login profile", (t) => {
-  t.after(() => useEnvToken({}));
+  t.after(() => {
+    useEnvToken({});
+    setProfileFlag(null);
+  });
+  setProfileFlag("default");
   const base = { PATH: "/bin", CLOUDFLARE_API_TOKEN: "tok", CF_API_KEY: "key", CLOUDFLARE_ACCOUNT_ID: "acc" };
 
   assert.equal(useEnvToken({}), false);
   const profile = wranglerRun(["deploy"], base);
-  assert.deepEqual(profile.args, ["deploy", "--profile", PROFILE]);
+  assert.deepEqual(profile.args, ["deploy", "--profile", "rpgmaker-web-toolkit"], "the default profile keeps the name it had before profiles");
   assert.equal(profile.env.CLOUDFLARE_API_TOKEN, undefined, "an interactive run ignores a token set for something else");
   assert.equal(profile.env.CF_API_KEY, undefined);
 
@@ -63,4 +68,8 @@ test("non-interactive: CLOUDFLARE_API_TOKEN replaces the toolkit's login profile
   assert.equal(token.env.CLOUDFLARE_API_TOKEN, "tok");
   assert.equal(token.env.CF_API_KEY, undefined, "other credentials are still dropped");
   assert.equal(token.env.WRANGLER_SEND_METRICS, "false");
+  setProfileFlag("work");
+  assert.deepEqual(wranglerRun(["deploy"], base).args, ["deploy"], "--profile is ignored with a token");
+  useEnvToken({});
+  assert.deepEqual(wranglerRun(["deploy"], base).args, ["deploy", "--profile", "rpgmaker-web-toolkit-work"]);
 });

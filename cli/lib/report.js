@@ -43,6 +43,11 @@ const DONE = {
   delete: "deleted",
   analyze: "checked, nothing published",
   doctor: "checks done",
+  login: "logged in",
+  logout: "logged out",
+  whoami: "login",
+  profiles: "login profiles",
+  "profiles use": "profile chosen",
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.

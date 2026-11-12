@@ -6,6 +6,7 @@
 // read, so a command is added here and nowhere else.
 
 import { parseArgs } from "node:util";
+import { validateProfileName } from "./config.js";
 import { validateSlug } from "./game.js";
 import { classifyTarget } from "./target.js";
 import { UsageError } from "./ui.js";
@@ -14,6 +15,7 @@ const TARGET_HELP = {
   folder: "the game folder",
   link: "the game's link",
   name: "the site name",
+  profile: "the login profile's name",
 };
 
 export const COMMANDS = [
@@ -115,6 +117,36 @@ export const COMMANDS = [
     examples: ["rwk delete my-game", "rwk saves export my-game --email me@example.com && rwk delete my-game --purge"],
   },
   {
+    name: "login",
+    summary: "Log in to Cloudflare in the browser, in the profile --profile names (default: the current one); later commands use it",
+    targets: [],
+    examples: ["rwk login", "rwk login --profile work   (another email: a second login)", "rwk login --profile work --account Team"],
+  },
+  {
+    name: "logout",
+    summary: "Log out of the profile --profile names (default: the current one) and forget it; its games stay published",
+    targets: [],
+    examples: ["rwk logout --profile work"],
+  },
+  {
+    name: "whoami",
+    summary: "Show the Cloudflare login a command would use: profile, email and accounts",
+    targets: [],
+    examples: ["rwk whoami", "rwk whoami --profile work"],
+  },
+  {
+    name: "profiles",
+    summary: "List the login profiles on this PC (one Cloudflare login each) and the one commands use",
+    targets: [],
+    examples: ["rwk profiles", "rwk profiles --json"],
+  },
+  {
+    name: "profiles use",
+    summary: "Make commands use another login profile from now on",
+    targets: ["profile"],
+    examples: ["rwk profiles use work", "rwk profiles use default"],
+  },
+  {
     name: "doctor",
     summary: "Check this PC and the account: Node.js, wrangler, the login, the token's permissions, R2 and the workers.dev subdomain",
     targets: [],
@@ -130,6 +162,8 @@ export const FLAGS = [
   ["    --json", "Same as --yes, and prints the result as JSON on stdout"],
   ["    --account", "The Cloudflare account to work in, by ID or name, when the login has several"],
   ["", "(else CLOUDFLARE_ACCOUNT_ID in a run with --yes, else the last one chosen)"],
+  ["    --profile", "The login profile (one Cloudflare login, one email) for this run: rwk profiles"],
+  ["", "(else the one chosen with rwk profiles use or rwk login; ignored with CLOUDFLARE_API_TOKEN)"],
   ["-q, --quiet", "Only warnings and errors; the result still goes to stdout"],
   ["    --verbose", "Print full error details"],
   ["    --no-color", "No colors (also NO_COLOR=1)"],
@@ -140,7 +174,7 @@ export const FLAGS = [
 const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
-  const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name" })[k]).join(" | ")}>` : "";
+  const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>` : "";
   const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${OPTION_VALUES[o] || "value"}>]`).join("") : "";
   const switches = spec.switches ? Object.keys(spec.switches).map((o) => ` [--${o}]`).join("") : "";
   return `rwk ${spec.name}${target}${options}${switches} [flags]`;
@@ -181,7 +215,7 @@ export function commandHelp(spec, bold = (s) => s) {
   const options = { ...spec.options, ...spec.switches };
   if (Object.keys(options).length) lines.push("", bold("Options:"), ...Object.entries(options).map(([o, text]) => `  --${o.padEnd(12)}${text}`));
   lines.push("", bold("Examples:"), ...spec.examples.map((e) => `  ${e}`));
-  lines.push("", "Flags: --yes, --json, --account, --quiet, --verbose, --no-color. See `rwk --help`.");
+  lines.push("", "Flags: --yes, --json, --account, --profile, --quiet, --verbose, --no-color. See `rwk --help`.");
   return lines.join("\n");
 }
 
@@ -214,7 +248,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, name, to, from, email, out, get, set }, unattended }
+//   { spec, target, flags: { yes, json, quiet, verbose, noColor, dryRun, purge, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -234,6 +268,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
         account: { type: "string" },
+        profile: { type: "string" },
         name: { type: "string" },
         to: { type: "string" },
         from: { type: "string" },
@@ -245,7 +280,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     });
   } catch (err) {
     const option = /'?(--?[\w-]+)/.exec(err.message);
-    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --account <account ID>, --to new-name, --from old@example.com, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
+    const hint = err.code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE" ? "Give the option a value, e.g. --name my-game, --account <account ID>, --profile work, --to new-name, --from old@example.com, --email me@example.com or --set cheats=false." : "Flags: rwk --help";
     throw new UsageError(err.code === "ERR_PARSE_ARGS_UNKNOWN_OPTION" ? `Unknown option ${option ? option[1] : ""}.` : err.message.split(". ")[0] + ".", { hint });
   }
 
@@ -261,6 +296,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     help: !!values.help,
     version: !!values.version,
     account: values.account,
+    profile: values.profile,
     name: values.name,
     to: values.to,
     from: values.from,
@@ -269,6 +305,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     get: values.get,
     set: values.set,
   };
+  if (flags.profile !== undefined && validateProfileName(flags.profile)) throw new UsageError(`Bad profile name "${flags.profile}" for --profile: ${validateProfileName(flags.profile)}`, { hint: "List the profiles: rwk profiles" });
   // --json implies --yes: a script reads the result. No terminal on stdin means nobody to answer.
   const unattended = flags.json || flags.yes || !stdinIsTTY;
   const result = { spec: null, target: undefined, flags, unattended };

@@ -26,7 +26,8 @@ Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cl
 |---|---|
 | `R2 is not enabled for this account` | Open the printed link, enable R2, choose **Yes, try again** |
 | `The account has no workers.dev subdomain yet` | Dashboard → **Workers & Pages** → pick a subdomain, run again |
-| Logged in to the wrong account | `npx wrangler auth delete rpgmaker-web-toolkit`, run again. Other account, same login: delete `%APPDATA%\rpgmaker-web-toolkit\settings.json` |
+| Logged in to the wrong account | `rwk whoami` shows the login and its accounts. Other account, same login: `--account <ID or name>`. Another email: `rwk login` again (or a second login with `rwk login --profile <name>`). See [Several Cloudflare logins](/reference/commands#several-cloudflare-logins) |
+| `--account: This login has no Cloudflare account "…"` | The account belongs to another email: `rwk login --profile <name>` logs in to it, then add `--profile <name>` (or `rwk profiles use <name>`) |
 
 ## Uploading
 

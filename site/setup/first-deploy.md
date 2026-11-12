@@ -54,8 +54,8 @@ Just before it, the **build report** sums up the run: file count and size, files
 ::: details What stays on the PC
 | What | Remove with |
 |---|---|
-| The Cloudflare login (wrangler profile `rpgmaker-web-toolkit`) | `npx wrangler auth delete rpgmaker-web-toolkit` |
-| The chosen account (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) | Delete the file |
+| The Cloudflare login (wrangler profile `rpgmaker-web-toolkit`, and `rpgmaker-web-toolkit-<name>` for each [other login profile](/reference/commands#several-cloudflare-logins)) | `rwk logout` (`rwk logout --profile <name>` for the others) |
+| The login profiles and the account chosen in each (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) | Delete the file |
 | npm's download cache (faster later runs) | `npm cache clean --force` |
 
 The game folder is never changed. The temporary build (`<game drive>:\.rwk-build\`) is deleted at the end of each run.

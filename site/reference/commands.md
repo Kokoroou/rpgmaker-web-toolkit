@@ -54,6 +54,10 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk open my-game` | Opens the site in the browser | link, name | |
 | `& $rwk list` | Lists the games published in this Cloudflare account | none | |
 | `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2, so the game can be published again; `--purge` deletes them too (every player's saves and older saves, the settings, the player list, the large files), which cannot be undone: `saves export` first keeps a player's saves. The Access application stays in the dashboard. Never runs with `--yes` | link, name | |
+| `& $rwk login` | Logs in to Cloudflare in the browser and chooses the account, in the current [login profile](#several-cloudflare-logins), or the one `--profile <name>` names (made if new). Later commands use that profile. Run it again to log in as another email. Terminal only | none | [Several Cloudflare logins](#several-cloudflare-logins) |
+| `& $rwk logout` | Logs out of the current profile (or `--profile <name>`) and forgets it. Its games stay published | none | |
+| `& $rwk whoami` | The login a command would use: the profile, its email and the accounts it reaches (• the chosen one) | none | |
+| `& $rwk profiles` | Lists the login profiles on this PC and marks the one commands use. `rwk profiles use <name>` switches to another one | none | |
 | `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token), and what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. Reads only; exits with `1` when something needed is missing | none | [Troubleshooting](/setup/troubleshooting) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
@@ -79,6 +83,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-y`, `--yes` | Never asks: each question takes its default answer, or stops the run with exit code 2 when it has none. See [Run without questions](#run-without-questions-ci) |
 | `--json` | Same as `--yes`, and prints the result as one JSON object on stdout. See [Publish from CI](/setup/ci#the-result) |
 | `--account <ID or name>` | The Cloudflare account to work in, when the login reaches several. See [Several Cloudflare accounts](#several-cloudflare-accounts) |
+| `--profile <name>` | The login profile (one Cloudflare login, so one email) for this run, without switching to it. Ignored with `CLOUDFLARE_API_TOKEN`. See [Several Cloudflare logins](#several-cloudflare-logins) |
 | `-q`, `--quiet` | Prints only warnings, questions and errors. The result still reaches stdout |
 | `--verbose` | Prints full error details (like `RWK_DEBUG=1`) |
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
@@ -223,3 +228,30 @@ The account is chosen in this order:
 5. The question, in a terminal. Without one the run stops with exit code 2: give `--account` or `CLOUDFLARE_ACCOUNT_ID`.
 
 `rwk doctor` shows the account it checks and where that choice came from. It takes `--account` too, and reads `CLOUDFLARE_ACCOUNT_ID` even in a terminal.
+
+An account under another email is not one this login reaches, so `--account` cannot pick it: that takes a second login, below.
+
+## Several Cloudflare logins
+
+Each **login profile** is one Cloudflare login (one email) with the account chosen in it. The first login is the profile `default`; add one for each other email, and every command works in the games of that login's account:
+
+```sh
+rwk login --profile work         # opens the browser: log in as the other email, choose its account
+rwk list                          # now in the account of "work"
+rwk deploy ./game --profile default   # one run with the first login, without switching
+rwk profiles use default          # back to the first login for later runs
+```
+
+| Command | What it does |
+|---|---|
+| `rwk login [--profile <name>]` | Logs in to the profile (new, or again, perhaps as another email), chooses its account (`--account` answers that), and makes it the one commands use |
+| `rwk profiles` | Lists the profiles: their email and account, • the one commands use |
+| `rwk profiles use <name>` | Commands use that profile from now on |
+| `rwk whoami [--profile <name>]` | Asks Cloudflare which email and accounts the profile reaches |
+| `rwk logout [--profile <name>]` | Logs out (Cloudflare revokes the login) and forgets the profile. Its games stay published; log in again to manage them |
+
+The profile is chosen in this order: `--profile` (for one run, not saved), else the one chosen with `rwk profiles use` or `rwk login`, else `default`. A name never logged in stops the run instead of opening the browser (`rwk login --profile <name>` makes it), so a typo does not start a new login. Names use `a-z`, digits and `-`.
+
+A game lives in the account it was published in: its Worker and its R2 data (settings, saves, large files) stay there. To publish it in another login's account too, deploy it from its folder with that profile, as a first deploy there; `saves export` with one profile and `saves import` with the other carry a player's saves over.
+
+A run with `CLOUDFLARE_API_TOKEN` (CI) uses the token, never a profile: `--profile` is ignored, with a warning.
