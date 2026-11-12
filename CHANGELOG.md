@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.7.0...v0.8.0) (2026-11-12)
+
+
+### Features
+
+* **cli:** add login profiles to switch Cloudflare logins ([#136](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/136)) ([2a856bd](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/2a856bd058db04a5228392d3d07c33f2d12425df))
+* **cli:** let deploy turn MakerLens links off instead of asking every time ([#138](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/138)) ([d4fbc38](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/d4fbc3819b68d34fa7ac77dadfd45288442ac54a))
+* **cli:** publish one game to several sites ([#137](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/137)) ([63f4e7a](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/63f4e7a4846198140afad530edc715f3c3ed642a))
+* **cli:** sharing settings in rwk config, with a switch for the folder download ([#143](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/143)) ([169091c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/169091cfee6924a08e37b2fab10d40d66d75a51e))
+* **controls:** round fast-forward button and a connection speed indicator ([#140](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/140)) ([0026e49](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/0026e499333740fbaab8879b4197d67c9dd00e61))
+* **runtime:** download game folder in the engine's desktop layout ([#139](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/139)) ([24b98d5](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/24b98d56ac9a0a83974d332fbd700fab0d7ee1e0))
+
+
+### Bug Fixes
+
+* **cli:** drop access setup warnings from the summary once access is on ([#146](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/146)) ([fb65908](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/fb659086c542c3757c0b4e2e5a92ce0644cc3148))
+* **cli:** keep the host's Download game entry after rwk upgrade ([169091c](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/169091cfee6924a08e37b2fab10d40d66d75a51e))
+* **cli:** skip the MakerLens bypass steps when it already works ([#134](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/134)) ([8971d34](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8971d3418cc6231fb0fcd8515ed05235be8ee878))
+* **runtime:** give each downloaded game its own port and drop the service worker ([#142](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/142)) ([0093ea8](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/0093ea804bc7f0fda8c6d9f1410123bc0c507c85))
+* **runtime:** keep RPG Maker MZ games booting with the process shim ([#141](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/141)) ([fb071ae](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/fb071ae689fa7bb89d946bb51e101209ea2601ab))
+* **runtime:** save files Chrome refuses to name (.ini, .cfg, .dll) in a folder download ([#145](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/145)) ([f2a87fb](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f2a87fb2c1a1716bafb42e1fadf655da3a0f8d00))
+* **runtime:** write empty files and the launchers when a folder download misses a file ([#144](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/144)) ([40aef7e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/40aef7e244e1d6bdd60ba55b882e47a8bcb51ae4))
+
 ## [0.7.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.6.0...v0.7.0) (2026-11-11)
 
 
