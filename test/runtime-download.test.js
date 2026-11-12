@@ -459,6 +459,45 @@ test("folder download: the launcher's server finds index.html where either layou
   assert.equal(RWK.download.layoutOf("XP").web, "", "anything unknown is treated as MZ, as the CLI does");
 });
 
+test("folder download: each game is served on its own port, the same at every launch", () => {
+  const { RWK } = load();
+  const a = RWK.download.portFor("Housemaid Ladies");
+  const b = RWK.download.portFor("Levantia Channel");
+  assert.equal(RWK.download.portFor("Housemaid Ladies"), a, "the same name, the same port");
+  assert.notEqual(a, b, "another game, another origin: no shared Service Worker, cache or localStorage");
+  for (const port of [a, b, RWK.download.portFor("")]) assert.ok(port >= 20000 && port < 30000, String(port));
+
+  const files = Object.fromEntries(RWK.download.launcherFiles("MV", "Housemaid Ladies").map((f) => [f.rel, f.text]));
+  assert.match(files["rwk-serve.mjs"], new RegExp(`process\\.env\\.RWK_PORT === undefined \\? ${a} :`));
+  assert.match(files["Game.bat"], new RegExp(`start "" http://localhost:${a}/`));
+  assert.match(files["Game.bat"], new RegExp(`py -m http\\.server ${a} --directory www`));
+  assert.match(files["Game.sh"], new RegExp(`python3 -m http\\.server ${a} --directory www &`));
+  assert.doesNotMatch(Object.values(files).join("\n"), /8000/, "no port shared by every download");
+});
+
+test("folder download: the launcher's server replaces the site's Service Worker with one that removes itself", async () => {
+  const { RWK } = load();
+  const server = RWK.download.launcherFiles("MZ", "Test Game").find((f) => f.rel === "rwk-serve.mjs").text;
+  assert.match(server, /if \(pathname === "\/rwk-sw\.js"\) return reply\(res, 200, NO_SERVICE_WORKER/);
+  // The worker the server hands out, run against a fake worker scope.
+  const source = new Function(server.match(/const NO_SERVICE_WORKER = (\[[\s\S]*?\]\.join\("\\n"\));/)[1].replace(/^/, "return "))();
+  const on = {};
+  const did = [];
+  const scope = {
+    addEventListener: (type, fn) => (on[type] = fn),
+    skipWaiting: () => did.push("skipWaiting"),
+    registration: { unregister: async () => did.push("unregister") },
+    clients: { matchAll: async () => [{ url: "http://localhost:20001/", navigate: (url) => did.push("reload " + url) }] },
+  };
+  const caches = { delete: async (name) => did.push("delete " + name) };
+  new Function("self", "caches", source)(scope, caches);
+  on.install();
+  let done;
+  on.activate({ waitUntil: (p) => (done = p) });
+  await done;
+  assert.deepEqual(did, ["skipWaiting", "delete rwk-files", "unregister", "reload http://localhost:20001/"]);
+});
+
 test("folder download: an MZ folder with an older download's www/ says it can go", async () => {
   const ui = loadUi();
   // What an earlier toolkit version left: the MZ build inside www/.
