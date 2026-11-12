@@ -287,8 +287,10 @@ function loadUi({
   saves = [],
   enc = "latin1",
   engine = "MZ",
+  missing = [], // build files the site answers 404 for, every time
 } = {}) {
   const { doc, make } = fakeDom();
+  const fetched = [];
   const fs = fakeFs(doc);
   const tools = [];
   const toasts = [];
@@ -328,6 +330,8 @@ function loadUi({
     TextDecoder,
     setTimeout: (fn, ms) => {
       waits.push({ fn, ms });
+      // The retries' back-off passes at once; the pill's 5 s is fired by a test.
+      if (ms < 5000) setImmediate(fn);
       return waits.length;
     },
     clearTimeout() {},
@@ -342,15 +346,17 @@ function loadUi({
         const bytes = enc === "utf8" ? new TextEncoder().encode(text) : Uint8Array.from(text, (c) => c.charCodeAt(0));
         return new Response(bytes, { headers: { "x-rwk-enc": enc } });
       }
+      fetched.push(url);
       // A same-origin fetch in a browser is type "basic"; Node's is "default".
-      const body = new Response("data");
+      const missed = missing.some((rel) => url === ORIGIN + "/" + rel);
+      const body = missed ? new Response("Not found", { status: 404 }) : new Response("data");
       Object.defineProperty(body, "type", { value: "basic" });
       Object.defineProperty(body, "url", { value: ORIGIN + new URL(url, ORIGIN).pathname });
       return body;
     },
   };
   vm.runInNewContext(source(), context);
-  const loaded = { doc, make, fs, tools, toasts, waits, win, RWK: win.RWK };
+  const loaded = { doc, make, fs, tools, toasts, waits, win, fetched, RWK: win.RWK };
   // The entry's click: the picker, then start(), which reads the list, checks
   // the folder and asks. Resolves with the confirmation up.
   loaded.flushStart = async () => {
@@ -635,4 +641,44 @@ test("folder download: the pill shows 100%, waits 5 s, then goes", async () => {
 
   wait.fn(); // the 5 seconds pass
   assert.equal(ui.doc.body.children.includes(pill), false, "then the pill goes");
+});
+
+test("folder download: an empty file is made without asking the site for it", async () => {
+  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "data/ksysdoct/SysDocCfg.ini", size: 0 }] });
+  await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  const ini = ui.fs.dirs.get("root/Test Game/data/ksysdoct").files.get("SysDocCfg.ini");
+  assert.ok(ini, "the empty file is in the folder");
+  assert.equal(ini.size, 0);
+  assert.equal(ui.fetched.some((url) => url.includes("SysDocCfg")), false, "never fetched: Workers Assets may not serve it");
+  assert.ok(ui.fs.dirs.get("root/Test Game").files.has("Game.bat"), "so the run finishes and leaves the launchers");
+});
+
+test("folder download: a run that misses a file still leaves the launchers, and can start again", async () => {
+  const ui = loadUi({ files: [{ rel: "index.html", size: 4 }, { rel: "img/gone.png", size: 6 }], missing: ["img/gone.png"] });
+  await ui.flushStart();
+  await ui.confirm();
+  await waitFor(() => ui.panelText().includes("did not download"));
+  await flush();
+  const game = ui.fs.dirs.get("root/Test Game");
+  for (const name of ["Game.bat", "rwk-serve.mjs", "README.txt"]) assert.ok(game.files.has(name), name + " is written");
+  assert.match(ui.panelText(), /img\/gone\.png/, "the panel names the missing file");
+  assert.ok(ui.toasts.some((t) => /1 file\(s\) did not download \(img\/gone\.png\)/.test(t)));
+
+  const panel = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  const again = byLabel(panel, "Start again");
+  assert.ok(again && !again.hidden, "Start again is offered");
+  again.click();
+  await waitFor(() => ui.doc.body.children.some((n) => n.className === "rwk-modal" && all(n).some((c) => c.tagName === "BUTTON" && c.textContent === "Download")));
+  assert.match(ui.panelText(), /Save 1 file\(s\)/, "only the missing file is left to fetch");
+});
+
+test("folder download: Start again is hidden while a run goes and after one that finished", async () => {
+  const ui = loadUi();
+  await ui.flushStart();
+  await ui.confirm();
+  await ui.finished();
+  const panel = ui.doc.body.children.find((n) => n.className === "rwk-modal");
+  assert.equal(byLabel(panel, "Start again").hidden, true);
 });
