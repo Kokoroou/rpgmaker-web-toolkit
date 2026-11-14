@@ -187,6 +187,7 @@ export const FLAGS = [
   ["    --no-color", "No colors (also NO_COLOR=1)"],
   ["-h, --help", "Show help (for a command: rwk <command> --help)"],
   ["-V, --version", "Show the toolkit version"],
+  ["    --cleanup", "One-liner (run.ps1 / run.sh) only: delete the cached toolkit after the run (kept while another run uses it)"],
 ];
 
 const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
@@ -283,6 +284,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         "new-site": { type: "boolean" },
         all: { type: "boolean" },
         "no-color": { type: "boolean" },
+        // Read by run.ps1 / run.sh, which strip it; accepted here so rwk.cmd and rwk.sh ignore it too.
+        cleanup: { type: "boolean" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean", short: "V" },
         account: { type: "string" },

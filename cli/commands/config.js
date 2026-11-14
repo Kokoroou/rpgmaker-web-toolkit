@@ -5,7 +5,7 @@
 // when the folder is not at hand: the settings do not need the game's files.
 
 import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
-import { loadGameConfigs, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
+import { loadGameConfigs, putGameConfig, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
 import { readProjectFile } from "../lib/project.js";
 import { publishedSiteOf } from "../lib/sites.js";
@@ -89,7 +89,7 @@ export async function editConfig(input, { get, set } = {}) {
     else cfg[key] = before[key];
   }
   configs[fingerprint] = cfg;
-  await saveGameConfigs(bucket, configs);
+  await putGameConfig(bucket, fingerprint, cfg);
   if (!cfg.liveSettings) {
     log.ok("Config saved to R2.");
     return {

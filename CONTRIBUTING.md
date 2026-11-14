@@ -13,7 +13,7 @@ npm test                         # CLI + Worker tests (node:test, no network)
 ./rwk.sh ~/Games/"My Game"       # macOS / Linux (same commands as run.sh)
 ```
 
-Launcher changes: `shellcheck run.sh rwk.sh` (CI runs it too). `npm test` runs on Linux, macOS and Windows in CI.
+Launcher changes: `shellcheck run.sh rwk.sh` (CI runs it too). `run.ps1` and `run.sh` keep the same cache and lease protocol: change both together (`test/run-sh.test.js` runs `run.sh` against local tarballs; `run.ps1` has no automated test, try it on Windows). `npm test` runs on Linux, macOS and Windows in CI.
 
 How the pieces fit: [How it works](site/reference/how-it-works.md). Lessons from bugs that reached a release, and the rules they left behind: [docs/LESSONS.md](docs/LESSONS.md).
 

@@ -40,7 +40,7 @@ Flags may come before or after the command. A command comes first, then the game
 
 | Command | Does | Target | Guide |
 |---|---|---|---|
-| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game) | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game). | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game without uploading it again; the game files stay as uploaded. From a folder it only reads the site name and the creator's policy. Name several games (`upgrade game1 game2`) or use `--all` for every game of the account (the ones already on this toolkit version are skipped): one login, one question, one summary, and a game that fails does not stop the others | folder, link, name (several: links or names) | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
@@ -91,6 +91,7 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-V`, `--version` | The toolkit version |
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
 | `--name <site name>` | `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it. For a game with [several sites](/setup/updating#publish-a-second-site-of-the-same-game), `deploy`, `rename` and `saves import` take it to say which one |
+| `--cleanup` | Only the one-liner (`run.ps1`, `run.sh`): deletes the cached toolkit after the run, unless another run is using it. See [Cache and cleanup](#cache-and-cleanup) |
 | `--new-site` | Only `deploy`: publish the game as one more site beside the ones it has, with its own link, settings and saves. See [Publish a second site](/setup/updating#publish-a-second-site-of-the-same-game) |
 | `--to <name>` | Only `rename`: the new site name |
 | `--purge` | Only `delete`: also deletes what the game keeps in R2 |
@@ -173,11 +174,44 @@ Symbols fall back to ASCII where the terminal may not draw them (`TERM=dumb`, a 
 | `64` | Wrong command line: unknown command or flag, or a target the command does not take |
 | `130` | Cancelled |
 
-Each run downloads the toolkit to a temporary folder and deletes it at the end.
+## Deploys at the same time
+
+Deploys started in different shells (or terminals, or CI jobs) at once are safe:
+
+- They share the cached toolkit, and each run registers while it works (see below), so a run that finishes with `--cleanup` never removes what another run is using.
+- Each has a build folder of its own, so one run finishing never removes another's files.
+- The list of games in R2 (`rwk/games.json`) is written under a lock on this PC, on its latest copy, so no game loses another's entry. Two first deploys that picked the same site name: the second stops before it deploys and asks for another name (`--name`). (Deploys from two different PCs are not covered by the lock.)
+
+## Cache and cleanup
+
+The one-liner keeps what it downloads, so the next run starts at once instead of downloading the toolkit and installing wrangler again:
+
+| | Where (`RWK_CACHE` moves it) |
+|---|---|
+| Windows | `%LOCALAPPDATA%\rpgmaker-web-toolkit\cache` |
+| macOS | `~/Library/Caches/rpgmaker-web-toolkit` |
+| Linux | `$XDG_CACHE_HOME/rpgmaker-web-toolkit`, else `~/.cache/rpgmaker-web-toolkit` |
+
+- A **release tag** (`RWK_REF=v1.0.0`) is cached for good. For `main` (or another branch) the run asks GitHub which commit it is on, downloads only when that changed, and without a network uses the last copy it has.
+- wrangler is installed once per `package-lock.json` and shared by every cached version, so a new toolkit version usually downloads a few MB, not wrangler again.
+- The newest three versions are kept; older ones and unused wrangler installs are removed by the next run.
+- **`--cleanup`** (or `RWK_CLEANUP=1`) deletes the cached toolkit when the run ends, as every run used to. It never pulls the toolkit from a run that is still using it: each run registers while it works, and `--cleanup` removes the toolkit only when no other run does, so deploys started together are safe. If another run is still going, it says so and the last run to finish with `--cleanup` removes it. The login, `settings.json` and the game folder are never touched.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- deploy ./game --cleanup
+```
+
+```powershell
+& $rwk deploy "D:\Games\My Game" --cleanup
+```
+
+Without `--cleanup`, what a run only needs while it works (the build folder, downloads in progress) is still deleted at its end, and the cached toolkit stays for the next run. A clone (`rwk.cmd`, `rwk.sh`) has no cache to clean: `--cleanup` does nothing there.
 
 | Environment variable | Effect |
 |---|---|
 | `$env:RWK_REF = "v1.0.0"` (`export RWK_REF=v1.0.0`) | Runs that tag or branch instead of `main` |
+| `$env:RWK_CACHE = "D:\rwk-cache"` (`export RWK_CACHE=~/rwk-cache`) | Keeps the [cached toolkit](#cache-and-cleanup) there |
+| `$env:RWK_CLEANUP = "1"` (`export RWK_CLEANUP=1`) | Same as `--cleanup` on every run |
 | `$env:RWK_DEBUG = "1"` (`export RWK_DEBUG=1`) | Prints full error details (same as `--verbose`) |
 | `$env:RWK_ASCII = "1"` (`export RWK_ASCII=1`) | ASCII symbols instead of ✓ ▶ → |
 | `$env:RWK_LIMITS_URL = "off"` (`export RWK_LIMITS_URL=off`) | Uses only the [free plan limits](/reference/limits#when-cloudflare-changes-them) shipped with the toolkit (or another URL to read them from) |

@@ -27,6 +27,8 @@ In a terminal on macOS or Linux (needs `curl` and `tar`):
 curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash
 ```
 
+The first run downloads the toolkit and wrangler into a cache folder; later runs start at once. Add `--cleanup` to delete the cache after a run ([details](https://kokoroou.github.io/rpgmaker-web-toolkit/reference/commands#cache-and-cleanup)).
+
 Drop the game folder in, answer a few questions, and get a link:
 
 <img src="site/public/img/first-deploy.png" width="600" alt="A first deploy in PowerShell">
