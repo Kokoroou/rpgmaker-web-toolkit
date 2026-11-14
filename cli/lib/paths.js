@@ -4,7 +4,7 @@
 // or sound is a 404. Reads the game's files, never writes.
 //
 // Looks at: the data/*.json references (pictures, sounds, movies, event commands),
-// the plugins listed in js/plugins.js, index.html and CSS files, and the path
+// the plugins listed in js/plugins.js and their file parameters, index.html and CSS files, and the path
 // literals in the plugin scripts. Also at the names themselves (upper-case
 // extensions, engine folders such as img/Characters, names that differ only by case,
 // Live2D model files spelled differently from their folder).
@@ -267,6 +267,139 @@ function scanPluginList(file, text, index, issues) {
     if (!names.length) continue;
     issues.add({ kind: found.status, source: file.rel, ref: plugin.name, expected, actual: found.hits[0].actual, to: names.length === 1 && site ? names[0] : null, fix: names.length === 1 && site ? "reference" : null }, site);
   }
+  return list;
+}
+
+// Plugin parameters that name a file: the plugin's header says which ones
+// (@type file, @dir img/titles2/), and the engine joins the folder, the value and
+// the extension, so "particles3" asks for img/titles2/particles3.png. Values inside
+// a struct or a list (@type struct<X>, file[]) are JSON strings in the parameters.
+
+// The header of a plugin script -> { params: Map(name -> { type, dir }), structs: Map(struct -> Map) }
+export function parsePluginHeader(text) {
+  const params = new Map();
+  const structs = new Map();
+  for (const block of text.matchAll(/\/\*(~struct~([^:\s]+))?:[^\n]*\n([\s\S]*?)\*\//g)) {
+    const into = block[2] ? structs.get(block[2]) || structs.set(block[2], new Map()).get(block[2]) : params;
+    let current = null;
+    for (const raw of block[3].split("\n")) {
+      const m = /^\s*\*?\s*@(\w+)\s*(.*?)\s*$/.exec(raw);
+      if (!m) continue;
+      const [, tag, value] = m;
+      if (tag === "param") {
+        // Headers in several languages repeat the parameters: the first one that says something wins.
+        const known = into.get(value);
+        current = known && (known.type || known.dir) ? null : { type: null, dir: null };
+        if (current) into.set(value, current);
+      } else if (tag === "command" || tag === "arg") current = null;
+      else if (current && tag === "type") current.type = value;
+      else if (current && tag === "dir") current.dir = value.replace(/^\/+|\/+$/g, "");
+    }
+  }
+  return { params, structs };
+}
+
+function extsOfDir(dir) {
+  const top = dir.split("/")[0].toLowerCase();
+  if (top === "img") return IMAGE;
+  if (top === "audio") return AUDIO;
+  if (top === "movies") return MOVIE;
+  if (top === "effects") return [".efkefc"];
+  return [];
+}
+
+const parseJson = (value) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+};
+
+// -> [{ key, value, dir }] for the file names among a plugin's parameters
+function fileParams(parameters, header) {
+  const out = [];
+  const visit = (values, specs, depth) => {
+    if (!values || typeof values !== "object" || depth > 8) return;
+    for (const [key, value] of Object.entries(values)) {
+      const spec = specs.get(key);
+      if (!spec || typeof value !== "string" || !value) continue;
+      const type = String(spec.type || (spec.dir ? "file" : ""));
+      const list = type.endsWith("[]");
+      const base = list ? type.slice(0, -2) : type;
+      const items = list ? parseJson(value) : [value];
+      if (!Array.isArray(items)) continue;
+      const struct = /^struct<(.+)>$/.exec(base);
+      for (const item of items) {
+        if (typeof item !== "string" || !item) continue;
+        if (base === "file" && spec.dir) out.push({ key, value: item, dir: spec.dir });
+        else if (struct && header.structs.has(struct[1])) visit(parseJson(item), header.structs.get(struct[1]), depth + 1);
+      }
+    }
+  };
+  visit(parameters, header.params, 0);
+  return out;
+}
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Where `"key":"value"` is written in plugins.js between start and end, at any depth
+// of JSON escaping (a struct is a string in a string). Only plain names: one with a
+// quote or a backslash is not looked for, so it gets no automatic fix.
+function valueSpans(text, start, end, key, value) {
+  if (/["\\]/.test(key + value)) return [];
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+  const re = new RegExp(`(\\\\*)"${escapeRegex(key)}\\1"\\s*:\\s*\\1"(${escapeRegex(value)})\\1"`, "gd");
+  return [...text.slice(start, end).matchAll(re)].map((m) => [start + m.indices[2][0], start + m.indices[2][1]]);
+}
+
+function scanPluginParams(file, text, list, byRel, index, issues) {
+  // Where each plugin's entry starts in the text, to place a fix in the right one.
+  const starts = [];
+  let pos = 0;
+  for (const plugin of list) {
+    const quoted = escapeRegex(JSON.stringify(String(plugin?.name)));
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+    const m = new RegExp(`"name"\\s*:\\s*${quoted}`, "g");
+    m.lastIndex = pos;
+    const hit = m.exec(text);
+    starts.push(hit ? hit.index : -1);
+    if (hit) pos = m.lastIndex;
+  }
+  list.forEach((plugin, i) => {
+    if (!plugin || typeof plugin.name !== "string" || plugin.status === false || !plugin.parameters) return;
+    const found = lookup(index, candidatesOf(["js/plugins"], [".js"], plugin.name));
+    const rel = found.status === "ok" ? `js/plugins/${plugin.name}.js` : found.hits[0]?.actual;
+    const script = rel && byRel.get(rel);
+    const source = script && readText(script);
+    if (!source) return;
+    const refs = fileParams(plugin.parameters, parsePluginHeader(source));
+    const start = starts[i];
+    const end = starts.slice(i + 1).find((s) => s >= 0) ?? text.length;
+    // The same key and value several times (a list of structs): one site per place it is written.
+    const groups = new Map();
+    for (const ref of refs) push(groups, JSON.stringify([ref.key, ref.value, ref.dir]), ref);
+    for (const group of groups.values()) {
+      const { key, value, dir } = group[0];
+      const spans = start >= 0 ? valueSpans(text, start, end, key, value) : [];
+      const placed = spans.length === group.length;
+      for (let n = 0; n < group.length; n++) {
+        issues.checked++;
+        const found = lookup(index, candidatesOf([dir], [...extsOfDir(dir), ""], value));
+        if (found.status === "ok") continue;
+        const expected = `${dir}/${value}`;
+        const site = placed ? { where: `${file.rel} plugin "${plugin.name}" parameter "${key}"`, at: { start: spans[n][0], end: spans[n][1], text: value } } : null;
+        if (found.status === "missing") {
+          issues.add({ kind: "missing", source: file.rel, ref: value, expected }, site);
+          continue;
+        }
+        const names = [...new Set(found.hits.map(nameOfHit).filter((x) => x !== value))];
+        if (!names.length) continue;
+        const to = names.length === 1 && site ? names[0] : null;
+        issues.add({ kind: found.status, source: file.rel, ref: value, expected, actual: found.hits[0].actual, to, fix: to ? "reference" : null }, site);
+      }
+    }
+  });
 }
 
 // Paths written in text, resolved from baseDir. reportMissing: also say when nothing matches.
@@ -303,6 +436,7 @@ function scanTextPaths(file, text, regex, group, baseDir, index, issues, { repor
 }
 
 function scanText(files, index, issues) {
+  const byRel = new Map(files.map((f) => [f.rel, f]));
   for (const file of files) {
     const lower = file.rel.toLowerCase();
     const isHtml = lower === "index.html";
@@ -314,7 +448,10 @@ function scanText(files, index, issues) {
     const baseDir = path.posix.dirname(file.rel) === "." ? "" : path.posix.dirname(file.rel);
     if (isHtml) scanTextPaths(file, text, HTML_REF, 2, "", index, issues, { reportMissing: true });
     if (isCss) scanTextPaths(file, text, CSS_URL, 2, baseDir, index, issues, { reportMissing: true });
-    if (lower === "js/plugins.js") scanPluginList(file, text, index, issues);
+    if (lower === "js/plugins.js") {
+      const list = scanPluginList(file, text, index, issues);
+      if (list) scanPluginParams(file, text, list, byRel, index, issues);
+    }
     if (isScript) {
       scanTextPaths(file, text, LITERAL, 2, "", index, issues, { reportMissing: false });
       scanDirLiterals(file, text, index, issues);

@@ -133,6 +133,62 @@ test("paths: the plugin list, index.html and CSS", () => {
   assert.deepEqual(result.issues.filter((i) => i.kind === "missing").map((i) => i.ref), ["Gone"], "external links and anchors are not paths");
 });
 
+test("paths: plugin parameters the header marks as files are checked, also in structs and lists", () => {
+  // MOG_TitleParticles: "P3 File Name":"particles3" with @dir img/titles2/ and an encrypted Particles3.png_.
+  const header = [
+    "/*:",
+    " * @param P3 File Name",
+    " * @type file",
+    " * @dir img/titles2/",
+    " *",
+    " * @param Count",
+    " * @default particles3",
+    " *",
+    " * @param Data",
+    " * @type file",
+    " * @dir img/system",
+    " *",
+    " * @param Layers",
+    " * @type struct<Layer>[]",
+    " *",
+    " * @command show",
+    " * @arg picture",
+    " * @type file",
+    " * @dir img/pictures",
+    " */",
+    "/*:ja",
+    " * @param P3 File Name",
+    " * @type string",
+    " */",
+    "/*~struct~Layer:",
+    " * @param image",
+    " * @type file",
+    " * @dir img/pictures/",
+    " */",
+  ].join("\n");
+  const layers = JSON.stringify([JSON.stringify({ image: "back" }), JSON.stringify({ image: "back" }), JSON.stringify({ image: "Gone" })]);
+  const params = { "P3 File Name": "particles3", Count: "particles3", Data: "Reco.json", Layers: layers, picture: "nope" };
+  const dir = makeGame({
+    "js/plugins/Particles.js": header,
+    "js/plugins.js": `var $plugins = [\n${JSON.stringify({ name: "Particles", status: true, description: "", parameters: params })},\n${JSON.stringify({ name: "Off", status: false, parameters: {} })}\n];`,
+    "img/titles2/Particles3.png_": "x",
+    "img/system/Reco.json": "x",
+    "img/pictures/Back.png": "x",
+  });
+  const result = scan(dir);
+  const text = fs.readFileSync(path.join(dir, "js", "plugins.js"), "utf8");
+  const particles = find(result, "case", "particles3");
+  assert.deepEqual([particles.to, particles.fix, particles.actual, particles.count], ["Particles3", "reference", "img/titles2/Particles3.png_", 1], "a parameter with no @type file is not a file");
+  assert.equal(text.slice(particles.sites[0].at.start, particles.sites[0].at.end), "particles3");
+  assert.equal(particles.sites[0].where, 'js/plugins.js plugin "Particles" parameter "P3 File Name"');
+  const back = find(result, "case", "back");
+  assert.deepEqual([back.to, back.count, back.sites.length], ["Back", 2, 2], "a struct in a list, escaped inside the JSON");
+  for (const site of back.sites) assert.equal(text.slice(site.at.start, site.at.end), "back");
+  assert.equal(find(result, "missing", "Gone").expected, "img/pictures/Gone");
+  assert.equal(find(result, "missing", "Reco.json"), undefined, "a value that has its extension");
+  assert.equal(find(result, "missing", "nope"), undefined, "a plugin command's argument is not a parameter");
+});
+
 test("paths: path literals in plugin scripts are case-checked only", () => {
   const dir = makeGame({
     "js/plugins/Loader.js": 'const a = "Img/Pictures/Logo.png"; const b = "img/pictures/Nope.png"; const c = `img/${x}.png`;',

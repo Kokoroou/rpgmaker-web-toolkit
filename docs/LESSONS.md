@@ -5,6 +5,24 @@ so the same mistake is not made twice. Each one names the bug, the cause, and th
 rule that follows. Problems in a game's own files that break only on the web go in
 [WEB_FIX_LESSONS.md](WEB_FIX_LESSONS.md).
 
+## "Nothing to change" while the title screen fails to load
+
+**Where:** the path scan (`cli/lib/paths.js`). Found 2026-11-15 on a deployed MZ game.
+
+**The bug:** the published game showed the engine's error screen on the title
+(`img/titles2/particles3.png` 404, the file is `Particles3.png_`), and `rwk fix-paths`
+said *Nothing to change*. The name was a plugin parameter. The scan read the data
+files, the plugin *names* in `js/plugins.js` and path literals in plugin code, but not
+the parameters, though the plugin manager writes them from the same kind of file picker
+as the database (`@type file`, `@dir`). A whole class of references was never looked at,
+and "nothing found" read as "nothing wrong".
+
+**The rule:** list every place the engine or a plugin turns a stored name into a
+request, and scan each one, or say in the report which ones are not scanned. When a
+real game 404s and the scan is clean, the first question is *which source did the scan
+not read*, before *why did the check miss it*. `rwk test` on the game folder is the
+quickest way to get that 404 without deploying.
+
 ## A control that is rebuilt under the user's finger never gets its click
 
 **Where:** the folder download's progress panel (`runtime/RWK_Download.js`), and

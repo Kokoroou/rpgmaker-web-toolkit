@@ -40,7 +40,7 @@ manual is a candidate for `rwk analyze` / `rwk fix-paths` / the runtime.
 **Detect:** `rwk analyze` (kind `case`).
 **Fix:** change the **reference** to the file's exact name. Do not rename the file to match
 the reference: other references may already use the right spelling.
-**Toolkit:** done by `rwk fix-paths --level safe` (data JSON, `js/plugins.js`, `index.html`, CSS).
+**Toolkit:** done by `rwk fix-paths --level safe` (data JSON, `js/plugins.js` and plugin file parameters, `index.html`, CSS).
 
 ### Upper-case extension (`Actor1.PNG`)
 
@@ -64,6 +64,26 @@ game may not start at all. This one does the most damage of all the path problem
 **Detect:** `rwk analyze` (kind `case`, source `js/plugins.js`).
 **Fix:** change the `name` in `js/plugins.js` to the file's exact name.
 **Toolkit:** done by `rwk fix-paths --level safe`.
+
+### A file name in a plugin parameter with the wrong case
+
+Example: a title-screen particle plugin with `"P3 File Name":"particles3"` in
+`js/plugins.js`, its header saying `@type file` / `@dir img/titles2/`, and the file
+`img/titles2/Particles3.png_` (an MZ game, encrypted assets, ~80,000 references).
+**On the web:** worse than a missing picture. An MZ picture that fails to load shows the
+engine's error screen ("Failed to load img/titles2/particles3.png"): here on the title
+screen, so the game could not be started at all. The console shows only the 404.
+**Why Windows hides it:** letter case. The plugin manager writes whatever the developer
+typed, and a plugin's own defaults are often lower-case while the files are not.
+**Detect:** `rwk analyze` (kind `case`, source `js/plugins.js`, site `plugin "…" parameter "…"`).
+The scan reads each enabled plugin's header for parameters typed `file` (with `@dir`),
+also inside `struct<…>` and lists, where the value is a JSON string in a string.
+`rwk test` shows the 404 and the error screen from a real play.
+**Fix:** change the value in `js/plugins.js` to the file's exact name, not the file.
+**Toolkit:** done by `rwk fix-paths --level safe`. A value with a quote or a backslash, or
+written a different number of times than the scan found, is reported without a fix.
+A parameter typed `string` that a plugin uses as a file name is not seen: the header is
+all the scan knows.
 
 ### A folder written in plugin code with the wrong case
 
