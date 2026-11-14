@@ -75,7 +75,7 @@ export async function describeSite(cfg, { probe = probeAccess, players = loadPla
 }
 
 // "1.2.3" -> -1, 0, 1 against another version; pre-release tags are ignored.
-function compareVersions(a, b) {
+export function compareVersions(a, b) {
   const parts = (v) => String(v).split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
   const [x, y] = [parts(a), parts(b)];
   for (let i = 0; i < Math.max(x.length, y.length); i++) {

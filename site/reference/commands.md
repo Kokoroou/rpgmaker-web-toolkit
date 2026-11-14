@@ -58,7 +58,7 @@ Flags may come before or after the command. A command comes first, then the game
 | `& $rwk logout` | Logs out of the current profile (or `--profile <name>`) and forgets it. Its games stay published | none | |
 | `& $rwk whoami` | The login a command would use: the profile, its email and the accounts it reaches (• the chosen one) | none | |
 | `& $rwk profiles` | Lists the login profiles on this PC and marks the one commands use. `rwk profiles use <name>` switches to another one | none | |
-| `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token), and what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. Reads only; exits with `1` when something needed is missing | none | [Troubleshooting](/setup/troubleshooting) |
+| `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token), and what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. `doctor my-game` also checks that game: it is in the account, its Worker exists, the site answers (and is not locked), Access protects it when it should, and which toolkit version it runs, each with what to do. Reads only; exits with `1` when something needed is missing | none, link, name | [Troubleshooting](/setup/troubleshooting) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 
