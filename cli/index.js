@@ -2,6 +2,7 @@
 import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args.js";
 import { analyze } from "./commands/analyze.js";
 import { deploy } from "./commands/deploy.js";
+import { deployMany } from "./commands/deploy-many.js";
 import { doctor } from "./commands/doctor.js";
 import { editConfig } from "./commands/config.js";
 import { exportSaves } from "./commands/saves-export.js";
@@ -72,6 +73,7 @@ async function main() {
 
   switch (name) {
     case "deploy":
+      if (cli.targets?.length > 1) return deployMany(cli.targets, { jobs: flags.jobs, profile: flags.profile, account: flags.account, deps: { verbose } });
       return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name, newSite: flags.newSite });
     case "analyze":
       return analyze(target);

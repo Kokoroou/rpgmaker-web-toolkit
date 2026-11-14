@@ -39,6 +39,8 @@ These pictures are drawn by `site/diagrams/build.mjs` (run `node site/diagrams/b
 
 ```
 run.ps1 ─► cli/            Node CLI: analyzes the game, builds a temporary web build, drives wrangler
+ run.sh                    (both keep the toolkit and wrangler in a cache folder, with leases so --cleanup never
+                           removes what another run uses; deploy with several folders runs one CLI per game)
            runtime/        Scripts injected into the web build
              rwk-guard.js        loaded from index.html before the game's plugins: the game's own listeners skip taps and keys, and the page gets the `process` object NW.js has
                                  meant for the toolkit's buttons and dialogs

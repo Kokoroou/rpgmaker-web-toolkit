@@ -7,6 +7,7 @@
 //
 //   (deploy --dry-run and analyze: dryRun: true, game: { title, engine }, no site / url)
 //   { schema: 1, ok: true, command, site, url, locked, build: { files, bytes, r2Files, r2Uploaded }, next, warnings }
+//   (deploy with several folders: site and url are null, games: [{ folder, ok, site, url, locked, build | error, hint, exitCode }]; also on failure)
 //   (config --get: key and value, null when the setting is not set)
 //   { schema: 1, ok: false, command, error, hint, exitCode, warnings }
 //
@@ -24,7 +25,7 @@ export function runResult(command, value, warnings) {
 }
 
 export function failedResult(command, err, warnings) {
-  return { schema: RESULT_SCHEMA, ok: false, command, error: err.message, hint: err.hint || null, exitCode: err.exitCode || 1, warnings: [...warnings] };
+  return { schema: RESULT_SCHEMA, ok: false, command, error: err.message, hint: err.hint || null, exitCode: err.exitCode || 1, ...(err.games ? { games: err.games } : {}), warnings: [...warnings] };
 }
 
 const DONE = {

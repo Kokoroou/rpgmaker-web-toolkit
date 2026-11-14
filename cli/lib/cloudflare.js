@@ -10,7 +10,9 @@ import LZString from "lz-string";
 import { engineOf } from "./engines.js";
 import { CliError, NeedsAnswer, choose, formatBytes, isUnattended, log, progressLine, sym } from "./ui.js";
 import { settingsKey } from "../../worker/settings.js";
-import { DEFAULT_PROFILE, activeProfile, loadState } from "./config.js";
+import { DEFAULT_PROFILE, STATE_DIR, activeProfile, loadState } from "./config.js";
+import { takenNames } from "./game.js";
+import { withLock } from "./lock.js";
 import { SCOPES, envApiToken, useAccount, wrangler, wranglerOrThrow, wranglerProfile } from "./wrangler.js";
 import { writeZip } from "./zip.js";
 
@@ -227,6 +229,36 @@ export async function loadGameConfigs(bucket) {
 
 export async function saveGameConfigs(bucket, configs) {
   await r2PutJson(bucket, CONFIGS_KEY, configs);
+}
+
+// The configs are one object, so a write replaces everything: two deploys running at
+// once (rwk deploy with several folders, or two terminals) would each write back the
+// copy they read at the start and lose the other's game. This reads the latest copy,
+// applies `change` and writes it, all under a lock shared by the runs of this PC.
+// -> the configs as written
+export async function updateGameConfigs(bucket, change, { lockFile = path.join(STATE_DIR, "games.lock"), load = loadGameConfigs, save = saveGameConfigs } = {}) {
+  return withLock(lockFile, async () => {
+    const latest = await load(bucket);
+    change(latest);
+    await save(bucket, latest);
+    return latest;
+  });
+}
+
+// Stores one game's config under `key`. A site name another game took meanwhile
+// (two first deploys that picked the same name) stops this run before it deploys.
+// -> the configs as written, with the other games' latest entries
+export function putGameConfig(bucket, key, cfg, options) {
+  return updateGameConfigs(
+    bucket,
+    (configs) => {
+      if ((!configs[key] || configs[key].slug !== cfg.slug) && takenNames(configs, key).has(cfg.slug)) {
+        throw new CliError(`The site name "${cfg.slug}" was just taken by another game in this account.`, { hint: "Run the command again and choose another name (--name)." });
+      }
+      configs[key] = cfg;
+    },
+    options
+  );
 }
 
 // The settings the Worker applies without a redeploy (worker/settings.js).

@@ -8,7 +8,7 @@
 // one question, one summary; a game that fails does not stop the others.
 
 import { DEFAULT_BUCKET, LIMITS_CACHE_FILE, TOOLKIT_ROOT, loadSettings } from "../lib/config.js";
-import { apiToken, deleteBuildZip, downloadOwnersForUpgrade, downloadPlan, downloadWaysOf, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, saveGameConfigs, saveLiveSettings } from "../lib/cloudflare.js";
+import { apiToken, deleteBuildZip, downloadOwnersForUpgrade, downloadPlan, downloadWaysOf, lensOwnersForUpgrade, loadGameConfigs, loadOverflowRels, probeAccess, putGameConfig, saveLiveSettings } from "../lib/cloudflare.js";
 import { analyzeGame, findGameBySite, storageIdOf } from "../lib/game.js";
 import { readProjectFile } from "../lib/project.js";
 import { publishedSiteOf } from "../lib/sites.js";
@@ -221,7 +221,7 @@ async function updateGame(ctx, { fingerprint, cfg, game, confirmFirst }) {
   const updated = { ...cfg, liveSettings: known || cfg.liveSettings, toolkitVersion: TOOLKIT_VERSION, lensOwners, downloadOwners, downloadZip };
   if (JSON.stringify(updated) !== stored) {
     configs[fingerprint] = updated;
-    await saveGameConfigs(bucket, configs);
+    await putGameConfig(bucket, fingerprint, updated);
   }
 
   if (cfg.auth.mode === "access" && cfg.url) {

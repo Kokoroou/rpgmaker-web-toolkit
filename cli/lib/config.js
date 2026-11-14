@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { stateDir } from "./platform.js";
 
 export const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const STATE_DIR = stateDir({ home: os.homedir() });
+export const STATE_DIR = stateDir({ home: os.homedir() });
 const SETTINGS_FILE = path.join(STATE_DIR, "settings.json");
 export const LIMITS_CACHE_FILE = path.join(STATE_DIR, "limits.json");
 
@@ -84,20 +84,25 @@ export function saveSettings(settings, name = activeProfile().name, file = SETTI
   saveState(state, file);
 }
 
-// A fresh staging folder per run, removed on exit. It must sit on the game's
+// A fresh staging folder per run, removed on exit: each run (also each game of a deploy with
+// several folders) has its own, so removing one never touches another's. It must sit on the game's
 // drive so the 8k+ game files can be hard-linked instead of copied.
 export function createBuildDir(gameRoot, slug) {
   const tmp = os.tmpdir();
   const gameDrive = path.parse(path.resolve(gameRoot)).root.toLowerCase();
   const bases = path.parse(tmp).root.toLowerCase() === gameDrive ? [tmp] : [path.join(gameDrive, ".rwk-build"), tmp];
   for (const base of bases) {
-    try {
-      fs.mkdirSync(base, { recursive: true });
-      const dir = fs.mkdtempSync(path.join(base, `${slug}-`));
-      process.on("exit", () => removeBuildDir(dir, base !== tmp ? base : null));
-      return dir;
-    } catch {
-      // Drive root not writable: fall back to the temp folder (copies).
+    // Twice: another run finishing right now may remove the shared base folder (when it
+    // was empty) between our mkdir and mkdtemp; the second try makes it again.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        fs.mkdirSync(base, { recursive: true });
+        const dir = fs.mkdtempSync(path.join(base, `${slug}-`));
+        process.on("exit", () => removeBuildDir(dir, base !== tmp ? base : null));
+        return dir;
+      } catch {
+        // Drive root not writable: fall back to the temp folder (copies).
+      }
     }
   }
   throw new Error("Could not create a temporary build folder.");

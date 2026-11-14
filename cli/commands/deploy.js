@@ -17,7 +17,7 @@ import {
   probeLensBypass,
   lensBypassWanted,
   lensBypassSteps,
-  saveGameConfigs,
+  putGameConfig,
   saveLiveSettings,
   lensOwnersOf,
   downloadOwnersOf,
@@ -80,8 +80,9 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   const saveGameConfig = async () => {
     const next = JSON.stringify(cfg);
     if (next === saved) return;
-    configs[key] = cfg;
-    await saveGameConfigs(bucket, configs);
+    // Under a lock, on the latest copy: other deploys may be saving their games too.
+    const latest = await putGameConfig(bucket, key, cfg);
+    for (const [other, value] of Object.entries(latest)) configs[other] = other === key ? cfg : value;
     saved = next;
   };
 
