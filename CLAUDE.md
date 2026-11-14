@@ -5,7 +5,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 
 ## Commands
 - Install: `npm ci` (Node.js 22+)
-- Test:    `npm test` (node:test, no network)
+- Test:    `npm test` (node:test, no network; the `rwk test` runs in `test/test-command.test.js` need Chrome, else they are skipped, `CHROME_PATH` names one)
 - Coverage: `node --test --experimental-test-coverage "test/*.test.js"`
 - Docs site: `cd site && npm ci && npm run dev`
 
@@ -14,6 +14,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - `cli/` — Node CLI run by `run.ps1` / `rwk.cmd`: analyzes the game, stages a web build, drives wrangler.
   The shared `games.json` in R2 is written only through `putGameConfig` (lock + latest copy), so deploys in several shells do not lose each other's game
   Free plan limits are in `cli/limits.json` (fetched from `main` at each deploy): change them there and bump `updated`
+  `rwk test` (`cli/commands/test.js`) plays a game in Chrome over the DevTools protocol (`cli/lib/chrome.js`, shared with `tools/perf/`); the steps run in the page from `cli/lib/test-probe.js`
 - `runtime/` — `RWK_*.js` plugins injected into the game's web build (run in the browser, MZ and MV)
 - `worker/` — the Cloudflare Worker shared by every game (assets, Access JWT, save API)
 - `action.yml` — the GitHub Action a game repository uses to publish itself (`--json`, `cli/lib/report.js`)

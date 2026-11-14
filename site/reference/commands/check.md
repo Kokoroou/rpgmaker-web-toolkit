@@ -1,5 +1,5 @@
 ---
-description: "Check an RPG Maker game for the web with rwk analyze (warnings, file count, file paths; nothing published) and fix its file paths with rwk fix-paths."
+description: "Check an RPG Maker game for the web with rwk analyze (warnings, file count, file paths; nothing published), fix its file paths with rwk fix-paths, and play it in a hidden browser with rwk test."
 lang: en
 ---
 
@@ -68,3 +68,33 @@ With `--json` the result has `paths: { checked, case, unicode, missing, ext, fol
 With `--json` the result has `fix: { level, applied, renames, edits, skipped, before, remaining, backup }`.
 
 In [Claude Code](https://claude.com/claude-code), the `rwk-paths` skills (`.claude/skills/`) do the same fix, and can also scan plugin code that builds names at run time (`--level deep`) for you to edit by hand.
+
+## Play it in a browser: test
+
+`analyze` reads the files; `test` plays the game. It opens the game in a hidden Chrome (or Edge / Chromium) and goes through the first minutes as a player would, then lists what broke:
+
+```powershell
+& $rwk test "D:\Games\My Game"                     # the web build, on this PC: nothing is published, no login
+& $rwk test https://my-game.alice.workers.dev       # the deployed site
+& $rwk test my-game --out .\test-report             # the site by its name (needs the Cloudflare login)
+```
+
+| Step | Checks |
+|---|---|
+| `open`, `boot` | The page loads and the game gets past its loading screen |
+| `new game` | New Game (from the title, else the engine's own steps) reaches a map |
+| `walk` | Walks a few seconds and presses OK now and then, so a message or a choice on the start map moves on |
+| `menu` | The game's menu opens and closes |
+| `save`, `cloud save`, `load` | Saves to file 1, waits for the upload to the cloud (when save sync is on), loads it back |
+| `toolkit menu` | The ⚙ menu opens |
+| `phone` | The game again from boot, on a phone in landscape with touch: it fits the screen, no sideways scroll, the touch controls show |
+
+During every step it notes the problems: an uncaught script error, `console.error`, an error the engine catches to show its error screen (with the plugin it most likely came from), and every file that does not load. A file asked with another letter case than its name's (`title.png` for `Title.png`) is named as such: works on Windows, not on the web, fixed by [`fix-paths`](#fix-them-fix-paths). The same problem many times is one line with a count.
+
+- **A game folder** is built as a deploy builds it: the first-deploy defaults plus the game's [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), with the touch controls on so the `phone` step can check them. Settings saved in R2 by an earlier deploy are not read. The build is served on this PC by the same Worker as the site, with the web's rules for names (letter case counts, even on Windows), and the saves go to a bucket in memory.
+- **A deployed site** is opened as a player opens it. Its save API is answered on this PC, so the test never reads or overwrites a player's cloud saves (on a site without Access, every player shares one set). A site behind Cloudflare Access cannot be tested this way, as the test cannot sign in: test its folder.
+- Each step leaves a screenshot in `--out` (default: `rwk-test-<site name>`), with `report.json`: the steps, what each saw, and the problems.
+- It fails (exit code `1`) when a step fails or a problem was found, so a CI job can run it after `deploy`. With `--json` the result has `test: { url, folder, steps: [{ name, status, detail }], problems: [{ kind, text, step, count }] }`, also when it failed.
+- Chrome is found in its usual places; `CHROME_PATH` names another browser.
+
+It plays the start only: a problem on a map or in an event the first minutes do not reach is not seen. A step that cannot run (no map reached, sync off) is skipped, and says why.

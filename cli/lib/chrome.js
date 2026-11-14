@@ -1,5 +1,6 @@
 // Starts Google Chrome (or Edge / Chromium) and drives it over the DevTools
-// protocol with Node's built-in WebSocket, so the bench needs no npm package.
+// protocol with Node's built-in WebSocket, so neither `rwk test` nor the bench
+// (tools/perf) needs an npm package or a browser download.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -27,7 +28,7 @@ const CANDIDATES = {
 export function findChrome(given) {
   const list = [given, process.env.CHROME_PATH, ...(CANDIDATES[process.platform] || [])].filter(Boolean);
   const found = list.find((p) => fs.existsSync(p));
-  if (!found) throw new Error("Chrome not found: pass --chrome <path> or set CHROME_PATH.");
+  if (!found) throw new Error("Chrome not found: install Google Chrome (or Edge / Chromium), or set CHROME_PATH to its program file.");
   return found;
 }
 
@@ -64,7 +65,7 @@ class Cdp {
     for (const fn of this.listeners.get(msg.method) || []) fn(msg.params, msg.sessionId);
   }
 
-  // Every call fails after 5 minutes rather than hang the bench.
+  // Every call fails after 5 minutes rather than hang the run.
   send(method, params = {}, sessionId) {
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params, sessionId }));
@@ -88,7 +89,9 @@ class Cdp {
 }
 
 export async function launchChrome({ executable, headed = false }) {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-perf-"));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-chrome-"));
+  // Chrome refuses to start its sandbox as root (a CI container, a Docker image).
+  const asRoot = typeof process.getuid === "function" && process.getuid() === 0;
   const proc = spawn(
     executable,
     [
@@ -103,6 +106,7 @@ export async function launchChrome({ executable, headed = false }) {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
+      ...(asRoot ? ["--no-sandbox"] : []),
       ...(headed ? [] : ["--headless=new"]),
       "about:blank",
     ],
@@ -141,7 +145,7 @@ export async function launchChrome({ executable, headed = false }) {
   };
 }
 
-// A tab with the domains the bench uses enabled.
+// A tab with the Page, Runtime, Performance and HeapProfiler domains enabled.
 export async function openPage(cdp) {
   const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
@@ -176,6 +180,12 @@ export async function openPage(cdp) {
     send,
     errors,
     evaluate,
+    // A DevTools event of this tab only.
+    on(method, fn) {
+      cdp.on(method, (params, from) => {
+        if (from === sessionId) fn(params);
+      });
+    },
     async waitFor(expression, timeoutMs = 60000) {
       const end = Date.now() + timeoutMs;
       while (Date.now() < end) {

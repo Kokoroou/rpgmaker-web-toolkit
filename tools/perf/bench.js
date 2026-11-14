@@ -22,8 +22,8 @@ import { analyzeGame } from "../../cli/lib/game.js";
 import { RUNTIME_PLUGINS, runtimeConfigOf } from "../../cli/lib/stage.js";
 import { appendToolkit } from "../../worker/toolkit.js";
 import { TOOLKIT_ROOT } from "../../cli/lib/config.js";
-import { MemoryBucket } from "../../test/helpers.js";
-import { findChrome, launchChrome, openPage } from "./chrome.js";
+import { MemoryBucket } from "../../cli/lib/memory-bucket.js";
+import { findChrome, launchChrome, openPage } from "../../cli/lib/chrome.js";
 import { startServer } from "./server.js";
 import { combine, formatReport, median, metricsOf, parseVariants, short } from "./stats.js";
 

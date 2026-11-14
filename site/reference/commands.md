@@ -46,6 +46,7 @@ Flags may come before or after the command. A command comes first, then the game
 |---|---|---|
 | `deploy <folder>` | First deploy, or update (changed files only). `--name` answers the first deploy's site name question; `--new-site --name <name>` publishes [one more site](/setup/updating#publish-a-second-site-of-the-same-game) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `analyze <folder>` | Checks the game without Cloudflare: warnings and file count. Nothing published. `deploy --dry-run` does the same | [Check without publishing](/reference/commands/check) |
+| `test <game>` | Plays the first minutes in a hidden Chrome (start, new game, walk, menu, save and load, ⚙ menu, phone) and lists the errors and files that do not load. A folder is tested on this PC, nothing published | [Check without publishing](/reference/commands/check#play-it-in-a-browser-test) |
 | `fix-paths <folder>` | Fixes file paths that work on Windows only (letter case, `.PNG`, `img/Faces`, `#` in names) in the game folder: plan first, backup, `--undo last` | [Check without publishing](/reference/commands/check#fix-them-fix-paths) |
 | `upgrade <game>` | Updates a deployed game's toolkit without uploading the game again; `--all` for every game | [Manage](/reference/commands/sites#upgrade) |
 | `config <game>` | Changes the game's settings; `--get` / `--set` for scripts | [Manage](/reference/commands/sites#config), [Customize](/setup/configuration) |
