@@ -739,7 +739,19 @@ export function retitleMvGlobal(text, gameTitle) {
       fixed++;
     }
   }
-  return fixed ? { text: LZString.compressToBase64(JSON.stringify(info)), fixed } : { text, fixed };
+  return fixed ? { text: mvCompressToBase64(JSON.stringify(info)), fixed } : { text, fixed };
+}
+
+// LZString.compressToBase64 as MV's engine does it (js/libs/lz-string.js is
+// 1.3): compress() to UTF-16, then those chars as big-endian bytes in plain
+// base64. lz-string 1.5's compressToBase64 packs the bits another way, and the
+// engine's 1.3 decompressFromBase64 reads about 1 in 5 of its strings as "".
+// 1.5 reads this format too.
+export function mvCompressToBase64(text) {
+  const packed = LZString.compress(text);
+  const bytes = Buffer.alloc(packed.length * 2);
+  for (let i = 0; i < packed.length; i++) bytes.writeUInt16BE(packed.charCodeAt(i), i * 2);
+  return bytes.toString("base64");
 }
 
 // Desktop saves are the same strings the browser stores; MZ writes the pako

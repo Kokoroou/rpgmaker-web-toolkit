@@ -41,6 +41,39 @@ bug depends on proves nothing — check that the fake removes children, fires
 `click` only on the same node, and has the real API's methods (here,
 `FileSystemWritableFileStream.write()` / `close()`, not just a `WritableStream`).
 
+## Check a file the engine reads with the engine's own reader
+
+**Where:** the MV save import (`retitleMvGlobal` in `cli/lib/cloudflare.js`), shipped
+2026-10-25. Found 2026-11-15 on two MV games whose saves did not show on the web.
+
+**The bug:** to let saves made under an older game title load in a browser, the
+import decodes `global.rpgsave`, sets the current title and encodes it again, with
+the `lz-string` 1.5.0 package. MV's engine reads it with its own
+`js/libs/lz-string.js`, which is 1.3. The two `compressToBase64` are **not the same
+format**: 1.3 base64-encodes the UTF-16 output of `compress()` as big-endian bytes,
+1.5 packs the bits 6 at a time. 1.5 reads both; 1.3 reads only about 4 strings in 5
+of 1.5's and returns `""` for the rest. The engine then sees an empty `global`, and
+every save is hidden: the very bug the import was meant to fix, now on games where
+it had worked before the "fix". One game passed by luck, which made it look done.
+
+**Why the test missed it:** it encoded and decoded with the same library. A round
+trip through one implementation proves the code is consistent with itself, not that
+the other side can read it. The first check of the real games made the same mistake:
+it decoded the cloud copy with lz-string 1.5 and called it fine.
+
+**The rule:** when the toolkit writes something the game's engine (or a plugin) will
+read, check it with **the reader that will read it** — the engine's own decoder, or a
+copy of its algorithm in the test — and when in doubt, run the real game on it. A
+package with the same name is not the same format across major versions; pin the
+format, not the package. Here the fix encodes in the 1.3 format by hand
+(`mvCompressToBase64`), which is byte for byte what the engine itself writes.
+
+**The test:** `test/cli.test.js` decodes the retitled `global` with a re-implementation
+of 1.3's `decompressFromBase64`, and asserts that the same decoder rejects some 1.5
+strings, so the test cannot quietly stop testing anything. Checked by hand as well
+against the three `lz-string.js` variants found in 25 real games (identical output on
+2,000 strings each) and by loading the saves in the real games in Chrome.
+
 ## Say what a risk is attached to, or it is just noise
 
 **Where:** the design discussion of `www/save/` in the folder download, 2026-11-10.

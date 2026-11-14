@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
-import { objectArg, overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { mvCompressToBase64, objectArg, overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
 import { splitForR2 } from "../cli/lib/build-checks.js";
 import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
 import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
@@ -466,6 +466,33 @@ test("save import: MV saves made under an older game title get the current one",
 
   assert.deepEqual(retitleMvGlobal(out, "Game v1.07"), { text: out, fixed: 0 }, "already right: sent as is");
   assert.deepEqual(retitleMvGlobal("not a save", "Game"), { text: "not a save", fixed: 0 });
+});
+
+// What MV's engine (js/libs/lz-string.js 1.3) does in decompressFromBase64:
+// plain base64 -> big-endian UTF-16 chars -> decompress().
+function mvDecompressFromBase64(text) {
+  const bytes = Buffer.from(text, "base64");
+  if (bytes.length % 2) return "";
+  let packed = "";
+  for (let i = 0; i < bytes.length; i += 2) packed += String.fromCharCode(bytes.readUInt16BE(i));
+  return LZString.decompress(packed);
+}
+
+test("save import: the engine's own LZString can read the retitled global", () => {
+  // lz-string 1.5's compressToBase64 gave strings MV read as "" (about 1 in 5),
+  // so a real game's retitled saves stayed hidden on the web.
+  let unreadable = 0;
+  for (let i = 0; i < 300; i++) {
+    const info = [null, { globalId: "RPGMV", title: `Game ${"v".repeat(i % 40)}1.01`, timestamp: 1722416877067 + i }];
+    const old = LZString.compressToBase64(JSON.stringify(info));
+    const { text } = retitleMvGlobal(old, "Game ver2.1.3");
+    assert.equal(text, mvCompressToBase64(JSON.stringify([null, { ...info[1], title: "Game ver2.1.3" }])));
+    const read = mvDecompressFromBase64(text);
+    assert.equal(JSON.parse(read)[1].title, "Game ver2.1.3", `title ${i}`);
+    assert.equal(LZString.decompressFromBase64(text), read, "lz-string 1.5 reads it too");
+    if (mvDecompressFromBase64(LZString.compressToBase64(read)) !== read) unreadable++;
+  }
+  assert.ok(unreadable > 0, "the 1.3 decoder above does reject some lz-string 1.5 strings");
 });
 
 test("rename: a new Worker name, the same storage", () => {
