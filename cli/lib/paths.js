@@ -402,7 +402,7 @@ export function pathWarnings(issues) {
   const files = spelled.filter((i) => !i.ref.endsWith("/"));
   if (files.length) {
     out.push(
-      `${total(files)} reference(s) name a file with a different letter case or Unicode form than the file has, e.g. ${sample(files)}. Windows accepts this, the web host does not, so these will be missing in the browser. The rwk-paths skills (Claude Code) fix them.`
+      `${total(files)} reference(s) name a file with a different letter case or Unicode form than the file has, e.g. ${sample(files)}. Windows accepts this, the web host does not, so these will be missing in the browser.`
     );
   }
   // A folder written in code (loadBitmap('img/menus/CG/', name)) is the harsher case:

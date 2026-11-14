@@ -1,5 +1,5 @@
 ---
-description: "Check an RPG Maker game for the web with rwk analyze or deploy --dry-run: warnings, file count, file path problems, no login, nothing published."
+description: "Check an RPG Maker game for the web with rwk analyze (warnings, file count, file paths; nothing published) and fix its file paths with rwk fix-paths."
 lang: en
 ---
 
@@ -43,4 +43,28 @@ Windows ignores letter case; the web host and the browser do not. A game can run
 
 With `--json` the result has `paths: { checked, case, unicode, missing, ext, folder, collision, unsafe }`. A name assembled by a plugin at run time cannot be checked.
 
-To fix them, open the toolkit folder in [Claude Code](https://claude.com/claude-code) and ask it to fix the game's file paths: the `rwk-paths` skills (`.claude/skills/`) scan at three depths (`quick`, `standard`, `deep`) and fix at three levels (`safe` rewrites references, `standard` also renames extensions and engine folders and rewrites path literals in plugins, `thorough` also renames unsafe names). Every run prints a plan first, backs up what it edits in `.rwk-paths-backup/` of the game, scans again and restores everything if the result is worse.
+### Fix them: fix-paths
+
+`fix-paths` fixes them in the game folder, then a deploy publishes the fix:
+
+```powershell
+& $rwk fix-paths "D:\Games\My Game"                  # asks the level, shows the plan, asks before changing anything
+& $rwk fix-paths "D:\Games\My Game" --level safe --apply
+& $rwk deploy "D:\Games\My Game"                     # a published game: only the changed files are uploaded
+```
+
+| Level | Changes |
+|---|---|
+| `safe` | Only the **references** (`data/*.json`, the plugin list, `index.html`, CSS) are rewritten to the file's exact name. No file is renamed, plugin code is not edited |
+| `standard` (default) | `safe` + renames **upper-case extensions** (`.PNG` → `.png`) and **engine folders** (`img/Faces` → `img/faces`), and rewrites whole path literals in `js/plugins/*.js` and `js/main.js` |
+| `thorough` | `standard` + renames files with `#`, `?`, `\` or `%XX` in the name (`a#1.png` → `a_1.png`) and rewrites the references to them |
+
+- It always shows the plan first. In a terminal it then asks; with `--yes` or `--json` it only shows the plan unless `--apply` is given. Without `--level`, a terminal asks for one and an unattended run uses `standard`.
+- Before changing anything it copies each edited file to `.rwk-paths-backup/<time>/` in the game (a hidden folder, never uploaded) and records the renames there. Then it scans again: if the result is worse, everything is put back and the command fails.
+- Only the characters of a name change: the files are not reformatted.
+- `--undo last` (or `--undo <backup folder>`) puts the game back as it was before a fix. Delete `.rwk-paths-backup/` once the game works.
+- It leaves to a person what has no single answer: a reference to a file that is not in the game, several files that differ only by case, and names a plugin builds at run time. `analyze` lists them.
+
+With `--json` the result has `fix: { level, applied, renames, edits, skipped, before, remaining, backup }`.
+
+In [Claude Code](https://claude.com/claude-code), the `rwk-paths` skills (`.claude/skills/`) do the same fix, and can also scan plugin code that builds names at run time (`--level deep`) for you to edit by hand.

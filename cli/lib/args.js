@@ -21,7 +21,7 @@ const TARGET_HELP = {
 // Commands by what they are for; `rwk --help` lists them in this order.
 const GROUP_ORDER = ["Publish", "Manage a site", "Cloud saves", "Account"];
 const GROUP_OF = {
-  deploy: "Publish", analyze: "Publish", upgrade: "Publish", rename: "Publish", delete: "Publish",
+  deploy: "Publish", analyze: "Publish", "fix-paths": "Publish", upgrade: "Publish", rename: "Publish", delete: "Publish",
   list: "Manage a site", status: "Manage a site", open: "Manage a site", logs: "Manage a site", config: "Manage a site",
   "saves import": "Cloud saves", "saves export": "Cloud saves", "saves move": "Cloud saves", "saves delete": "Cloud saves",
   login: "Account", logout: "Account", whoami: "Account", profiles: "Account", "profiles use": "Account", doctor: "Account",
@@ -44,6 +44,17 @@ const SPECS = [
     summary: "Check a game folder for web problems: warnings and file count (no login, nothing published)",
     targets: ["folder"],
     examples: ['rwk analyze "D:\\Games\\My Game"', "rwk analyze --json   # in the game folder"],
+  },
+  {
+    name: "fix-paths",
+    summary: "Fix file paths that work on Windows but break on the web (letter case, .PNG, img/Faces, # in names), in the game folder",
+    targets: ["folder"],
+    options: {
+      level: "How much may change: safe (references only), standard (default: + extensions, engine folders, plugin code), thorough (+ file names with # ? %)",
+      undo: "Put the game back as it was before a fix: the backup folder it printed, or last",
+    },
+    switches: { apply: "Make the changes without asking (without it, a terminal asks after the plan; a run with --yes only shows the plan)" },
+    examples: ['rwk fix-paths "D:\\Games\\My Game"', "rwk fix-paths ./game --level safe --apply", "rwk fix-paths ./game --undo last", 'rwk fix-paths ./game --apply && rwk deploy ./game'],
   },
   {
     name: "upgrade",
@@ -190,7 +201,7 @@ export const FLAGS = [
   ["    --cleanup", "One-liner (run.ps1 / run.sh) only: delete the cached toolkit after the run (kept while another run uses it)"],
 ];
 
-const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
+const OPTION_VALUES = { level: "safe | standard | thorough", undo: "backup folder | last", name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>${spec.multiple ? "..." : ""}` : "";
@@ -265,7 +276,7 @@ function unknownCommand(words) {
 }
 
 // argv (process.argv after the script) ->
-//   { spec, target, targets (the games named: several only for a command with `multiple`), flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, all, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
+//   { spec, target, targets (the games named: several only for a command with `multiple`), flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, all, apply, help, version, account, profile, name, to, from, email, out, get, set, level, undo }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
 export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
@@ -283,6 +294,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         purge: { type: "boolean" },
         "new-site": { type: "boolean" },
         all: { type: "boolean" },
+        apply: { type: "boolean" },
         "no-color": { type: "boolean" },
         // Read by run.ps1 / run.sh, which strip it; accepted here so rwk.cmd and rwk.sh ignore it too.
         cleanup: { type: "boolean" },
@@ -297,6 +309,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
         out: { type: "string" },
         get: { type: "string" },
         set: { type: "string", multiple: true },
+        level: { type: "string" },
+        undo: { type: "string" },
       },
     });
   } catch (err) {
@@ -316,6 +330,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     purge: !!values.purge,
     newSite: !!values["new-site"],
     all: !!values.all,
+    apply: !!values.apply,
     help: !!values.help,
     version: !!values.version,
     account: values.account,
@@ -327,6 +342,8 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     out: values.out,
     get: values.get,
     set: values.set,
+    level: values.level,
+    undo: values.undo,
   };
   if (flags.profile !== undefined && validateProfileName(flags.profile)) throw new UsageError(`Bad profile name "${flags.profile}" for --profile: ${validateProfileName(flags.profile)}`, { hint: "List the profiles: rwk profiles" });
   // --json implies --yes: a script reads the result. No terminal on stdin means nobody to answer.
@@ -353,14 +370,14 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = 
     }
     throw unknownCommand(words);
   }
-  for (const option of ["name", "to", "from", "email", "out", "get", "set"]) {
+  for (const option of ["name", "to", "from", "email", "out", "get", "set", "level", "undo"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
   }
   if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
-  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite], ["all", flags.all]]) {
+  for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite], ["all", flags.all], ["apply", flags.apply]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
   }
   result.spec = spec;

@@ -3,6 +3,7 @@ import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args
 import { analyze } from "./commands/analyze.js";
 import { deploy } from "./commands/deploy.js";
 import { doctor } from "./commands/doctor.js";
+import { fixPaths } from "./commands/fix-paths.js";
 import { editConfig } from "./commands/config.js";
 import { exportSaves } from "./commands/saves-export.js";
 import { deletePlayerSaves, movePlayerSaves } from "./commands/saves-player.js";
@@ -75,6 +76,8 @@ async function main() {
       return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name, newSite: flags.newSite });
     case "analyze":
       return analyze(target);
+    case "fix-paths":
+      return fixPaths(target, { level: flags.level, apply: flags.apply, undo: flags.undo });
     case "login":
       return login();
     case "logout":
