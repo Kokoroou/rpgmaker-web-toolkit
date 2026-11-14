@@ -26,7 +26,7 @@ Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cl
 |---|---|
 | `R2 is not enabled for this account` | Open the printed link, enable R2, choose **Yes, try again** |
 | `The account has no workers.dev subdomain yet` | Dashboard → **Workers & Pages** → pick a subdomain, run again |
-| Logged in to the wrong account | `rwk whoami` shows the login and its accounts. Other account, same login: `--account <ID or name>`. Another email: `rwk login` again (or a second login with `rwk login --profile <name>`). See [Several Cloudflare logins](/reference/commands#several-cloudflare-logins) |
+| Logged in to the wrong account | `rwk whoami` shows the login and its accounts. Other account, same login: `--account <ID or name>`. Another email: `rwk login` again (or a second login with `rwk login --profile <name>`). See [Several Cloudflare logins](/reference/commands/accounts#several-cloudflare-logins) |
 | `--account: This login has no Cloudflare account "…"` | The account belongs to another email: `rwk login --profile <name>` logs in to it, then add `--profile <name>` (or `rwk profiles use <name>`) |
 
 ## Uploading
@@ -56,5 +56,5 @@ Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cl
 | `Failed to load` with a file in `js/` (often `js/libs/pixi.js`) | The connection was too slow or dropped while the game started. Reload on a better one (Wi-Fi). Still there on a good connection: clear the site's data in the browser settings, then reload |
 | Saves gone after clearing browser data | With sync on, reload: they come back. Without it they are lost, so [export](/play/save-files#export) important ones |
 | A key or button does nothing after changing it | ⚙ → [Keys and buttons](/play/keys) → **Reset to defaults**. An action shown as *No key* lost its key to another action |
-| A picture, sound or plugin is missing online but fine on Windows | Windows ignores letter case, the web does not (`"actor1"` for `Actor1.png`, `Actor1.PNG`, a folder `img/Faces`). `rwk analyze` lists them under **Checking file paths**. [Fix them](/reference/commands#file-paths-that-work-on-windows-only) with the `rwk-paths` skills in Claude Code |
+| A picture, sound or plugin is missing online but fine on Windows | Windows ignores letter case, the web does not (`"actor1"` for `Actor1.png`, `Actor1.PNG`, a folder `img/Faces`). `rwk analyze` lists them under **Checking file paths**. [Fix them](/reference/commands/check#file-paths-that-work-on-windows-only) with the `rwk-paths` skills in Claude Code |
 | Black screen or an error | Does the desktop version show it too? If not, it comes from the web copy: [report it here](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues) with the engine and the error, **not to the game's creator** |

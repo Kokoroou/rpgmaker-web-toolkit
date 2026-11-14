@@ -51,7 +51,7 @@ All games' settings live in `rwk/games.json` in the R2 bucket `rpgmaker-web-tool
 
 ## rwk.json in the game folder
 
-The settings above live in your Cloudflare account. A few can also travel with the game itself, in an optional `rwk.json` next to `index.html` (or in the folder you pass, when the game is in its `www/`), so a [repository that publishes itself](/setup/ci) carries them and [`analyze`](/reference/commands#check-without-publishing) counts the same files as the real deploy:
+The settings above live in your Cloudflare account. A few can also travel with the game itself, in an optional `rwk.json` next to `index.html` (or in the folder you pass, when the game is in its `www/`), so a [repository that publishes itself](/setup/ci) carries them and [`analyze`](/reference/commands/check) counts the same files as the real deploy:
 
 ```json
 {

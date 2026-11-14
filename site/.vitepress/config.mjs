@@ -151,7 +151,19 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
-          { text: "Commands", link: "/reference/commands" },
+          {
+            text: "Commands",
+            link: "/reference/commands",
+            collapsed: true,
+            items: [
+              { text: "Check without publishing", link: "/reference/commands/check" },
+              { text: "Manage published games", link: "/reference/commands/sites" },
+              { text: "Saves commands", link: "/reference/commands/saves" },
+              { text: "Logins and accounts", link: "/reference/commands/accounts" },
+              { text: "Run without questions (CI)", link: "/reference/commands/unattended" },
+              { text: "Cache and cleanup", link: "/reference/commands/cache" },
+            ],
+          },
           { text: "Config keys", link: "/reference/config" },
           { text: "How it works", link: "/reference/how-it-works" },
           { text: "Free plan limits", link: "/reference/limits" },
