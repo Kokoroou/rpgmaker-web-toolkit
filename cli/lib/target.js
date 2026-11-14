@@ -22,7 +22,7 @@ const isDirectory = (p) => {
 export function classifyTarget(input, { isDir = isDirectory } = {}) {
   const value = cleanPathInput(String(input ?? ""));
   if (/^https?:\/\//i.test(value) || /\.workers\.dev(\/|$)/i.test(value)) return { kind: "link", value };
-  if (isDir(value)) return { kind: "folder", value, isDir: true };
+  if (isDir(value)) return { kind: "folder", value };
   if (/[\\/]|^[a-z]:|^[~.]/i.test(value)) return { kind: "folder", value };
   return { kind: validateSlug(value) ? "folder" : "name", value };
 }

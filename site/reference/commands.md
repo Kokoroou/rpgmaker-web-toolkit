@@ -40,7 +40,7 @@ Flags may come before or after the command. A command comes first, then the game
 
 | Command | Does | Target | Guide |
 |---|---|---|---|
-| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game). Several folders (`deploy ./game-a ./game-b`) deploy [at the same time](#deploy-several-games-at-once) | folder (several: folders) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game). | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
 | `& $rwk upgrade my-game` | Updates the toolkit of a deployed game without uploading it again; the game files stay as uploaded. From a folder it only reads the site name and the creator's policy. Name several games (`upgrade game1 game2`) or use `--all` for every game of the account (the ones already on this toolkit version are skipped): one login, one question, one summary, and a game that fails does not stop the others | folder, link, name (several: links or names) | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
 | `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
@@ -91,7 +91,6 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 | `-V`, `--version` | The toolkit version |
 | `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
 | `--name <site name>` | `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it. For a game with [several sites](/setup/updating#publish-a-second-site-of-the-same-game), `deploy`, `rename` and `saves import` take it to say which one |
-| `-j`, `--jobs <count>` | Only `deploy` with several folders: how many games deploy at the same time (default 3, up to 8; `1` = one after the other). See [Deploy several games at once](#deploy-several-games-at-once) |
 | `--cleanup` | Only the one-liner (`run.ps1`, `run.sh`): deletes the cached toolkit after the run, unless another run is using it. See [Cache and cleanup](#cache-and-cleanup) |
 | `--new-site` | Only `deploy`: publish the game as one more site beside the ones it has, with its own link, settings and saves. See [Publish a second site](/setup/updating#publish-a-second-site-of-the-same-game) |
 | `--to <name>` | Only `rename`: the new site name |
@@ -175,21 +174,13 @@ Symbols fall back to ASCII where the terminal may not draw them (`TERM=dumb`, a 
 | `64` | Wrong command line: unknown command or flag, or a target the command does not take |
 | `130` | Cancelled |
 
-## Deploy several games at once
+## Deploys at the same time
 
-```sh
-rwk deploy ./game-a ./game-b ./game-c            # 3 at a time
-rwk deploy ./game-a ./game-b ./game-c --jobs 2   # 2 at a time
-rwk deploy ./game-a ./game-b --jobs 1            # one after the other
-```
+Deploys started in different shells (or terminals, or CI jobs) at once are safe:
 
-Each game is a run of its own (`rwk deploy <folder> --json`): its log lines carry the folder's name (`[game-a] …`), its warnings and its steps stay apart, and a game that fails does not stop the others. The run logs in once, then ends with one summary and one link per game.
-
-- **No questions.** Like `--yes`, each question takes its default. A game that needs a person (a first deploy that must set up [Access](/setup/access)) is reported at the end with the line to run on its own: `rwk deploy "<folder>"`. Publish a new game once in a terminal, then update it with others.
-- `--name`, `--new-site` and `--dry-run` work on one game and cannot go with several folders. Check several folders with `rwk analyze`, one by one.
-- Games share the list of games in R2 (`rwk/games.json`). It is written under a lock, on its latest copy, so no game loses another's entry. Two first deploys that picked the same site name: the second stops before it deploys and asks for another name.
-- With `--json`, stdout holds one object with `games`: one entry per folder (`ok`, `site`, `url`, or `error`, `hint`, `exitCode`). The exit code is `2` only when every failure needs a person.
-- Each game uses a build folder of its own, so one run finishing never removes another's files.
+- They share the cached toolkit, and each run registers while it works (see below), so a run that finishes with `--cleanup` never removes what another run is using.
+- Each has a build folder of its own, so one run finishing never removes another's files.
+- The list of games in R2 (`rwk/games.json`) is written under a lock on this PC, on its latest copy, so no game loses another's entry. Two first deploys that picked the same site name: the second stops before it deploys and asks for another name (`--name`). (Deploys from two different PCs are not covered by the lock.)
 
 ## Cache and cleanup
 
@@ -214,7 +205,7 @@ curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/
 & $rwk deploy "D:\Games\My Game" --cleanup
 ```
 
-A clone (`rwk.cmd`, `rwk.sh`) has no cache to clean: `--cleanup` does nothing there.
+Without `--cleanup`, what a run only needs while it works (the build folder, downloads in progress) is still deleted at its end, and the cached toolkit stays for the next run. A clone (`rwk.cmd`, `rwk.sh`) has no cache to clean: `--cleanup` does nothing there.
 
 | Environment variable | Effect |
 |---|---|

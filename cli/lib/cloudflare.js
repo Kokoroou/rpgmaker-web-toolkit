@@ -232,7 +232,7 @@ export async function saveGameConfigs(bucket, configs) {
 }
 
 // The configs are one object, so a write replaces everything: two deploys running at
-// once (rwk deploy with several folders, or two terminals) would each write back the
+// once (deploys in two shells at once) would each write back the
 // copy they read at the start and lose the other's game. This reads the latest copy,
 // applies `change` and writes it, all under a lock shared by the runs of this PC.
 // -> the configs as written

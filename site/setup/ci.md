@@ -126,8 +126,6 @@ From a clone of the toolkit: `node cli/index.js deploy ./game --json` after `npm
 
 The line keeps the toolkit and wrangler in a cache folder (`~/.cache/rpgmaker-web-toolkit`, or `RWK_CACHE`). On a runner that starts empty each time that changes nothing; if your CI can keep a folder between jobs, keep that one and the next job skips the downloads. Add `--cleanup` to remove it at the end of the job ([details](/reference/commands#cache-and-cleanup)).
 
-Several games in one job: `… | bash -s -- deploy ./game-a ./game-b --json` deploys them [at the same time](/reference/commands#deploy-several-games-at-once), and the JSON result lists each in `games`.
-
 ## The result
 
 The log always goes to stderr. With `--json`, stdout holds one JSON object:

@@ -11,10 +11,6 @@ import { validateSlug } from "./game.js";
 import { classifyTarget } from "./target.js";
 import { UsageError } from "./ui.js";
 
-// Games deployed at the same time by one `rwk deploy` with several folders.
-export const DEFAULT_JOBS = 3;
-export const MAX_JOBS = 8;
-
 const TARGET_HELP = {
   folder: "the game folder",
   link: "the game's link",
@@ -36,16 +32,12 @@ const SPECS = [
     name: "deploy",
     summary: "Publish a game from its folder, or update it (uploads changed files only)",
     targets: ["folder"],
-    multiple: "folder",
-    options: {
-      name: "The site name on the first deploy, without the question (default: the name in rwk.json, else from the folder's name); for a published game, which of its sites to update",
-      jobs: `With several folders: how many games are deployed at the same time (default ${DEFAULT_JOBS}, max ${MAX_JOBS}; 1 = one after the other)`,
-    },
+    options: { name: "The site name on the first deploy, without the question (default: the name in rwk.json, else from the folder's name); for a published game, which of its sites to update" },
     switches: {
       "new-site": "Publish the game as one more site, beside the ones it has (e.g. my-game-v2): its own link, settings and saves",
       "dry-run": "Only check the game and build nothing: the warnings and the file count, no Cloudflare login (same as rwk analyze)",
     },
-    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy ./game --new-site --name my-game-v2", "rwk deploy ./game --name my-game-v2   # update that site", "rwk deploy --dry-run   # in the game folder", "rwk deploy ./game-a ./game-b ./game-c --jobs 2   # several games at once, no questions"],
+    examples: ['rwk deploy "D:\\Games\\My Game"', "rwk deploy ~/Games/'My Game' --yes --name my-game", "rwk deploy ./game --new-site --name my-game-v2", "rwk deploy ./game --name my-game-v2   # update that site", "rwk deploy --dry-run   # in the game folder"],
   },
   {
     name: "analyze",
@@ -198,7 +190,7 @@ export const FLAGS = [
   ["    --cleanup", "One-liner (run.ps1 / run.sh) only: delete the cached toolkit after the run (kept while another run uses it)"],
 ];
 
-const OPTION_VALUES = { name: "site name", jobs: "count", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
+const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
   const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>${spec.multiple ? "..." : ""}` : "";
@@ -276,7 +268,7 @@ function unknownCommand(words) {
 //   { spec, target, targets (the games named: several only for a command with `multiple`), flags: { yes, json, quiet, verbose, noColor, dryRun, purge, newSite, all, help, version, account, profile, name, to, from, email, out, get, set }, unattended }
 // spec is null for "no command" (and for `rwk help`, with flags.help set).
 // Throws UsageError for what cannot be run.
-export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY, isDir } = {}) {
+export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY } = {}) {
   let parsed;
   try {
     parsed = parseArgs({
@@ -299,7 +291,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY, isD
         account: { type: "string" },
         profile: { type: "string" },
         name: { type: "string" },
-        jobs: { type: "string", short: "j" },
         to: { type: "string" },
         from: { type: "string" },
         email: { type: "string" },
@@ -330,7 +321,6 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY, isD
     account: values.account,
     profile: values.profile,
     name: values.name,
-    jobs: values.jobs,
     to: values.to,
     from: values.from,
     email: values.email,
@@ -363,17 +353,12 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY, isD
     }
     throw unknownCommand(words);
   }
-  for (const option of ["name", "jobs", "to", "from", "email", "out", "get", "set"]) {
+  for (const option of ["name", "to", "from", "email", "out", "get", "set"]) {
     if (flags[option] !== undefined && !spec.options?.[option]) {
       throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
     }
   }
   if (flags.name !== undefined && validateSlug(flags.name)) throw new UsageError(`Bad site name "${flags.name}" for --name: ${validateSlug(flags.name)}`, { hint: `Usage: ${usageOf(spec)}` });
-  if (flags.jobs !== undefined) {
-    const jobs = /^\d+$/.test(flags.jobs) ? Number(flags.jobs) : 0;
-    if (jobs < 1 || jobs > MAX_JOBS) throw new UsageError(`Bad count "${flags.jobs}" for --jobs: use a whole number from 1 to ${MAX_JOBS}.`, { hint: `Usage: ${usageOf(spec)}` });
-    flags.jobs = jobs;
-  }
   if (flags.get !== undefined && flags.set) throw new UsageError("--get and --set cannot go together.", { hint: `Usage: ${usageOf(spec)}` });
   for (const [option, on] of [["dry-run", flags.dryRun], ["purge", flags.purge], ["new-site", flags.newSite], ["all", flags.all]]) {
     if (on && !spec.switches?.[option]) throw new UsageError(`Unknown option --${option} for "rwk ${spec.name}".`, { hint: `Usage: ${usageOf(spec)}` });
@@ -384,14 +369,7 @@ export function parseCommandLine(argv, { stdinIsTTY = !!process.stdin.isTTY, isD
   result.target = rest.length ? rest.join(" ") : undefined;
   // Several games: each word is a link or a site name (a path with spaces is not).
   result.targets = rest.length ? [result.target] : [];
-  if (spec.multiple === true && rest.length > 1 && rest.every((word) => ["link", "name"].includes(classifyTarget(word).kind))) result.targets = rest;
-  // Several folders: only when the words are not one path with spaces (that folder exists) and each is a folder.
-  if (spec.multiple === "folder" && rest.length > 1 && !classifyTarget(result.target, { isDir }).isDir && rest.every((word) => classifyTarget(word, { isDir }).isDir)) result.targets = rest;
-  if (spec.multiple === "folder" && result.targets.length > 1) {
-    for (const [option, on] of [["name", flags.name !== undefined], ["new-site", flags.newSite], ["dry-run", flags.dryRun]]) {
-      if (on) throw new UsageError(`--${option} works on one game: it cannot go with several folders.`, { hint: option === "dry-run" ? "Check each folder with rwk analyze <game folder>." : "Deploy that game on its own: rwk deploy <game folder>." });
-    }
-  }
+  if (spec.multiple && rest.length > 1 && rest.every((word) => ["link", "name"].includes(classifyTarget(word).kind))) result.targets = rest;
   if (flags.all && result.targets.length) throw new UsageError("--all takes no game: it updates every game in the account.", { hint: `Usage: ${usageOf(spec)}` });
   return result;
 }

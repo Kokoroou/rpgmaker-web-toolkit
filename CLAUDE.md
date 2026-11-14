@@ -12,7 +12,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 ## Layout
 - `run.ps1` / `run.sh` — the one-liner: keeps the toolkit + wrangler in a cache (`RWK_CACHE`), a lease per running process, `--cleanup` removes the cache only when no lease is live (same protocol in both; `test/run-sh.test.js` runs `run.sh` for real)
 - `cli/` — Node CLI run by `run.ps1` / `rwk.cmd`: analyzes the game, stages a web build, drives wrangler.
-  `deploy` with several folders (`commands/deploy-many.js`) runs one `rwk deploy --json` child per game; the shared `games.json` in R2 is written only through `putGameConfig` (lock + latest copy)
+  The shared `games.json` in R2 is written only through `putGameConfig` (lock + latest copy), so deploys in several shells do not lose each other's game
   Free plan limits are in `cli/limits.json` (fetched from `main` at each deploy): change them there and bump `updated`
 - `runtime/` — `RWK_*.js` plugins injected into the game's web build (run in the browser, MZ and MV)
 - `worker/` — the Cloudflare Worker shared by every game (assets, Access JWT, save API)

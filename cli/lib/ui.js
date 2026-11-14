@@ -143,12 +143,10 @@ export function progressLine({ live = useLive(), write = (s) => process.stderr.w
 // A failure the user can act on. exitCode: 1 failed, 2 a question needs a
 // person, 64 wrong usage. hint: the next thing to try.
 export class CliError extends Error {
-  // games: what each game of a run with several did (deploy with several folders), for the JSON result.
-  constructor(message, { hint, exitCode = 1, games } = {}) {
+  constructor(message, { hint, exitCode = 1 } = {}) {
     super(message);
     this.hint = hint;
     this.exitCode = exitCode;
-    if (games) this.games = games;
   }
 }
 

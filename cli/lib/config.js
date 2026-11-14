@@ -84,8 +84,8 @@ export function saveSettings(settings, name = activeProfile().name, file = SETTI
   saveState(state, file);
 }
 
-// A fresh staging folder per run, removed on exit: each run (also each game of a deploy with
-// several folders) has its own, so removing one never touches another's. It must sit on the game's
+// A fresh staging folder per run, removed on exit: each run (also deploys in several
+// shells at once) has its own, so removing one never touches another's. It must sit on the game's
 // drive so the 8k+ game files can be hard-linked instead of copied.
 export function createBuildDir(gameRoot, slug) {
   const tmp = os.tmpdir();
