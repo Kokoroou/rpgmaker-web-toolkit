@@ -48,3 +48,7 @@ Never go up a level on your own to chase a leftover: report it.
 - The change is in their **game folder** (not only the web build): the game still runs on Windows.
 - Re-run `rwk analyze`, then deploy as usual.
 - Paths built at run time (`"img/" + name`) cannot be proven by a scan; `deep` lists where to look.
+
+## Record what was new
+
+Read `docs/WEB_FIX_LESSONS.md` before starting: the fix may already be written down. When a game needed something these scripts did not do (a manual fix, a new kind of reference, a `missing` that turned out to have a cause), add it there with the template it gives and no game names, or extend the lesson that already covers it.

@@ -2,7 +2,8 @@
 
 Engineering lessons from bugs that reached a release or a real game, written down
 so the same mistake is not made twice. Each one names the bug, the cause, and the
-rule that follows.
+rule that follows. Problems in a game's own files that break only on the web go in
+[WEB_FIX_LESSONS.md](WEB_FIX_LESSONS.md).
 
 ## A control that is rebuilt under the user's finger never gets its click
 
