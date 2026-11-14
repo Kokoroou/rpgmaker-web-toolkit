@@ -9,6 +9,7 @@
 //   { schema: 1, ok: true, command, site, url, locked, build: { files, bytes, r2Files, r2Uploaded }, next, warnings }
 //   (config --get: key and value, null when the setting is not set)
 //   { schema: 1, ok: false, command, error, hint, exitCode, warnings }
+//   (test: test: { url, folder, steps: [{ name, status, detail }], problems }, also when it failed)
 //
 // command is the name `rwk --help` lists ("deploy", "saves import"…).
 // schema changes only when a field is removed or changes meaning.
@@ -23,8 +24,12 @@ export function runResult(command, value, warnings) {
   return { schema: RESULT_SCHEMA, ok: true, command, site: null, url: null, ...(value || {}), warnings: [...warnings] };
 }
 
+// err.result: what a command that failed found anyway (test: its steps and problems), kept in the JSON.
 export function failedResult(command, err, warnings) {
-  return { schema: RESULT_SCHEMA, ok: false, command, error: err.message, hint: err.hint || null, exitCode: err.exitCode || 1, warnings: [...warnings] };
+  const found = { ...err.result };
+  delete found.facts;
+  delete found.next;
+  return { schema: RESULT_SCHEMA, ok: false, command, ...found, error: err.message, hint: err.hint || null, exitCode: err.exitCode || 1, warnings: [...warnings] };
 }
 
 const DONE = {
@@ -44,6 +49,7 @@ const DONE = {
   analyze: "checked, nothing published",
   "fix-paths": "paths fixed",
   doctor: "checks done",
+  test: "tested",
   login: "logged in",
   logout: "logged out",
   whoami: "login",

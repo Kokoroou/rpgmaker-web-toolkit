@@ -1,12 +1,15 @@
 // Starts Google Chrome (or Edge / Chromium) and drives it over the DevTools
-// protocol with Node's built-in WebSocket, so the bench needs no npm package.
+// protocol with Node's built-in WebSocket, so neither `rwk test` nor the bench
+// (tools/perf) needs an npm package or a browser download.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// A wait that does not keep Node running by itself (the caps in close()).
+const cap = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref());
 
 const CANDIDATES = {
   win32: [
@@ -24,10 +27,11 @@ const CANDIDATES = {
   linux: ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/microsoft-edge"],
 };
 
-export function findChrome(given) {
-  const list = [given, process.env.CHROME_PATH, ...(CANDIDATES[process.platform] || [])].filter(Boolean);
+// given (a path the caller has), else CHROME_PATH, else the usual places of `candidates`.
+export function findChrome(given, { env = process.env, candidates = CANDIDATES[process.platform] || [] } = {}) {
+  const list = [given, env.CHROME_PATH, ...candidates].filter(Boolean);
   const found = list.find((p) => fs.existsSync(p));
-  if (!found) throw new Error("Chrome not found: pass --chrome <path> or set CHROME_PATH.");
+  if (!found) throw new Error("Chrome not found: install Google Chrome (or Edge / Chromium), or set CHROME_PATH to its program file.");
   return found;
 }
 
@@ -46,10 +50,25 @@ class Cdp {
     this.pending = new Map();
     this.listeners = new Map();
     ws.onmessage = (e) => this.#receive(JSON.parse(e.data));
-    ws.onclose = () => {
-      for (const p of this.pending.values()) p.reject(new Error("Chrome closed the DevTools connection."));
-      this.pending.clear();
-    };
+    ws.onclose = () => this.#dropPending();
+  }
+
+  #dropPending() {
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer);
+      p.reject(new Error("Chrome closed the DevTools connection."));
+    }
+    this.pending.clear();
+  }
+
+  // Ends the connection and every call still waiting: nothing of it keeps Node running.
+  close() {
+    this.#dropPending();
+    try {
+      this.ws.close();
+    } catch {
+      // Already closed.
+    }
   }
 
   #receive(msg) {
@@ -64,8 +83,10 @@ class Cdp {
     for (const fn of this.listeners.get(msg.method) || []) fn(msg.params, msg.sessionId);
   }
 
-  // Every call fails after 5 minutes rather than hang the bench.
+  // Every call fails after 5 minutes rather than hang the run.
   send(method, params = {}, sessionId) {
+    // A closed connection would take the message and never answer.
+    if (this.ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error(`${method}: Chrome's DevTools connection is closed.`));
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params, sessionId }));
     return new Promise((resolve, reject) => {
@@ -73,11 +94,13 @@ class Cdp {
         this.pending.delete(id);
         reject(new Error(`${method}: no answer from Chrome in 5 min`));
       }, 300000);
+      // A call left waiting (Browser.close as Chrome quits) must not keep Node running.
+      timer.unref();
       const done = (fn) => (value) => {
         clearTimeout(timer);
         fn(value);
       };
-      this.pending.set(id, { resolve: done(resolve), reject: done(reject), method });
+      this.pending.set(id, { resolve: done(resolve), reject: done(reject), method, timer });
     });
   }
 
@@ -88,7 +111,9 @@ class Cdp {
 }
 
 export async function launchChrome({ executable, headed = false }) {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-perf-"));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-chrome-"));
+  // Chrome refuses to start its sandbox as root (a CI container, a Docker image).
+  const asRoot = typeof process.getuid === "function" && process.getuid() === 0;
   const proc = spawn(
     executable,
     [
@@ -103,6 +128,7 @@ export async function launchChrome({ executable, headed = false }) {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
+      ...(asRoot ? ["--no-sandbox"] : []),
       ...(headed ? [] : ["--headless=new"]),
       "about:blank",
     ],
@@ -122,26 +148,40 @@ export async function launchChrome({ executable, headed = false }) {
     if (fs.existsSync(portFile)) lines = fs.readFileSync(portFile, "utf8").trim().split(/\r?\n/);
   }
   const cdp = await Cdp.connect(`ws://127.0.0.1:${lines[0]}${lines[1]}`);
+  let closed = false;
 
   return {
     cdp,
     async close() {
+      if (closed) return;
+      closed = true;
       try {
-        await Promise.race([cdp.send("Browser.close"), sleep(3000)]);
+        await Promise.race([cdp.send("Browser.close"), cap(3000)]);
       } catch {
         // Already gone.
       }
-      if (proc.exitCode === null) {
-        proc.kill();
-        await new Promise((resolve) => proc.once("exit", resolve));
+      cdp.close();
+      if (proc.exitCode === null && proc.signalCode === null) {
+        const exited = new Promise((resolve) => proc.once("exit", resolve));
+        // On Windows, kill() ends chrome.exe alone: its GPU, network and crash
+        // helpers live on and hold the run open. taskkill /T ends the whole tree.
+        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+        else proc.kill();
+        await Promise.race([exited, cap(5000)]);
       }
-      // Chrome's child processes may hold files a moment longer on Windows.
-      fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+      proc.unref();
+      // Chrome's child processes may hold or still write files a moment longer
+      // (Windows, a busy CI runner): a profile left in the temp folder is no failure.
+      try {
+        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      } catch {
+        // The OS cleans its temp folder.
+      }
     },
   };
 }
 
-// A tab with the domains the bench uses enabled.
+// A tab with the Page, Runtime, Performance and HeapProfiler domains enabled.
 export async function openPage(cdp) {
   const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
@@ -176,6 +216,12 @@ export async function openPage(cdp) {
     send,
     errors,
     evaluate,
+    // A DevTools event of this tab only.
+    on(method, fn) {
+      cdp.on(method, (params, from) => {
+        if (from === sessionId) fn(params);
+      });
+    },
     async waitFor(expression, timeoutMs = 60000) {
       const end = Date.now() + timeoutMs;
       while (Date.now() < end) {

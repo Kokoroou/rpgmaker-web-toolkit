@@ -9,6 +9,7 @@ import { exportSaves } from "./commands/saves-export.js";
 import { deletePlayerSaves, movePlayerSaves } from "./commands/saves-player.js";
 import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
+import { testGame } from "./commands/playtest.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
 import { TOOLKIT_VERSION } from "./lib/stage.js";
 import { classifyTarget, currentGameFolder } from "./lib/target.js";
@@ -76,6 +77,8 @@ async function main() {
       return flags.dryRun ? analyze(target, { command: "deploy", name: flags.name }) : deploy(target, { name: flags.name, newSite: flags.newSite });
     case "analyze":
       return analyze(target);
+    case "test":
+      return testGame(target, { out: flags.out });
     case "fix-paths":
       return fixPaths(target, { level: flags.level, apply: flags.apply, undo: flags.undo });
     case "login":

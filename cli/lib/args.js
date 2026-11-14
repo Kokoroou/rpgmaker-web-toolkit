@@ -21,7 +21,7 @@ const TARGET_HELP = {
 // Commands by what they are for; `rwk --help` lists them in this order.
 const GROUP_ORDER = ["Publish", "Manage a site", "Cloud saves", "Account"];
 const GROUP_OF = {
-  deploy: "Publish", analyze: "Publish", "fix-paths": "Publish", upgrade: "Publish", rename: "Publish", delete: "Publish",
+  deploy: "Publish", analyze: "Publish", "fix-paths": "Publish", test: "Publish", upgrade: "Publish", rename: "Publish", delete: "Publish",
   list: "Manage a site", status: "Manage a site", open: "Manage a site", logs: "Manage a site", config: "Manage a site",
   "saves import": "Cloud saves", "saves export": "Cloud saves", "saves move": "Cloud saves", "saves delete": "Cloud saves",
   login: "Account", logout: "Account", whoami: "Account", profiles: "Account", "profiles use": "Account", doctor: "Account",
@@ -55,6 +55,13 @@ const SPECS = [
     },
     switches: { apply: "Make the changes without asking (without it, a terminal asks after the plan; a run with --yes only shows the plan)" },
     examples: ['rwk fix-paths "D:\\Games\\My Game"', "rwk fix-paths ./game --level safe --apply", "rwk fix-paths ./game --undo last", 'rwk fix-paths ./game --apply && rwk deploy ./game'],
+  },
+  {
+    name: "test",
+    summary: "Play the first minutes of the game in a hidden Chrome and report what breaks: start, errors, missing files, save, load, menus, phone",
+    targets: ["folder", "link", "name"],
+    options: { out: "The folder for the screenshots and report.json (default: rwk-test-<site name>)" },
+    examples: ['rwk test "D:\\Games\\My Game"   # the web build, on this PC: nothing published', "rwk test https://my-game.alice.workers.dev", "rwk test my-game --out ./test-report --json"],
   },
   {
     name: "upgrade",
