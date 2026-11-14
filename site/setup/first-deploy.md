@@ -54,9 +54,9 @@ Just before it, the **build report** sums up the run: file count and size, files
 ::: details What stays on the PC
 | What | Remove with |
 |---|---|
-| The Cloudflare login (wrangler profile `rpgmaker-web-toolkit`, and `rpgmaker-web-toolkit-<name>` for each [other login profile](/reference/commands#several-cloudflare-logins)) | `rwk logout` (`rwk logout --profile <name>` for the others) |
+| The Cloudflare login (wrangler profile `rpgmaker-web-toolkit`, and `rpgmaker-web-toolkit-<name>` for each [other login profile](/reference/commands/accounts#several-cloudflare-logins)) | `rwk logout` (`rwk logout --profile <name>` for the others) |
 | The login profiles and the account chosen in each (`%APPDATA%\rpgmaker-web-toolkit\settings.json`) | Delete the file |
-| The toolkit and wrangler the one-liner downloaded, kept so later runs start at once (`%LOCALAPPDATA%\rpgmaker-web-toolkit\cache`, `~/.cache/rpgmaker-web-toolkit`, `~/Library/Caches/rpgmaker-web-toolkit`) | Run with `--cleanup`, or delete the folder ([details](/reference/commands#cache-and-cleanup)) |
+| The toolkit and wrangler the one-liner downloaded, kept so later runs start at once (`%LOCALAPPDATA%\rpgmaker-web-toolkit\cache`, `~/.cache/rpgmaker-web-toolkit`, `~/Library/Caches/rpgmaker-web-toolkit`) | Run with `--cleanup`, or delete the folder ([details](/reference/commands/cache)) |
 | npm's download cache | `npm cache clean --force` |
 
 The game folder is never changed. The temporary build (`<game drive>:\.rwk-build\`) is deleted at the end of each run.

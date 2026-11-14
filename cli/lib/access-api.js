@@ -2,7 +2,7 @@
 // Trust API instead of the dashboard: a self-hosted application on the
 // hostname, with one reusable Allow policy listing the emails that may sign
 // in. Everything needs an API token with the "Access" permissions
-// (site/reference/commands.md); the browser login's scopes do not include
+// (site/reference/commands/unattended.md); the browser login's scopes do not include
 // them, so callers fall back to the dashboard steps when this throws.
 
 import { log } from "./ui.js";

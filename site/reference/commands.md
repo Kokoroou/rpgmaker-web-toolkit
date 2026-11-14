@@ -1,5 +1,5 @@
 ---
-description: "Every rpgmaker-web-toolkit command: deploy, analyze, doctor, upgrade, config, saves, status, logs, rename and delete, with flags and exit codes."
+description: "rpgmaker-web-toolkit commands at a glance: the one-liner, syntax, targets, flags, output and exit codes, with links to each command's page."
 lang: en
 ---
 
@@ -30,7 +30,11 @@ rwk() { curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolk
 
 The examples use the PowerShell form (`& $rwk <command>`). On macOS and Linux, write `rwk <command>` with a path like `~/Games/"My Game"`.
 
-## Syntax
+::: tip More pages
+[Check without publishing](/reference/commands/check) · [Manage published games](/reference/commands/sites) · [Saves commands](/reference/commands/saves) · [Logins and accounts](/reference/commands/accounts) · [Run without questions (CI)](/reference/commands/unattended) · [Cache and cleanup](/reference/commands/cache)
+:::
+
+## Command list
 
 ```
 rwk <command> [<target>] [flags]
@@ -38,27 +42,19 @@ rwk <command> [<target>] [flags]
 
 Flags may come before or after the command. A command comes first, then the game: `rwk "D:\Games\My Game"` alone is an error that suggests `rwk deploy …`.
 
-| Command | Does | Target | Guide |
-|---|---|---|---|
-| `& $rwk deploy "D:\Games\My Game"` | First deploy, or update (changed files only). `--name <site name>` answers the first deploy's site name question. `--new-site --name <name>` publishes the game as [one more site](/setup/updating#publish-a-second-site-of-the-same-game). | folder | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
-| `& $rwk analyze "D:\Games\My Game"` | Checks the game without Cloudflare: the warnings and the file count. No login, nothing published, nothing written. `deploy --dry-run` does the same | folder | [Publish from CI](/setup/ci#check-pull-requests-without-publishing) |
-| `& $rwk upgrade my-game` | Updates the toolkit of a deployed game without uploading it again; the game files stay as uploaded. From a folder it only reads the site name and the creator's policy. Name several games (`upgrade game1 game2`) or use `--all` for every game of the account (the ones already on this toolkit version are skipped): one login, one question, one summary, and a game that fails does not stop the others | folder, link, name (several: links or names) | [Update](/setup/updating#new-toolkit-version-game-folder-gone) |
-| `& $rwk saves import "D:\Games\My Game"` | Uploads the game's `save/` folder, overwriting same-name cloud saves. `--dry-run` lists them and uploads nothing | folder | [Update](/setup/updating#upload-desktop-saves-again) |
-| `& $rwk config "D:\Games\My Game"` | Changes the game's settings by answering questions (the JSON in Notepad, TextEdit or `$EDITOR` is one menu entry away). `--get <key>` prints one setting; `--set <key>=<value>` (repeatable) changes one without questions, also unattended. Feature settings apply without publishing again | folder, link, name | [Customize](/setup/configuration) |
-| `& $rwk rename "D:\Games\My Game" --to new-name` | Moves the site to a new name (address), keeping the saves. Without `--to` it asks. `--dry-run` checks the name and changes nothing | folder | [Update](/setup/updating#change-the-site-address) |
-| `& $rwk status my-game` | Whether the site is up, whether Access is in front of it, how many emails have saves, and which toolkit version it runs (recorded from this version on) | link, name | |
-| `& $rwk saves export my-game --email me@example.com` | Downloads that player's cloud saves into `my-game-saves/` (`--out <folder>` to choose), as `.rmmzsave` / `.rpgsave` files. Needs the token permission *Workers R2 Storage → Read* when you use `CLOUDFLARE_API_TOKEN` | link, name | |
-| `& $rwk saves move my-game --from old@example.com --to new@example.com` | Moves one player's cloud saves and older saves to another email, for a player who changed address. Same-name saves of the new email are replaced; the old copies are deleted once every new one is written. Add the new email to `players` and run `upgrade` so it may sign in. Needs *Workers R2 Storage → Edit* with `CLOUDFLARE_API_TOKEN` | link, name | |
-| `& $rwk saves delete my-game --email old@example.com` | Deletes one player's cloud saves and older saves after you type the email, which cannot be undone: `saves export` first keeps a copy. Remove the email from the Access policy too. Never runs with `--yes` | link, name | |
-| `& $rwk logs my-game` | Shows the Worker's requests and errors as they happen, until Ctrl+C (terminal only) | link, name | |
-| `& $rwk open my-game` | Opens the site in the browser | link, name | |
-| `& $rwk list` | Lists the games published in this Cloudflare account | none | |
-| `& $rwk delete my-game` | Deletes the site's Worker after you type its name. Saves and large files stay in R2, so the game can be published again; `--purge` deletes them too (every player's saves and older saves, the settings, the player list, the large files), which cannot be undone: `saves export` first keeps a player's saves. The Access application stays in the dashboard. Never runs with `--yes` | link, name | |
-| `& $rwk login` | Logs in to Cloudflare in the browser and chooses the account, in the current [login profile](#several-cloudflare-logins), or the one `--profile <name>` names (made if new). Later commands use that profile. Run it again to log in as another email. Terminal only | none | [Several Cloudflare logins](#several-cloudflare-logins) |
-| `& $rwk logout` | Logs out of the current profile (or `--profile <name>`) and forgets it. Its games stay published | none | |
-| `& $rwk whoami` | The login a command would use: the profile, its email and the accounts it reaches (• the chosen one) | none | |
-| `& $rwk profiles` | Lists the login profiles on this PC and marks the one commands use. `rwk profiles use <name>` switches to another one | none | |
-| `& $rwk doctor` | Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token), and what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. Reads only; exits with `1` when something needed is missing | none | [Troubleshooting](/setup/troubleshooting) |
+| Command | Does | Details |
+|---|---|---|
+| `deploy <folder>` | First deploy, or update (changed files only). `--name` answers the first deploy's site name question; `--new-site --name <name>` publishes [one more site](/setup/updating#publish-a-second-site-of-the-same-game) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
+| `analyze <folder>` | Checks the game without Cloudflare: warnings and file count. Nothing published. `deploy --dry-run` does the same | [Check without publishing](/reference/commands/check) |
+| `upgrade <game>` | Updates a deployed game's toolkit without uploading the game again; `--all` for every game | [Manage](/reference/commands/sites#upgrade) |
+| `config <game>` | Changes the game's settings; `--get` / `--set` for scripts | [Manage](/reference/commands/sites#config), [Customize](/setup/configuration) |
+| `rename <folder> --to <name>` | Moves the site to a new address, keeping the saves | [Manage](/reference/commands/sites#rename) |
+| `status`, `logs`, `open <game>` | Site health, live Worker logs, open in the browser | [Manage](/reference/commands/sites#status) |
+| `list` | Lists the games in this Cloudflare account | [Manage](/reference/commands/sites#open-and-list) |
+| `delete <game>` | Deletes the site's Worker; `--purge` also deletes its R2 data | [Manage](/reference/commands/sites#delete) |
+| `saves import`, `export`, `move`, `delete` | Upload desktop saves, download, move to another email, delete a player's cloud saves | [Saves commands](/reference/commands/saves) |
+| `login`, `logout`, `whoami`, `profiles` | Cloudflare logins and profiles | [Logins and accounts](/reference/commands/accounts) |
+| `doctor` | Checks this PC and the account before a first deploy. Reads only | [Manage](/reference/commands/sites#doctor) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 
@@ -80,64 +76,23 @@ Without a target, a command that takes a folder (`deploy`, `analyze`, `saves imp
 
 | Flag | Effect |
 |---|---|
-| `-y`, `--yes` | Never asks: each question takes its default answer, or stops the run with exit code 2 when it has none. See [Run without questions](#run-without-questions-ci) |
+| `-y`, `--yes` | Never asks: each question takes its default answer, or stops the run with exit code 2 when it has none. See [Run without questions](/reference/commands/unattended) |
 | `--json` | Same as `--yes`, and prints the result as one JSON object on stdout. See [Publish from CI](/setup/ci#the-result) |
-| `--account <ID or name>` | The Cloudflare account to work in, when the login reaches several. See [Several Cloudflare accounts](#several-cloudflare-accounts) |
-| `--profile <name>` | The login profile (one Cloudflare login, so one email) for this run, without switching to it. Ignored with `CLOUDFLARE_API_TOKEN`. See [Several Cloudflare logins](#several-cloudflare-logins) |
+| `--account <ID or name>` | The Cloudflare account to work in, when the login reaches several. See [Several Cloudflare accounts](/reference/commands/accounts#several-cloudflare-accounts) |
+| `--profile <name>` | The login profile (one Cloudflare login, so one email) for this run, without switching to it. Ignored with `CLOUDFLARE_API_TOKEN`. See [Several Cloudflare logins](/reference/commands/accounts#several-cloudflare-logins) |
 | `-q`, `--quiet` | Prints only warnings, questions and errors. The result still reaches stdout |
 | `--verbose` | Prints full error details (like `RWK_DEBUG=1`) |
 | `--no-color` | No colors (also `NO_COLOR=1`; none when output is not a terminal or `TERM=dumb`) |
 | `-h`, `--help` | Help for the toolkit, or for the command before it |
 | `-V`, `--version` | The toolkit version |
-| `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](#check-without-publishing) |
+| `--dry-run` | `deploy`: checks the game and stops before Cloudflare, like `analyze`. `rename` and `saves import`: read the game's settings in R2, say what would happen, and change nothing. See [Check without publishing](/reference/commands/check) |
 | `--name <site name>` | `deploy`: the site name of a first deploy, instead of the question (from [`rwk.json`](/reference/config#rwk-json-in-the-game-folder), else the folder's name, by default). An already published game must have that name: it stops otherwise, and [`rename`](/setup/updating#change-the-site-address) moves it. For a game with [several sites](/setup/updating#publish-a-second-site-of-the-same-game), `deploy`, `rename` and `saves import` take it to say which one |
-| `--cleanup` | Only the one-liner (`run.ps1`, `run.sh`): deletes the cached toolkit after the run, unless another run is using it. See [Cache and cleanup](#cache-and-cleanup) |
+| `--cleanup` | Only the one-liner (`run.ps1`, `run.sh`): deletes the cached toolkit after the run, unless another run is using it. See [Cache and cleanup](/reference/commands/cache) |
 | `--new-site` | Only `deploy`: publish the game as one more site beside the ones it has, with its own link, settings and saves. See [Publish a second site](/setup/updating#publish-a-second-site-of-the-same-game) |
 | `--to <name>` | Only `rename`: the new site name |
 | `--purge` | Only `delete`: also deletes what the game keeps in R2 |
 | `--email <address>`, `--out <folder>` | `saves export`: whose saves, and where to write them. `saves delete`: whose saves |
 | `--from <address>`, `--to <address>` | Only `saves move`: the email the saves are under now, and the one that gets them (`--to` also names the new site in `rename`) |
-
-## Check without publishing
-
-`analyze` (or `deploy --dry-run`) runs the same checks a deploy starts with, and stops there:
-
-- It reads the game folder and the creator's [hosting policy](/creators/policy), lists the warnings (MV phone audio and video, non-ASCII file names, feature settings) and counts the files against the [free plan limits](/reference/limits).
-- It checks the file paths (see [below](#file-paths-that-work-on-windows-only)): the names in the game against the references to them.
-- It never logs in to Cloudflare, never uses R2 and builds no staging folder: the game folder and the account stay as they are.
-- It uses the first-deploy defaults, plus the game's [`rwk.json`](/reference/config#rwk-json-in-the-game-folder) (site name, `include` and `exclude`) when it has one. A game whose `exclude` patterns are kept only in R2 may therefore count more files than its real deploy: put them in `rwk.json` to count the same.
-- It fails (exit code `1`) when the build is over the file limit or the creator does not allow publishing, so a CI job can use it as a check.
-
-```
-✓ rpgmaker-web-toolkit: checked, nothing published
-  Files    1834 (412.3 MB)
-  Game     MZ · My Game
-  Warnings none
-```
-
-With `--json` the result has `"dryRun": true`, the `build` report and `game: { title, engine }`, and no `site` or `url`.
-
-`rename --dry-run` and `saves import --dry-run` go one step further: they log in and read the game's settings in R2 (a game that is not published yet stops there), but create, upload and delete nothing, not even the R2 bucket.
-
-- `rename --dry-run --to new-name` checks the name (format, current name, used by another game) and lists what the rename would do.
-- `saves import --dry-run` lists the saves in `save/` that would go up, and where: the email you sign in with, or the shared saves of a public site. Nothing is asked about the email.
-
-Their result has `"dryRun": true` with the site's current `site` and `url`.
-
-### File paths that work on Windows only
-
-Windows ignores letter case; the web host and the browser do not. A game can run on Windows with `"actor1"` in `Actors.json` for `img/characters/Actor1.png` and show nothing online. `analyze` and `deploy` warn about, one line per kind:
-
-- **Letter case or Unicode form**: a reference in `data/*.json`, the plugin list (`js/plugins.js`), `index.html`, a CSS file or a path written in a plugin differs from the file's name only by case (or accents saved in another Unicode form).
-- **A folder written in code** (`loadBitmap('img/menus/CG/', name)` for a folder named `cg`): every picture in it is missing online, and an RPG Maker menu that waits for them never starts — the browser stays on the "Now Loading" screen. This is checked apart from the line above because it has no file name to compare.
-- **Upper-case extension** (`Actor1.PNG`) and **engine folders** spelled differently (`img/Faces`, `audio/BGM`): the engine asks for lower case.
-- **Files that differ only by case**, and names with `#`, `?`, `\` or `%XX`, which break a web address.
-- **References to files that are not in the game**: often unused, so only a warning.
-
-With `--json` the result has `paths: { checked, case, unicode, missing, ext, folder, collision, unsafe }`. A name assembled by a plugin at run time cannot be checked.
-
-To fix them, open the toolkit folder in [Claude Code](https://claude.com/claude-code) and ask it to fix the game's file paths: the `rwk-paths` skills (`.claude/skills/`) scan at three depths (`quick`, `standard`, `deep`) and fix at three levels (`safe` rewrites references, `standard` also renames extensions and engine folders and rewrites path literals in plugins, `thorough` also renames unsafe names). Every run prints a plan first, backs up what it edits in `.rwk-paths-backup/` of the game, scans again and restores everything if the result is worse.
-
 ## What it prints
 
 The log (steps, questions, warnings, errors) goes to **stderr**; **stdout** holds only the result. So `url=$(rwk deploy ./game --quiet)` gets the link, and `rwk deploy ./game --json > result.json` gets the [JSON result](/setup/ci#the-result). On a terminal, stdout stays empty.
@@ -173,120 +128,3 @@ Symbols fall back to ASCII where the terminal may not draw them (`TERM=dumb`, a 
 | `2` | A question needs a person (non-interactive run) |
 | `64` | Wrong command line: unknown command or flag, or a target the command does not take |
 | `130` | Cancelled |
-
-## Deploys at the same time
-
-Deploys started in different shells (or terminals, or CI jobs) at once are safe:
-
-- They share the cached toolkit, and each run registers while it works (see below), so a run that finishes with `--cleanup` never removes what another run is using.
-- Each has a build folder of its own, so one run finishing never removes another's files.
-- The list of games in R2 (`rwk/games.json`) is written under a lock on this PC, on its latest copy, so no game loses another's entry. Two first deploys that picked the same site name: the second stops before it deploys and asks for another name (`--name`). (Deploys from two different PCs are not covered by the lock.)
-
-## Cache and cleanup
-
-The one-liner keeps what it downloads, so the next run starts at once instead of downloading the toolkit and installing wrangler again:
-
-| | Where (`RWK_CACHE` moves it) |
-|---|---|
-| Windows | `%LOCALAPPDATA%\rpgmaker-web-toolkit\cache` |
-| macOS | `~/Library/Caches/rpgmaker-web-toolkit` |
-| Linux | `$XDG_CACHE_HOME/rpgmaker-web-toolkit`, else `~/.cache/rpgmaker-web-toolkit` |
-
-- A **release tag** (`RWK_REF=v1.0.0`) is cached for good. For `main` (or another branch) the run asks GitHub which commit it is on, downloads only when that changed, and without a network uses the last copy it has.
-- wrangler is installed once per `package-lock.json` and shared by every cached version, so a new toolkit version usually downloads a few MB, not wrangler again.
-- The newest three versions are kept; older ones and unused wrangler installs are removed by the next run.
-- **`--cleanup`** (or `RWK_CLEANUP=1`) deletes the cached toolkit when the run ends, as every run used to. It never pulls the toolkit from a run that is still using it: each run registers while it works, and `--cleanup` removes the toolkit only when no other run does, so deploys started together are safe. If another run is still going, it says so and the last run to finish with `--cleanup` removes it. The login, `settings.json` and the game folder are never touched.
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/main/run.sh | bash -s -- deploy ./game --cleanup
-```
-
-```powershell
-& $rwk deploy "D:\Games\My Game" --cleanup
-```
-
-Without `--cleanup`, what a run only needs while it works (the build folder, downloads in progress) is still deleted at its end, and the cached toolkit stays for the next run. A clone (`rwk.cmd`, `rwk.sh`) has no cache to clean: `--cleanup` does nothing there.
-
-| Environment variable | Effect |
-|---|---|
-| `$env:RWK_REF = "v1.0.0"` (`export RWK_REF=v1.0.0`) | Runs that tag or branch instead of `main` |
-| `$env:RWK_CACHE = "D:\rwk-cache"` (`export RWK_CACHE=~/rwk-cache`) | Keeps the [cached toolkit](#cache-and-cleanup) there |
-| `$env:RWK_CLEANUP = "1"` (`export RWK_CLEANUP=1`) | Same as `--cleanup` on every run |
-| `$env:RWK_DEBUG = "1"` (`export RWK_DEBUG=1`) | Prints full error details (same as `--verbose`) |
-| `$env:RWK_ASCII = "1"` (`export RWK_ASCII=1`) | ASCII symbols instead of ✓ ▶ → |
-| `$env:RWK_LIMITS_URL = "off"` (`export RWK_LIMITS_URL=off`) | Uses only the [free plan limits](/reference/limits#when-cloudflare-changes-them) shipped with the toolkit (or another URL to read them from) |
-
-## Run without questions (CI)
-
-`--yes` runs a command with no one at the keyboard, for a game repository that redeploys itself. It is also on whenever stdin is not a terminal, as in GitHub Actions or GitLab CI.
-
-```sh
-./rwk.sh deploy ~/Games/"My Game" --yes
-```
-
-- Each question takes its default answer, and the log shows it with `(non-interactive)`.
-- A question with no safe answer stops the run with **exit code 2** and says what to do instead: a missing game folder, a first [access protection](/setup/access) the API cannot set up (no Zero Trust team yet, or a token without the Access permissions), `config` without `--get` / `--set` (it asks questions). The site name of a first deploy is the folder's by default; `--name` gives it, and `rename` takes its new name from `--to`. Do the first deploy in a terminal; later updates can run unattended.
-- Two questions answer **no** when nobody is there: deleting the old Worker after a `rename` (asked again at the next run) and uploading the `save/` folder during a deploy (`saves import --yes` uploads it).
-- [Exit codes](#exit-codes) tell a script what happened.
-- `--json` does the same and prints the [result](/setup/ci#the-result) (link, build report, warnings) as one JSON object on stdout. In GitHub Actions, every run also writes the step outputs and summary. Ready-made setups: [Publish from CI](/setup/ci).
-
-Log in with an API token instead of the browser login: set `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` (or [`--account`](#several-cloudflare-accounts)) when the token reaches several accounts. Only a run with `--yes` (or without a terminal) reads them, so a token set for another tool never replaces the toolkit's own login. Create the token in the dashboard (My Profile → API Tokens → Create Custom Token) with these permissions, for the one account:
-
-| Permission | Why |
-|---|---|
-| Account → Account Settings → Read | Find the account |
-| Account → Workers Scripts → Edit | Deploy the Worker and its files |
-| Account → Workers R2 Storage → Edit | The game's settings, saves and large files in R2 |
-| Account → Access: Apps and Policies → Edit | Protect the site with [Cloudflare Access](/setup/access) on its first deploy |
-| Account → Access: Organizations, Identity Providers, and Groups → Read | Find the Zero Trust team's login domain |
-| User → User Details → Read (optional) | The email suggested for `saves import`; without it, `saves import --yes` stops at that question, and the first Access policy has no email to allow unless `players` lists some |
-
-Keep the token in the CI's secrets: the toolkit never prints it.
-
-From a clone, `.\rwk.cmd` (Windows) or `./rwk.sh` (macOS, Linux) takes the same commands. See [CONTRIBUTING.md](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/CONTRIBUTING.md).
-
-## Several Cloudflare accounts
-
-When the login (or the token) reaches more than one account, the first command that talks to Cloudflare asks which one to use, and later runs take the same one. To work in another account for one run, name it with `--account`, by its ID (in the dashboard's address, `dash.cloudflare.com/<ID>`) or its name:
-
-```sh
-rwk list --account "Team account"
-rwk deploy ./game --yes --account 0123456789abcdef0123456789abcdef
-```
-
-The account is chosen in this order:
-
-1. `--account`: an ID, or a name without regard to case. An account the login does not reach stops the run and lists the ones it does; so does a name two accounts share (give the ID). It is not saved: the next run goes back to the usual choice.
-2. `CLOUDFLARE_ACCOUNT_ID`, read only by a run with `--yes` (or without a terminal), like `CLOUDFLARE_API_TOKEN`. An ID it does not reach stops the run too.
-3. The account chosen last time on this PC.
-4. The only account, when there is one.
-5. The question, in a terminal. Without one the run stops with exit code 2: give `--account` or `CLOUDFLARE_ACCOUNT_ID`.
-
-`rwk doctor` shows the account it checks and where that choice came from. It takes `--account` too, and reads `CLOUDFLARE_ACCOUNT_ID` even in a terminal.
-
-An account under another email is not one this login reaches, so `--account` cannot pick it: that takes a second login, below.
-
-## Several Cloudflare logins
-
-Each **login profile** is one Cloudflare login (one email) with the account chosen in it. The first login is the profile `default`; add one for each other email, and every command works in the games of that login's account:
-
-```sh
-rwk login --profile work         # opens the browser: log in as the other email, choose its account
-rwk list                          # now in the account of "work"
-rwk deploy ./game --profile default   # one run with the first login, without switching
-rwk profiles use default          # back to the first login for later runs
-```
-
-| Command | What it does |
-|---|---|
-| `rwk login [--profile <name>]` | Logs in to the profile (new, or again, perhaps as another email), chooses its account (`--account` answers that), and makes it the one commands use |
-| `rwk profiles` | Lists the profiles: their email and account, • the one commands use |
-| `rwk profiles use <name>` | Commands use that profile from now on |
-| `rwk whoami [--profile <name>]` | Asks Cloudflare which email and accounts the profile reaches |
-| `rwk logout [--profile <name>]` | Logs out (Cloudflare revokes the login) and forgets the profile. Its games stay published; log in again to manage them |
-
-The profile is chosen in this order: `--profile` (for one run, not saved), else the one chosen with `rwk profiles use` or `rwk login`, else `default`. A name never logged in stops the run instead of opening the browser (`rwk login --profile <name>` makes it), so a typo does not start a new login. Names use `a-z`, digits and `-`.
-
-A game lives in the account it was published in: its Worker and its R2 data (settings, saves, large files) stay there. To publish it in another login's account too, deploy it from its folder with that profile, as a first deploy there; `saves export` with one profile and `saves import` with the other carry a player's saves over.
-
-A run with `CLOUDFLARE_API_TOKEN` (CI) uses the token, never a profile: `--profile` is ignored, with a warning.

@@ -5,12 +5,12 @@ lang: en
 
 # Publish from CI
 
-A game kept in a Git repository can publish itself: each push to `main` updates the site, with no one at the keyboard. The CI runs the same command as on your PC, with [`--json`](/reference/commands#run-without-questions-ci): it never asks a question, and it ends with the game's link and the build report.
+A game kept in a Git repository can publish itself: each push to `main` updates the site, with no one at the keyboard. The CI runs the same command as on your PC, with [`--json`](/reference/commands/unattended): it never asks a question, and it ends with the game's link and the build report.
 
 ## Before you start
 
 1. **Publish the game once from a terminal** ([first deploy](/setup/first-deploy)) if you can, to answer its questions. A first deploy in CI takes the defaults; give it the site name with a [`rwk.json`](/reference/config#rwk-json-in-the-game-folder) in the game folder, or the `site-name` input (`--name` on the command line), or it is made from the folder's name. [Access protection](/setup/access) is set up through the API when the token has the Access permissions and the account already has a Zero Trust team.
-2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands#run-without-questions-ci), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts (or put `--account <ID>` on the command line).
+2. **Create a Cloudflare API token** with the [permissions the toolkit needs](/reference/commands/unattended), for the one account, and save it in the CI's secrets as `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` if the token reaches several accounts (or put `--account <ID>` on the command line).
 3. **Put the game in the repository**, in a folder such as `game/` (the one with `index.html` and `js/`). Large pictures and sounds fit better in [Git LFS](https://git-lfs.com).
 
 The settings stay in your Cloudflare account, as for a deploy from your PC: change them with [`config`](/setup/configuration) on your PC. Feature settings apply at once; the others (`include`, `exclude`…) with the next CI run. To keep the site name and the files to leave out in the repository instead, next to the game, use a [`rwk.json`](/reference/config#rwk-json-in-the-game-folder): the pull request check (`analyze`) then counts the same files as the deploy.
@@ -60,7 +60,7 @@ The action installs Node.js and the toolkit at the tag you pin, then publishes t
 | `command` | `deploy` | Or `analyze`, `saves import`, `upgrade` |
 | `site-name` | | `deploy`: the site name of a first deploy. A published game must already have it |
 | `cloudflare-api-token` | | Required, except for `analyze` |
-| `cloudflare-account-id` | | When the token reaches several accounts: the one to publish to (its ID or name, see [Several Cloudflare accounts](/reference/commands#several-cloudflare-accounts)) |
+| `cloudflare-account-id` | | When the token reaches several accounts: the one to publish to (its ID or name, see [Several Cloudflare accounts](/reference/commands/accounts#several-cloudflare-accounts)) |
 | `node-version` | `22` | |
 
 | Output | |
@@ -93,7 +93,7 @@ jobs:
 
 No `cloudflare-api-token` is needed, so a pull request from a fork can run it too.
 
-Or from the shell: `node cli/index.js deploy ./game --dry-run --json`. The result has `"dryRun": true` and the `build` report (see [Commands](/reference/commands#check-without-publishing)). It uses the first-deploy defaults, so a game with `exclude` patterns saved in R2 may count more files than its real deploy.
+Or from the shell: `node cli/index.js deploy ./game --dry-run --json`. The result has `"dryRun": true` and the `build` report (see [Commands](/reference/commands/check)). It uses the first-deploy defaults, so a game with `exclude` patterns saved in R2 may count more files than its real deploy.
 
 ## GitLab CI
 
@@ -124,7 +124,7 @@ curl -fsSL https://raw.githubusercontent.com/Kokoroou/rpgmaker-web-toolkit/v0.4.
 
 From a clone of the toolkit: `node cli/index.js deploy ./game --json` after `npm ci`.
 
-The line keeps the toolkit and wrangler in a cache folder (`~/.cache/rpgmaker-web-toolkit`, or `RWK_CACHE`). On a runner that starts empty each time that changes nothing; if your CI can keep a folder between jobs, keep that one and the next job skips the downloads. Add `--cleanup` to remove it at the end of the job ([details](/reference/commands#cache-and-cleanup)).
+The line keeps the toolkit and wrangler in a cache folder (`~/.cache/rpgmaker-web-toolkit`, or `RWK_CACHE`). On a runner that starts empty each time that changes nothing; if your CI can keep a folder between jobs, keep that one and the next job skips the downloads. Add `--cleanup` to remove it at the end of the job ([details](/reference/commands/cache)).
 
 ## The result
 
