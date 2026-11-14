@@ -177,11 +177,15 @@ export async function ensureBucket(bucket, accountId) {
   }
 }
 
+// wrangler r2 object puts the key into the API's URL as it is, so the characters
+// a URL reads specially are escaped here ("goblin133%.png" fails, "a%20b.png" would be "a b.png").
+export const objectArg = (bucket, key) => `${bucket}/${key.replace(/[%#?]/g, encodeURIComponent)}`;
+
 // null only when the key is missing; any other failure throws, so a network
 // error is never mistaken for "no config yet".
 async function r2Get(bucket, key) {
   const tmp = path.join(os.tmpdir(), `rwk-${crypto.randomUUID()}`);
-  const res = await wrangler(["r2", "object", "get", `${bucket}/${key}`, "--remote", "--file", tmp], { quiet: true });
+  const res = await wrangler(["r2", "object", "get", objectArg(bucket, key), "--remote", "--file", tmp], { quiet: true });
   if (res.code !== 0) {
     fs.rmSync(tmp, { force: true });
     if (/specified key does not exist/i.test(res.output)) return null;
@@ -196,7 +200,7 @@ async function r2Get(bucket, key) {
 
 async function r2Put(bucket, key, file, contentType) {
   await wranglerOrThrow(
-    ["r2", "object", "put", `${bucket}/${key}`, "--remote", "--file", file, "--content-type", contentType],
+    ["r2", "object", "put", objectArg(bucket, key), "--remote", "--file", file, "--content-type", contentType],
     { quiet: true }
   );
 }
@@ -212,7 +216,7 @@ async function r2PutJson(bucket, key, data) {
 }
 
 async function r2Delete(bucket, key) {
-  await wrangler(["r2", "object", "delete", `${bucket}/${key}`, "--remote"], { quiet: true });
+  await wrangler(["r2", "object", "delete", objectArg(bucket, key), "--remote"], { quiet: true });
 }
 
 //---------------------------------------------------------------------------

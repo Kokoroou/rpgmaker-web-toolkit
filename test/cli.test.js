@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import LZString from "lz-string";
-import { overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { objectArg, overflowRoutes, retitleMvGlobal, writeWorkerProject } from "../cli/lib/cloudflare.js";
+import { splitForR2 } from "../cli/lib/build-checks.js";
 import { WORKERS_API, checkWorkersApi, deployKeepingAssets, keepAssetsPatch } from "../cli/lib/workers-api.js";
 import { compileGlobs, findGameBySite, mobileOnlyMissing, nonAsciiPaths, siteNameFromLink, storageIdOf, suggestSlug, takenNames, validateSlug } from "../cli/lib/game.js";
 import { BUNDLED_LIMITS_FILE, loadLimits, parseLimits } from "../cli/lib/limits.js";
@@ -50,6 +51,24 @@ test("overflow routes: exact, folder fallback, everything", () => {
   const many = Array.from({ length: 120 }, (_, i) => `img/parallaxes/f${i}.png_`);
   assert.deepEqual(overflowRoutes(many), ["/api/*", "/_lens/*", "/img/parallaxes/*"]);
   assert.equal(overflowRoutes(["root-file.bin".repeat(1)].concat(many.map((m) => m.replace("img/parallaxes/", "")))), true);
+});
+
+test("files with % in the name go to R2, and their R2 keys are escaped for wrangler", () => {
+  const max = 25 * 1024 ** 2;
+  const files = [
+    { rel: "img/enemies/goblin133%.rpgmvp", size: 10 },
+    { rel: "img/a%20b.png", size: 10 },
+    { rel: "movies/big.webm", size: max + 1 },
+    { rel: "img/ok.png", size: 10 },
+  ];
+  const { assets, overflow, r2 } = splitForR2(files, max);
+  assert.deepEqual(assets.map((f) => f.rel), ["img/ok.png"]);
+  assert.deepEqual(overflow.map((f) => f.rel), ["img/enemies/goblin133%.rpgmvp", "img/a%20b.png", "movies/big.webm"]);
+  assert.equal(r2, '1 file(s) over 25 MiB and 2 with "%" in the name go to R2');
+  assert.equal(splitForR2([files[3]], max, "would go").r2, "0 file(s) over 25 MiB would go to R2");
+  assert.equal(objectArg("b", "assets/g/img/goblin133%.rpgmvp"), "b/assets/g/img/goblin133%25.rpgmvp");
+  assert.equal(objectArg("b", "assets/g/img/a b#?.png"), "b/assets/g/img/a b%23%3F.png");
+  assert.equal(objectArg("b", "assets/g/img/大图.png"), "b/assets/g/img/大图.png");
 });
 
 test("scanKeys reads only enabled plugins and skips touch-covered keys", () => {
