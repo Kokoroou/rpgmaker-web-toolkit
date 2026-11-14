@@ -88,6 +88,26 @@ or lower-case the name the code builds.
 each one back to the file under another case, so that `doctor` can report them from a real
 play session.
 
+### A Live2D model file spelled differently from its folder
+
+Example: `live2dModel/Model_01/model_01.model3.json`, while the folder and every other file
+in it use `Model_01`.
+**On the web:** the first scene that shows the model stops the game with the plugin's own
+"model load error". The console shows a 404 for `live2dModel/Model_01//Model_01.model3.json`,
+then `Cannot read properties of undefined (reading 'at')` inside the Live2D plugin.
+**Why Windows hides it:** letter case. The plugin builds the name at run time from the
+model's folder (`<folder>/<folder>.model3.json`); the events only name the folder
+(`… Model_01 …` in a plugin command).
+**Detect:** not found by `rwk analyze`: the reference is built in code. Compare each
+`*.model3.json` base name with its folder name; a difference in case only is this problem.
+Seen in an MV game with an obfuscated commercial Live2D plugin (Cubism 4).
+**Fix:** rename the **file** to the folder's spelling (an exception to "change the
+reference": the reference is in plugin code you may not edit). Windows still finds it.
+The model folder sits outside the engine's folders: answer yes when the first deploy asks
+whether to include it (`include` in the config), or every model is missing.
+**Toolkit:** manual. Idea: `rwk analyze` reports a `*.model3.json` / `*.model.json` whose
+name differs from its folder only by case, and `fix-paths --level standard` renames it.
+
 ### The same name in two Unicode forms (NFC / NFD)
 
 **On the web:** a file with accents or Japanese kana is "missing" although it is right
@@ -134,6 +154,19 @@ after it in the same file** is gone too. On MZ, the engine's own `main.js` also 
 that is **not** Node.js: no `require`, `versions` without `node-webkit`, so
 `Utils.isNwjs()` still says "browser". Keep it that way, because a plugin that thinks it is
 in NW.js calls `require('fs')`.
+
+### A plugin calls `require('fs')` without checking for NW.js
+
+**On the web:** `ReferenceError: require is not defined` in the console. Where it happens
+decides the damage: in a plugin command run by an event, the error can stop the game; in an
+override that has already done its main work, it is only a console line.
+**Why Windows hides it:** NW.js always has Node.js `require`.
+**Toolkit:** cannot be fixed globally. A page-wide `require` would make the engine's
+`Utils.isNwjs()` (MV: `typeof require === 'function' && typeof process === 'object'`) say
+"desktop", and saves would then go to `fs`. Patching the plugin is the only fix, and
+obfuscated commercial plugins often forbid it: check whether the game still plays.
+Seen in an MV Live2D plugin: once at `SceneManager.run` and in each "add model" command.
+In both places the game went on and the model showed (checked in Chrome).
 
 ### Game plugins that eat touches and clicks
 
@@ -192,6 +225,12 @@ because it cannot tell the difference.
 reachable (transfer commands from the start map), so that the long list gets shorter.
 
 ## To investigate
+
+- **What a Live2D plugin loses when `require` fails (unconfirmed).** In the MV Live2D
+  plugin above, the "add model" command throws in its `setMotionSeData` step on the web.
+  The model shows and moves, but the sounds tied to motions (a `voice.csv` in some model
+  folders) may never play. Still to check: play a scene with motion sounds and compare
+  with Game.exe.
 
 - **Asset names translated together with the text (unconfirmed).** An English MV game
   (~11,000 references, encrypted assets) had 4,335 `missing` references, mostly sound
