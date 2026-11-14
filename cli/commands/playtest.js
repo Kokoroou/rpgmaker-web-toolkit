@@ -9,7 +9,7 @@
 //           nothing is published and no login is needed
 //   link    the deployed site, as a player opens it; no login
 //   name    the deployed site, its link read from the account (needs the login)
-// On a deployed site the save API is answered on this PC (cli/lib/test-server.js),
+// On a deployed site the save API is answered on this PC (cli/lib/playtest-server.js),
 // so the test never touches the players' cloud saves.
 //
 // The steps (a step that cannot run is skipped, with why):
@@ -29,12 +29,12 @@ import { readProjectFile, siteNameFor, withProjectPatterns } from "../lib/projec
 import { connect, siteOf } from "../lib/session.js";
 import { generatedFiles, runtimeConfigOf } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
-import { localSaveApi, startTestServer } from "../lib/test-server.js";
+import { localSaveApi, startTestServer } from "../lib/playtest-server.js";
 import { CliError, ask, c, log } from "../lib/ui.js";
 import { findSite } from "./site.js";
 
 const USAGE = "rwk test <game folder | game link | site name> [--out <folder>]";
-const PROBE = fs.readFileSync(path.join(import.meta.dirname, "..", "lib", "test-probe.js"), "utf8");
+const PROBE = fs.readFileSync(path.join(import.meta.dirname, "..", "lib", "playtest-probe.js"), "utf8");
 const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 844, height: 390 };
 const PHONE_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";

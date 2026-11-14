@@ -9,7 +9,7 @@ import { exportSaves } from "./commands/saves-export.js";
 import { deletePlayerSaves, movePlayerSaves } from "./commands/saves-player.js";
 import { deleteSite, list, logs, open, status } from "./commands/site.js";
 import { upgrade } from "./commands/upgrade.js";
-import { testGame } from "./commands/test.js";
+import { testGame } from "./commands/playtest.js";
 import { failedResult, publishResult, renderSummary, runResult } from "./lib/report.js";
 import { TOOLKIT_VERSION } from "./lib/stage.js";
 import { classifyTarget, currentGameFolder } from "./lib/target.js";

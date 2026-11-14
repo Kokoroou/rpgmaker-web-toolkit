@@ -14,7 +14,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - `cli/` — Node CLI run by `run.ps1` / `rwk.cmd`: analyzes the game, stages a web build, drives wrangler.
   The shared `games.json` in R2 is written only through `putGameConfig` (lock + latest copy), so deploys in several shells do not lose each other's game
   Free plan limits are in `cli/limits.json` (fetched from `main` at each deploy): change them there and bump `updated`
-  `rwk test` (`cli/commands/test.js`) plays a game in Chrome over the DevTools protocol (`cli/lib/chrome.js`, shared with `tools/perf/`); the steps run in the page from `cli/lib/test-probe.js`
+  `rwk test` (`cli/commands/playtest.js`) plays a game in Chrome over the DevTools protocol (`cli/lib/chrome.js`, shared with `tools/perf/`); the steps run in the page from `cli/lib/playtest-probe.js`
 - `runtime/` — `RWK_*.js` plugins injected into the game's web build (run in the browser, MZ and MV)
 - `worker/` — the Cloudflare Worker shared by every game (assets, Access JWT, save API)
 - `action.yml` — the GitHub Action a game repository uses to publish itself (`--json`, `cli/lib/report.js`)

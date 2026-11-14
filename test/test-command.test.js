@@ -8,11 +8,11 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { addProblem, describe, openSite, pluginOf, responseProblem, testGame, waitUpload } from "../cli/commands/test.js";
+import { addProblem, describe, openSite, pluginOf, responseProblem, testGame, waitUpload } from "../cli/commands/playtest.js";
 import { findChrome, launchChrome, openPage } from "../cli/lib/chrome.js";
 import { CliError } from "../cli/lib/ui.js";
 import { failedResult } from "../cli/lib/report.js";
-import { buildIndex, localSaveApi, startTestServer } from "../cli/lib/test-server.js";
+import { buildIndex, localSaveApi, startTestServer } from "../cli/lib/playtest-server.js";
 import { contentTypeOf } from "../cli/lib/cloudflare.js";
 
 const STUB = fs.readFileSync(path.join(import.meta.dirname, "fixtures", "stub-engine.js"), "utf8");
@@ -201,9 +201,24 @@ browserTest("test: the browser helpers the bench shares", { timeout: 60000 }, as
     assert.equal(await page.evaluate("innerWidth"), 400);
     assert.ok((await page.metrics()).JSHeapUsedSize > 0);
     await page.gc();
+    // waitFor keeps asking while the page cannot answer (it is navigating).
+    await page.send("Page.navigate", { url: "data:text/html,<script>document.write('<p id=y>')</script>" });
+    await page.waitFor("document.getElementById('y')");
+    // A call still waiting when Chrome closes fails, rather than wait 5 minutes.
+    const waiting = assert.rejects(page.send("Runtime.evaluate", { expression: "new Promise(() => {})", awaitPromise: true }), /closed the DevTools connection/);
+    await browser.close();
+    await waiting;
   } finally {
     await browser.close();
   }
+  // Closing again is no error, and a call on the closed connection fails at once.
+  await browser.close();
+  await assert.rejects(browser.cdp.send("Browser.getVersion"), /DevTools connection is closed/);
+});
+
+test("test: a browser that quits before opening its DevTools port", { timeout: 30000 }, async () => {
+  // Node quits at once on Chrome's flags: as a Chrome that cannot start.
+  await assert.rejects(launchChrome({ executable: process.execPath }), /exited \(code \d+\) before opening its DevTools port/);
 });
 
 browserTest("test: a game folder that works passes every step", { timeout: 180000 }, async () => {
@@ -247,6 +262,17 @@ browserTest("test: a game that never loads fails at boot, and the steps after it
     const texts = err.result.test.problems.map((p) => p.text).join("\n");
     assert.match(texts, /127\.0\.0\.1:9\/gone\.json: net::ERR_/);
     assert.match(texts, /HTTP 400/);
+    return true;
+  });
+});
+
+browserTest("test: a link that cannot be opened fails at open, and nothing else runs", { timeout: 60000 }, async () => {
+  await assert.rejects(testGame("http://127.0.0.1:9/", { out: out() }, quick), (err) => {
+    const steps = byName(err.result.test.steps);
+    assert.equal(steps.open.status, "fail");
+    assert.match(steps.open.detail, /http:\/\/127\.0\.0\.1:9\/ cannot be opened \(net::ERR_/);
+    assert.equal(steps.boot.detail, "the page did not open");
+    assert.equal(err.result.site, "127");
     return true;
   });
 });

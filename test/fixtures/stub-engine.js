@@ -1,5 +1,5 @@
 // A stand-in for an RPG Maker engine, only as much as `rwk test` drives
-// (cli/lib/test-probe.js): scenes, a map with a player, the menu, save and load.
+// (cli/lib/playtest-probe.js): scenes, a map with a player, the menu, save and load.
 // It loads no plugin. test/test-command.test.js writes it into a fake game as
 // js/rmmz_core.js. window.STUB_FAULTS turns on the faults the test must report.
 

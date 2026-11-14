@@ -1,4 +1,4 @@
-// RWK_TEST: the steps `rwk test` drives in the game's page (cli/commands/test.js).
+// RWK_TEST: the steps `rwk test` drives in the game's page (cli/commands/playtest.js).
 // Not a plugin: the test adds it to the page before any of the game's scripts
 // (Page.addScriptToEvaluateOnNewDocument), so it runs the same on a game folder
 // served on this PC and on a deployed site, MZ or MV, with or without the toolkit.

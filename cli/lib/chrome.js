@@ -85,6 +85,8 @@ class Cdp {
 
   // Every call fails after 5 minutes rather than hang the run.
   send(method, params = {}, sessionId) {
+    // A closed connection would take the message and never answer.
+    if (this.ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error(`${method}: Chrome's DevTools connection is closed.`));
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params, sessionId }));
     return new Promise((resolve, reject) => {
@@ -146,10 +148,13 @@ export async function launchChrome({ executable, headed = false }) {
     if (fs.existsSync(portFile)) lines = fs.readFileSync(portFile, "utf8").trim().split(/\r?\n/);
   }
   const cdp = await Cdp.connect(`ws://127.0.0.1:${lines[0]}${lines[1]}`);
+  let closed = false;
 
   return {
     cdp,
     async close() {
+      if (closed) return;
+      closed = true;
       try {
         await Promise.race([cdp.send("Browser.close"), cap(3000)]);
       } catch {
