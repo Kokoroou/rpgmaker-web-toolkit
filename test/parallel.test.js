@@ -104,3 +104,56 @@ test("putGameConfig: a site name another game just took stops the deploy", async
   await updateGameConfigs("b", (configs) => delete configs.fpA, opts);
   assert.deepEqual(JSON.parse(r2.store.json), {});
 });
+
+//---------------------------------------------------------------------------
+// The edges: a lock that disappears while we look at it, EPERM, a build folder race
+//---------------------------------------------------------------------------
+
+test("withLock: a lock released while we look at it is simply tried again", async (t) => {
+  const file = path.join(tmp(t), "x.lock");
+  fs.writeFileSync(file, String(process.pid));
+  const real = { read: fs.readFileSync, stat: fs.statSync };
+  let reads = 0;
+  t.mock.method(fs, "readFileSync", (...a) => {
+    if (a[0] === file && reads++ === 0) throw Object.assign(new Error("gone"), { code: "ENOENT" }); // owner unreadable
+    return real.read(...a);
+  });
+  let stats = 0;
+  t.mock.method(fs, "statSync", (...a) => {
+    if (a[0] === file && stats++ === 0) {
+      fs.rmSync(file, { force: true }); // the holder let go between our two looks
+      throw Object.assign(new Error("gone"), { code: "ENOENT" });
+    }
+    return real.stat(...a);
+  });
+  assert.equal(await withLock(file, async () => "ok", { pollMs: 2 }), "ok");
+});
+
+test("pidAlive: a process we may not signal is alive; nonsense is not", (t) => {
+  assert.equal(pidAlive(0), false);
+  assert.equal(pidAlive(NaN), false);
+  t.mock.method(process, "kill", () => {
+    throw Object.assign(new Error("denied"), { code: "EPERM" });
+  });
+  assert.equal(pidAlive(4242), true);
+});
+
+test("createBuildDir: a folder of its own, made again if a finishing run removed the base meanwhile", async (t) => {
+  const { createBuildDir } = await import("../cli/lib/config.js");
+  const game = tmp(t);
+  const exit = t.mock.method(process, "on", () => process);
+  const real = fs.mkdtempSync;
+  let failures = 0;
+  t.mock.method(fs, "mkdtempSync", (...a) => {
+    if (failures++ === 0) throw Object.assign(new Error("base gone"), { code: "ENOENT" });
+    return real(...a);
+  });
+  const dir = createBuildDir(game, "my-game");
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  assert.ok(fs.statSync(dir).isDirectory());
+  assert.match(path.basename(dir), /^my-game-/);
+  assert.equal(exit.mock.callCount(), 1, "removed when the run ends");
+  const other = createBuildDir(game, "my-game");
+  t.after(() => fs.rmSync(other, { recursive: true, force: true }));
+  assert.notEqual(other, dir);
+});
