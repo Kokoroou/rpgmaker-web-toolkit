@@ -31,6 +31,9 @@ const LANDSCAPE = { width: 844, height: 390 };
 // with cloud saves on. The keys are the ones the game's plugins read (1-5).
 const SETTINGS = {
   sync: { enabled: true },
+  saveTools: true,
+  saveHistory: { keep: 10, days: 30 },
+  itemBatch: true,
   controls: {
     enabled: true,
     showOn: "touch",
