@@ -17,7 +17,7 @@ if not exist "%RWK_HOME%node_modules\lz-string\package.json" set "RWK_INSTALL=1"
 if defined RWK_INSTALL (
   echo [rwk] Installing dependencies...
   pushd "%RWK_HOME%"
-  call npm ci --no-fund --no-audit
+  call npm ci --no-fund --no-audit --prefer-offline --loglevel=error
   if errorlevel 1 (
     popd
     echo [rwk] npm ci failed.
