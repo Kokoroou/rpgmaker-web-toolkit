@@ -2,12 +2,14 @@
 // protocol with Node's built-in WebSocket, so neither `rwk test` nor the bench
 // (tools/perf) needs an npm package or a browser download.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// A wait that does not keep Node running by itself (the caps in close()).
+const cap = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref());
 
 const CANDIDATES = {
   win32: [
@@ -48,10 +50,25 @@ class Cdp {
     this.pending = new Map();
     this.listeners = new Map();
     ws.onmessage = (e) => this.#receive(JSON.parse(e.data));
-    ws.onclose = () => {
-      for (const p of this.pending.values()) p.reject(new Error("Chrome closed the DevTools connection."));
-      this.pending.clear();
-    };
+    ws.onclose = () => this.#dropPending();
+  }
+
+  #dropPending() {
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer);
+      p.reject(new Error("Chrome closed the DevTools connection."));
+    }
+    this.pending.clear();
+  }
+
+  // Ends the connection and every call still waiting: nothing of it keeps Node running.
+  close() {
+    this.#dropPending();
+    try {
+      this.ws.close();
+    } catch {
+      // Already closed.
+    }
   }
 
   #receive(msg) {
@@ -75,11 +92,13 @@ class Cdp {
         this.pending.delete(id);
         reject(new Error(`${method}: no answer from Chrome in 5 min`));
       }, 300000);
+      // A call left waiting (Browser.close as Chrome quits) must not keep Node running.
+      timer.unref();
       const done = (fn) => (value) => {
         clearTimeout(timer);
         fn(value);
       };
-      this.pending.set(id, { resolve: done(resolve), reject: done(reject), method });
+      this.pending.set(id, { resolve: done(resolve), reject: done(reject), method, timer });
     });
   }
 
@@ -132,18 +151,24 @@ export async function launchChrome({ executable, headed = false }) {
     cdp,
     async close() {
       try {
-        await Promise.race([cdp.send("Browser.close"), sleep(3000)]);
+        await Promise.race([cdp.send("Browser.close"), cap(3000)]);
       } catch {
         // Already gone.
       }
-      if (proc.exitCode === null) {
-        proc.kill();
-        await new Promise((resolve) => proc.once("exit", resolve));
+      cdp.close();
+      if (proc.exitCode === null && proc.signalCode === null) {
+        const exited = new Promise((resolve) => proc.once("exit", resolve));
+        // On Windows, kill() ends chrome.exe alone: its GPU, network and crash
+        // helpers live on and hold the run open. taskkill /T ends the whole tree.
+        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+        else proc.kill();
+        await Promise.race([exited, cap(5000)]);
       }
+      proc.unref();
       // Chrome's child processes may hold or still write files a moment longer
       // (Windows, a busy CI runner): a profile left in the temp folder is no failure.
       try {
-        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       } catch {
         // The OS cleans its temp folder.
       }
