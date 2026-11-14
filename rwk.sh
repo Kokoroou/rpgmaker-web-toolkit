@@ -24,7 +24,7 @@ fi
 # Also after an update that added a dependency.
 if [ ! -f "$RWK_HOME/node_modules/wrangler/bin/wrangler.js" ] || [ ! -f "$RWK_HOME/node_modules/lz-string/package.json" ]; then
   echo '[rwk] Installing dependencies...' >&2
-  (cd "$RWK_HOME" && npm ci --no-fund --no-audit) || { echo '[rwk] npm ci failed.' >&2; exit 1; }
+  (cd "$RWK_HOME" && npm ci --no-fund --no-audit --prefer-offline --loglevel=error) || { echo '[rwk] npm ci failed.' >&2; exit 1; }
 fi
 
 exec node "$RWK_HOME/cli/index.js" "$@"

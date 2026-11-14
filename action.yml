@@ -62,9 +62,24 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
-    - name: Install the toolkit
+    # wrangler is most of the install time: keep the installed toolkit between runs,
+    # one copy per package-lock.json, OS, CPU and Node version.
+    - name: Find the toolkit's dependency cache key
+      id: deps
       shell: bash
-      run: npm ci --prefix "$GITHUB_ACTION_PATH" --no-fund --no-audit --loglevel=error
+      run: echo "hash=$(sha256sum "$GITHUB_ACTION_PATH/package-lock.json" | cut -d' ' -f1)" >>"$GITHUB_OUTPUT"
+
+    - name: Restore the toolkit's dependencies
+      id: deps-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ github.action_path }}/node_modules
+        key: rwk-deps-${{ runner.os }}-${{ runner.arch }}-node${{ inputs.node-version }}-${{ steps.deps.outputs.hash }}
+
+    - name: Install the toolkit
+      if: steps.deps-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci --prefix "$GITHUB_ACTION_PATH" --no-fund --no-audit --prefer-offline --loglevel=error
 
     - name: Run rpgmaker-web-toolkit
       id: rwk
