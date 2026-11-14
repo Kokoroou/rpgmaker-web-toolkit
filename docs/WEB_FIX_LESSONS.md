@@ -98,15 +98,14 @@ then `Cannot read properties of undefined (reading 'at')` inside the Live2D plug
 **Why Windows hides it:** letter case. The plugin builds the name at run time from the
 model's folder (`<folder>/<folder>.model3.json`); the events only name the folder
 (`… Model_01 …` in a plugin command).
-**Detect:** not found by `rwk analyze`: the reference is built in code. Compare each
-`*.model3.json` base name with its folder name; a difference in case only is this problem.
+**Detect:** `rwk analyze` (kind `model`), since #162: a `*.model3.json` / `*.model.json` whose
+name differs from its folder only by case. It also looks in the folders the build leaves out.
 Seen in an MV game with an obfuscated commercial Live2D plugin (Cubism 4).
 **Fix:** rename the **file** to the folder's spelling (an exception to "change the
 reference": the reference is in plugin code you may not edit). Windows still finds it.
 The model folder sits outside the engine's folders: answer yes when the first deploy asks
 whether to include it (`include` in the config), or every model is missing.
-**Toolkit:** manual. Idea: `rwk analyze` reports a `*.model3.json` / `*.model.json` whose
-name differs from its folder only by case, and `fix-paths --level standard` renames it.
+**Toolkit:** done by `rwk fix-paths --level standard` (#162).
 
 ### The same name in two Unicode forms (NFC / NFD)
 
