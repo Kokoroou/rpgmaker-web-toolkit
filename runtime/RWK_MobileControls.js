@@ -500,7 +500,8 @@
 
   const toolbarLeft = el("div", "rwk-tools");
   const toolbarRight = el("div", "rwk-tools");
-  pad.append(toolbarLeft, toolbarRight);
+  const toolbarTop = el("div", "rwk-tools"); // save / reset while editing the layout
+  pad.append(toolbarLeft, toolbarRight, toolbarTop);
   function addTool(label, extraClass, onTap, name, group = toolbarLeft, onDown = () => {}) {
     const btn = el("div", "rwk-btn rwk-tool " + extraClass, label);
     btn.setAttribute("role", "button");
@@ -697,11 +698,12 @@
         setEditing(true);
       },
     });
-    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false), "Save the layout");
+    // Top center, away from the movement keys and the corner toolbars.
+    const doneBtn = addTool(icons.check, "rwk-tool-edit", () => setEditing(false), "Save the layout", toolbarTop);
     const resetBtn = addTool(icons.reset, "rwk-tool-reset", () => {
       delete saved[orientation()];
       layout();
-    }, "Reset the positions");
+    }, "Reset the positions", toolbarTop);
     doneBtn.style.display = resetBtn.style.display = "none";
   }
 
@@ -724,6 +726,8 @@
     toolbarRight.style.left = right + "px";
     toolbarLeft.style.top = tops[0] + "px";
     toolbarRight.style.top = tops[1] + "px";
+    toolbarTop.style.left = vw() / 2 + "px";
+    toolbarTop.style.top = margin() + toolbarTop.offsetHeight / 2 + "px";
   }
 
   // Above the controls when docked, under the toolbar otherwise.

@@ -37,7 +37,7 @@ The ⚙, ⏩, ⌨, ⟳ and 👁 buttons next to the gamepad: see [Toolbar](/play
 
 1. ⚙ → **Controls** → **Edit button layout**.
 2. **Drag** a button to move it. **−** hides it, **+** brings it back.
-3. **✓** saves. **↺** resets the positions.
+3. **✓** saves. **↺** resets the positions. Both sit at the top center of the screen while editing, away from the movement keys.
 
 The layout is saved in this browser, separately for portrait and landscape.
 

@@ -124,10 +124,70 @@
 
   Window_ItemBatchNumber.prototype.drawTotalPrice = function () {};
 
+  // The big step (up/down keys and the ±10 buttons) is chosen by the player:
+  // tap the "Step" line, or press PageUp/PageDown, to cycle through STEPS.
+  // "Max" jumps to the most the player holds.
+  const STEPS = [5, 10, 25, 50, "max"];
+  const STEP_KEY = "rwk.itemBatch.step." + RWK.config.gameId;
+  const stepIndex = () => {
+    const i = STEPS.indexOf(RWK.storage.get(STEP_KEY, 10));
+    return i < 0 ? 1 : i;
+  };
+
+  Window_ItemBatchNumber.prototype.bigStep = function () {
+    const step = STEPS[stepIndex()];
+    return step === "max" ? Math.max(1, this._max) : step;
+  };
+
+  Window_ItemBatchNumber.prototype.cycleStep = function (dir) {
+    RWK.storage.set(STEP_KEY, STEPS[(stepIndex() + dir + STEPS.length) % STEPS.length]);
+    SoundManager.playCursor();
+    this.refresh();
+  };
+
   Window_ItemBatchNumber.prototype.refresh = function () {
     Window_ShopNumber.prototype.refresh.call(this);
     this.resetTextColor();
     this.drawText(this._itemBatchLabel || "Use how many?", 0, 0, this.contentsWidth(), "center");
+    const step = STEPS[stepIndex()];
+    this.drawText(
+      "◀ Step: " + (step === "max" ? "Max" : "±" + step) + " ▶",
+      0,
+      this.lineHeight(),
+      this.contentsWidth(),
+      "center"
+    );
+  };
+
+  Window_ItemBatchNumber.prototype.processNumberChange = function () {
+    if (!this.isOpenAndActive()) return;
+    const step = this.bigStep();
+    if (Input.isRepeated("right")) this.changeNumber(1);
+    if (Input.isRepeated("left")) this.changeNumber(-1);
+    if (Input.isRepeated("up")) this.changeNumber(step);
+    if (Input.isRepeated("down")) this.changeNumber(-step);
+    if (Input.isTriggered("pagedown")) this.cycleStep(1);
+    if (Input.isTriggered("pageup")) this.cycleStep(-1);
+  };
+
+  // The ±10 buttons follow the chosen step.
+  Window_ItemBatchNumber.prototype.onButtonUp2 = function () {
+    this.changeNumber(this.bigStep());
+  };
+  Window_ItemBatchNumber.prototype.onButtonDown2 = function () {
+    this.changeNumber(-this.bigStep());
+  };
+
+  // A tap on the step line cycles it.
+  const _update = Window_ItemBatchNumber.prototype.update;
+  Window_ItemBatchNumber.prototype.update = function () {
+    _update.apply(this, arguments);
+    if (!this.isOpenAndActive() || !TouchInput.isTriggered() || !this.visible) return;
+    const p = this.worldTransform.applyInverse(new PIXI.Point(TouchInput.x, TouchInput.y));
+    const x = p.x - this.padding;
+    const y = p.y - this.padding;
+    const lh = this.lineHeight();
+    if (y >= lh && y < lh * 2 && x >= 0 && x <= this.contentsWidth()) this.cycleStep(x < this.contentsWidth() / 2 ? -1 : 1);
   };
 
   // Centered and hidden, in the scene's window layer.
