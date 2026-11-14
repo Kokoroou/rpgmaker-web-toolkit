@@ -10,7 +10,7 @@ import { generatedFiles } from "../lib/stage.js";
 import { expectTarget } from "../lib/target.js";
 import { PROJECT_FILE, readProjectFile, showProjectFile, siteNameFor, withProjectPatterns } from "../lib/project.js";
 import { ask, c, formatBytes, log } from "../lib/ui.js";
-import { formatMiB, showPolicy, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
+import { showPolicy, splitForR2, tooManyFiles, warnLanguages, warnMobileMedia, warnPathProblems } from "../lib/build-checks.js";
 import { engineOf } from "../lib/engines.js";
 
 export async function analyze(inputPath, { command = "analyze", name } = {}) {
@@ -44,12 +44,11 @@ export async function analyze(inputPath, { command = "analyze", name } = {}) {
   const limits = await loadLimits({});
   const { maxFiles, maxFileBytes } = limits.assets;
   const files = collectFiles(game, cfg);
-  const overflow = files.filter((f) => f.size > maxFileBytes);
-  const assets = files.filter((f) => f.size <= maxFileBytes);
+  const { assets, overflow, r2 } = splitForR2(files, maxFileBytes, "would go");
   const generated = generatedFiles(game, applyPolicy(cfg, policy), files);
   const assetCount = new Set([...assets.map((f) => f.rel), ...generated.keys()]).size;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  log.info(`${files.length} files, ${formatBytes(totalBytes)} (${overflow.length} file(s) over ${formatMiB(maxFileBytes)} would go to R2)`);
+  log.info(`${files.length} files, ${formatBytes(totalBytes)} (${r2})`);
   if (assetCount > maxFiles) throw tooManyFiles(assets, assetCount, maxFiles);
   log.ok(`${assetCount} of ${maxFiles} files the free plan allows`);
   if (engineOf(game.engine).mobileMedia) warnMobileMedia(files);

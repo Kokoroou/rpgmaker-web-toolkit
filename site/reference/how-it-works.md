@@ -88,7 +88,7 @@ The game folder is never written to. Each run:
    Also writes `rwk-sw.js`, a Service Worker that keeps the pictures, sounds, data and scripts (each under 25 MiB) in the browser's Cache Storage, so a phone does not download them at every launch. It never touches `/api/`. A new deploy lists each file's version (size and modified time); on the next launch after all tabs of the game close, the worker drops only the files that changed. Players see what it holds, and can empty it, in ⚙ → **Help** → **Game files on this device**. Turn it off with [`cache`](/reference/config).
 
    The worker also lists the files over 25 MiB (a second list, `LARGE`, from R2). It never stores those on its own: only ⚙ → [Play offline](/play/offline) does. `RWK_Offline` asks the worker for the list over a message channel, compares it with the keys in the cache, and downloads what is missing, three files at a time, with a request header that makes the worker leave them alone. It counts bytes through a `TransformStream`, so a big file moves the bar while it downloads, and stores each file only after a plain 200 from this site (never a login page Access redirected to). `index.html`, `js/plugins.js` and `rwk.webmanifest` are answered from the network first and the cache when there is none (or after 4 seconds), so an installed copy opens offline. A cached file answers a `Range` request with a 206 (movies, streamed audio). `rwk.webmanifest` carries the icon's real size, `scope` and `display: fullscreen`, which is what lets a browser offer to install the game.
-4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
+4. Uploads files over 25 MiB to R2, skipping unchanged ones by hash. Files with `%` in the name go there too, whatever their size: Static Assets read the paths wrangler sends as percent-encoded, so `goblin133%.png` would fail the whole upload. The limits come from [`cli/limits.json`](/reference/limits#when-cloudflare-changes-them), downloaded from `main` on each run.
 5. Writes `rwk-build.json`, the complete list of the build's files and their sizes (a game has some 3,000; the file is about 150 KB). The host's ⚙ → **Share** → **Download game (folder)** fetches it through the Worker and then reads the files from the site itself, so the list is the only thing the Worker does for it.
    When the config asks for it (`"download": { "zip": true }`), it also makes the build's ZIP (`cli/lib/zip.js`) and uploads it to R2, unless the files it would hold are the ones the archive in R2 was made from. Turning that off removes an archive an earlier deploy left, so the space comes back.
 6. Deploys the Worker with the rest as static files (wrangler also uploads only changes).
@@ -118,7 +118,7 @@ Static files are **Workers Static Assets** (free, unmetered bandwidth). One R2 b
 
 ```
 rwk/games.json                       settings of every site (keyed by fingerprint; fingerprint@<name> for a game's further sites)
-assets/<slug>/<path>                 files over 25 MiB
+assets/<slug>/<path>                 files over 25 MiB, and files with % in the name
 assets/<slug>/.rwk-manifest.json     hashes of those files
 assets/<slug>/rwk.zip                the whole web build, for the host's Download game (ZIP); only with "download": { "zip": true }
 assets/<slug>/rwk.zip.json           what that archive holds, so a deploy with no change skips it

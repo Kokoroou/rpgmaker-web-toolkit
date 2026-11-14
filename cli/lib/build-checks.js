@@ -11,6 +11,22 @@ export function formatMiB(bytes) {
   return `${+(bytes / 1024 ** 2).toFixed(1)} MiB`;
 }
 
+// Static assets take neither a file over the size limit nor a path with "%":
+// Cloudflare reads the manifest's paths as percent-encoded ("goblin133%.png" is
+// refused, "a%20b.png" would mean "a b.png") and wrangler sends them unencoded.
+// Those files go to R2, where the Worker serves them by their decoded path.
+export const needsR2 = (file, maxFileBytes) => file.size > maxFileBytes || file.rel.includes("%");
+
+// Splits the game's files into static assets and R2 files, with the line that says so.
+export function splitForR2(files, maxFileBytes, verb = "go") {
+  const overflow = files.filter((f) => needsR2(f, maxFileBytes));
+  const assets = files.filter((f) => !needsR2(f, maxFileBytes));
+  const large = overflow.filter((f) => f.size > maxFileBytes).length;
+  const percent = overflow.length - large;
+  const r2 = `${large} file(s) over ${formatMiB(maxFileBytes)}${percent ? ` and ${percent} with "%" in the name` : ""} ${verb} to R2`;
+  return { assets, overflow, r2 };
+}
+
 // MV wants .m4a / .mp4 on phones; RWK_Core falls back to Ogg / WebM where the
 // browser plays them, which leaves out older iPhones.
 export function warnMobileMedia(files) {
