@@ -2,7 +2,7 @@
 import { COMMANDS, commandHelp, generalHelp, parseCommandLine } from "./lib/args.js";
 import { analyze } from "./commands/analyze.js";
 import { deploy } from "./commands/deploy.js";
-import { doctor } from "./commands/doctor.js";
+import { doctor, doctorSite } from "./commands/doctor.js";
 import { editConfig } from "./commands/config.js";
 import { exportSaves } from "./commands/saves-export.js";
 import { deletePlayerSaves, movePlayerSaves } from "./commands/saves-player.js";
@@ -86,7 +86,7 @@ async function main() {
     case "profiles use":
       return useProfile(target);
     case "doctor":
-      return doctor({ envTokenIgnored: !isUnattended() && !!process.env.CLOUDFLARE_API_TOKEN });
+      return doctor({ site: doctorSite(target), envTokenIgnored: !isUnattended() && !!process.env.CLOUDFLARE_API_TOKEN });
     case "upgrade":
       // Several games: the words as parsed; one game (maybe a folder with spaces): the target, which may be the folder found above.
       return upgrade(cli.targets.length > 1 ? cli.targets : target, { all: flags.all });

@@ -8,7 +8,7 @@ import test from "node:test";
 import { COMMANDS, commandHelp, parseCommandLine } from "../cli/lib/args.js";
 import { analyze } from "../cli/commands/analyze.js";
 import { formatMiB, showPolicy, tooManyFiles, warnMobileMedia } from "../cli/lib/build-checks.js";
-import { doctor, runChecks } from "../cli/commands/doctor.js";
+import { doctor, doctorSite, runChecks } from "../cli/commands/doctor.js";
 import { checkSiteName, preview } from "../cli/commands/preview.js";
 import { analyzeGame } from "../cli/lib/game.js";
 import { renderSummary, runResult, stepSummary } from "../cli/lib/report.js";
@@ -34,7 +34,9 @@ test("args: analyze, doctor and deploy --dry-run", () => {
   for (const name of ["analyze", "doctor"]) assert.ok(COMMANDS.some((c) => c.name === name), name);
   assert.deepEqual([parse(["analyze", "g"]).spec.name, parse(["analyze", "g"]).target], ["analyze", "g"]);
   assert.equal(parse(["analyze"]).target, undefined, "no target: the current folder, decided by the CLI");
-  assert.equal(parse(["doctor"]).spec.targets.length, 0);
+  assert.equal(parse(["doctor"]).target, undefined);
+  assert.equal(parse(["doctor", "my-game"]).target, "my-game");
+  assert.match(commandHelp(parse(["doctor"]).spec), /rwk doctor \[<game link \| site name>\] \[flags\]/, "the game is optional");
   const dry = parse(["deploy", "--dry-run", "g"]);
   assert.deepEqual([dry.spec.name, dry.target, dry.flags.dryRun], ["deploy", "g", true]);
   assert.equal(parse(["deploy", "g"]).flags.dryRun, false);
@@ -311,6 +313,88 @@ test("doctor: the result counts the passed checks, and a failed one stops with i
 
   const fail = { status: "fail", label: "wrangler", detail: "not installed", hint: "Run npm ci" };
   await assert.rejects(doctor({ run: async () => [ok, fail] }), (err) => /1 check\(s\) failed: wrangler/.test(err.message) && err.hint === "Run npm ci");
+});
+
+// doctor <game>: the PC checks, then the game's own.
+const gameRoutes = { "/accounts?": 200, "/user": 200, "/accounts/acc1/workers": 200, "/accounts/acc1/r2": 200 };
+const withScripts = (ids) => async (url) =>
+  url.endsWith("/accounts/acc1/workers/scripts") ? Response.json({ success: true, result: ids.map((id) => ({ id })) }) : answers(gameRoutes)(url);
+const published = { fp1: { slug: "my-game", title: "Demo", engine: "MZ", url: "https://my-game.alice.workers.dev", auth: { mode: "access" }, toolkitVersion: "1.0.0" } };
+const gameRun = (over = {}) =>
+  runChecks({
+    ...base,
+    getToken: async () => "tok",
+    asked: null,
+    savedAccountId: "acc1",
+    fetchImpl: withScripts(["my-game"]),
+    site: "my-game",
+    cliVersion: "1.0.0",
+    readObject: async ({ key, bucket, accountId, token }) => {
+      assert.deepEqual([key, bucket, accountId, token], ["rwk/games.json", "rpgmaker-web-toolkit", "acc1", "tok"]);
+      return Buffer.from(JSON.stringify(published));
+    },
+    probe: async () => ({ protected: true }),
+    ...over,
+  });
+const labels = (checks) => checks.map((x) => [x.label, x.status]);
+
+test("doctor <game>: a healthy game adds its checks after the PC's", async () => {
+  const checks = await gameRun();
+  assert.deepEqual(labels(checks).slice(-5), [["Game", "ok"], ["Worker", "ok"], ["Site", "ok"], ["Access", "ok"], ["Toolkit", "ok"]]);
+  const game = by(checks, "Game");
+  assert.deepEqual([game.site, game.url, game.detail], ["my-game", "https://my-game.alice.workers.dev", "Demo (MZ), site my-game"]);
+  assert.ok(!(await runChecks({ ...base, getToken: async () => "tok", asked: null, savedAccountId: "acc1", fetchImpl: withScripts([]) })).some((x) => x.label === "Game"), "no game, no game checks");
+});
+
+test("doctor <game>: an unknown game, a missing Worker and an old toolkit are named with what to do", async () => {
+  const unknown = await gameRun({ site: "other" });
+  assert.equal(by(unknown, "Game").status, "fail");
+  assert.match(by(unknown, "Game").detail, /No game .* "other"\. Games in this account: my-game/);
+  assert.ok(!by(unknown, "Site"), "nothing more about a game that is not there");
+
+  const gone = await gameRun({ fetchImpl: withScripts(["something-else"]), cliVersion: "1.2.0" });
+  assert.equal(by(gone, "Worker").status, "fail");
+  assert.match(by(gone, "Worker").hint, /rwk deploy/);
+  assert.equal(by(gone, "Toolkit").status, "warn");
+  assert.match(by(gone, "Toolkit").hint, /rwk upgrade my-game/);
+
+  const empty = await runChecks({ ...base, getToken: async () => "tok", asked: null, savedAccountId: "acc1", site: "my-game", readObject: () => assert.fail("no bucket, nothing to read"),
+    fetchImpl: async (url) => (url.endsWith("/r2/buckets/rpgmaker-web-toolkit") ? Response.json({ success: false, errors: [{ code: 10006 }] }, { status: 404 }) : withScripts([])(url)) });
+  assert.match(by(empty, "Game").detail, /no games yet/);
+});
+
+test("doctor <game>: the site down, locked, or open while Access is set up is a failure", async () => {
+  const down = await gameRun({ probe: async () => ({ error: "ENOTFOUND" }) });
+  assert.equal(by(down, "Site").status, "fail");
+  assert.ok(!by(down, "Access"));
+  const locked = await gameRun({ probe: async () => ({ protected: false, locked: true, status: 503 }) });
+  assert.match(by(locked, "Site").detail, /locked/);
+  const open = await gameRun({ probe: async () => ({ protected: false, status: 200 }) });
+  assert.equal(by(open, "Site").status, "ok");
+  assert.equal(by(open, "Access").status, "fail");
+  assert.match(by(open, "Access").detail, /NOT protecting/);
+  const broken = await gameRun({ probe: async () => ({ protected: false, status: 500 }) });
+  assert.match(by(broken, "Site").hint, /rwk logs my-game/);
+});
+
+test("doctor <game>: not logged in means the game is not checked, which fails", async () => {
+  const checks = await runChecks({ ...base, getToken: async () => null, site: "my-game" });
+  const game = by(checks, "Game");
+  assert.equal(game.status, "fail");
+  assert.match(game.detail, /not checked/);
+  assert.match(game.hint, /rwk login/);
+});
+
+test("doctor <game>: a link or a site name, not a folder; the result names the site", async () => {
+  assert.equal(doctorSite(undefined), null);
+  assert.equal(doctorSite("my-game"), "my-game");
+  assert.equal(doctorSite("https://my-game.alice.workers.dev"), "my-game");
+  assert.throws(() => doctorSite("./My Game"), (err) => err.exitCode === 64 && /rwk analyze/.test(err.hint));
+  const game = { status: "ok", label: "Game", detail: "Demo (MZ)", hint: null, site: "my-game", url: "https://my-game.alice.workers.dev" };
+  let asked;
+  const result = await doctor({ site: "my-game", run: async (o) => ((asked = o.site), [game]) });
+  assert.equal(asked, "my-game");
+  assert.deepEqual([result.site, result.url], ["my-game", "https://my-game.alice.workers.dev"]);
 });
 
 //---------------------------------------------------------------------------

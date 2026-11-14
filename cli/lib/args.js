@@ -163,9 +163,10 @@ const SPECS = [
   },
   {
     name: "doctor",
-    summary: "Check this PC and the account: Node.js, wrangler, the login, the token's permissions, R2 and the workers.dev subdomain",
-    targets: [],
-    examples: ["rwk doctor", "rwk doctor --json"],
+    summary: "Check this PC and the account (Node.js, wrangler, the login, the token's permissions, R2, the workers.dev subdomain), and a deployed game when named",
+    targets: ["link", "name"],
+    optionalTarget: true,
+    examples: ["rwk doctor", "rwk doctor my-game", "rwk doctor https://my-game.alice.workers.dev --json"],
   },
 ];
 
@@ -193,7 +194,8 @@ export const FLAGS = [
 const OPTION_VALUES = { name: "site name", to: "name", email: "address", out: "folder", get: "key", set: "key=value" };
 
 const usageOf = (spec) => {
-  const target = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>${spec.multiple ? "..." : ""}` : "";
+  const games = spec.targets.length ? ` <${spec.targets.map((k) => ({ folder: "game folder", link: "game link", name: "site name", profile: "profile" })[k]).join(" | ")}>${spec.multiple ? "..." : ""}` : "";
+  const target = spec.optionalTarget ? ` [${games.trim()}]` : games;
   const options = spec.options ? Object.keys(spec.options).map((o) => ` [--${o} <${OPTION_VALUES[o] || "value"}>]`).join("") : "";
   const switches = spec.switches ? Object.keys(spec.switches).map((o) => ` [--${o}]`).join("") : "";
   return `rwk ${spec.name}${target}${options}${switches} [flags]`;
