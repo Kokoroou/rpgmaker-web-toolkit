@@ -7,7 +7,7 @@ lang: en
 
 In the menu: ⚙ → **Items** → **Use several items at once**, **Use several items at once in battle**, **Give several items at once**. Each is a switch, remembered in this browser.
 
-Choose an item you hold several of, and the game asks **how many** to use (up to 99):
+Choose an item you hold several of, and the game asks **how many** to use (up to 99). ←/→ change it by 1; ↑/↓ and the ±10 buttons change it by the **Step**, which you choose: tap the *Step* line (or press PageUp/PageDown) to cycle 5, 10, 25, 50 or Max. The choice is remembered in this browser.
 
 ![Use how many? Red Berry × 10](/img/item-batch.png){.shot .landscape}
 
