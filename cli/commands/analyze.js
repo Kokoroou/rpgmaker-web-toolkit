@@ -2,7 +2,7 @@
 // No login, no R2, no build folder, nothing written: the game's warnings and file count,
 // for the first deploy's defaults plus the game's rwk.json (a config already saved in R2 is not read, as that needs the login).
 
-import { collectFiles, nonAsciiPaths, analyzeGame, suggestSlug } from "../lib/game.js";
+import { collectFiles, nonAsciiPaths, analyzeGame, otherFiles, suggestSlug } from "../lib/game.js";
 import { baseConfig, checkFeatureConfig } from "../lib/features.js";
 import { loadLimits } from "../lib/limits.js";
 import { applyPolicy, readPolicy } from "../lib/policy.js";
@@ -60,7 +60,8 @@ export async function analyze(inputPath, { command = "analyze", name } = {}) {
   }
 
   log.step("Checking file paths");
-  const paths = warnPathProblems(files, inputPath);
+  // The left-out folders too, for the Live2D model names: the first deploy asks to include them.
+  const paths = warnPathProblems(files, inputPath, otherFiles(game, files));
   log.info(`${paths.checked} references checked`);
 
   return {

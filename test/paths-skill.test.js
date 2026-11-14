@@ -47,7 +47,7 @@ test("scan.js: --json lists the issues by kind, and the exit code says whether t
   const out = run("scan.js", dir, "--json");
   assert.equal(out.status, 1);
   const result = JSON.parse(out.stdout);
-  assert.deepEqual(result.counts, { case: 5, unicode: 0, missing: 0, ext: 1, folder: 1, collision: 0, unsafe: 1 });
+  assert.deepEqual(result.counts, { case: 5, unicode: 0, missing: 0, ext: 1, folder: 1, collision: 0, unsafe: 1, model: 0 });
   const quick = JSON.parse(run("scan.js", dir, "--level", "quick", "--json").stdout);
   assert.equal(quick.counts.case, 0, "quick: names only");
   assert.equal(quick.counts.ext, 1);
@@ -89,7 +89,7 @@ test("fix.js: thorough fixes everything, the scan is clean, and --undo restores 
   const original = Object.fromEntries(tree(dir).filter((f) => fs.statSync(path.join(dir, f)).isFile()).map((f) => [f, read(dir, f)]));
   const out = JSON.parse(run("fix.js", dir, "--level", "thorough", "--apply", "--json").stdout);
   assert.equal(out.rolledBack, false);
-  assert.deepEqual(out.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0 });
+  assert.deepEqual(out.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0 });
   assert.ok(fs.existsSync(path.join(dir, "img", "faces", "Actor1.png")));
   assert.ok(fs.existsSync(path.join(dir, "img", "characters", "Actor1.png")));
   assert.match(read(dir, "data/Actors.json"), /"characterName":"a_1"/);

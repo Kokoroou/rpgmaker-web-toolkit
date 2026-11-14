@@ -6,11 +6,13 @@
 // Looks at: the data/*.json references (pictures, sounds, movies, event commands),
 // the plugins listed in js/plugins.js, index.html and CSS files, and the path
 // literals in the plugin scripts. Also at the names themselves (upper-case
-// extensions, engine folders such as img/Characters, names that differ only by case).
+// extensions, engine folders such as img/Characters, names that differ only by case,
+// Live2D model files spelled differently from their folder).
 //
 // scanPaths() -> { checked, issues }; an issue is
 //   { kind, source, ref, expected, actual, to, fix, count, sites }
-//   kind: case | unicode (the file exists under another spelling), missing, ext, folder, collision, unsafe
+//   kind: case | unicode (the file exists under another spelling), missing, ext, folder, collision, unsafe,
+//         model (a Live2D model file spelled differently from its folder)
 //   fix:  "reference" (rewrite the reference to `to`), "file" (rename `actual` to `to`), or null (a person decides)
 //   sites: where the reference is: { where, at } with at = { json: [path…] } or { start, end, text }
 
@@ -344,6 +346,27 @@ function scanDirLiterals(file, text, index, issues) {
 // the names themselves
 //---------------------------------------------------------------------------
 
+// Live2D plugins for MV/MZ build the model file's name from its folder
+// (live2dModel/Model_01/Model_01.model3.json) and the events name only the
+// folder, so a model3.json spelled model_01 is a 404 that no reference shows.
+// Cubism 3/4 call it <name>.model3.json, Cubism 2 <name>.model.json.
+const LIVE2D_MODEL = /\.model3?\.json$/;
+
+function scanLive2dNames(files, index, issues) {
+  for (const { rel } of files) {
+    const m = LIVE2D_MODEL.exec(rel);
+    const segs = rel.split("/");
+    if (!m || segs.length < 2) continue;
+    const dir = segs[segs.length - 2];
+    const base = segs[segs.length - 1].slice(0, -m[0].length);
+    if (base === dir || base.toLowerCase() !== dir.toLowerCase()) continue;
+    const to = [...segs.slice(0, -1), dir + m[0]].join("/");
+    // Both spellings on disk: that is a collision, a person picks.
+    const taken = index.byKey.get(ciKey(to)).length > 1;
+    issues.add({ kind: "model", source: rel, ref: base, expected: to, actual: rel, to, fix: taken ? null : "file" });
+  }
+}
+
 function scanNames(files, index, issues) {
   for (const [key, group] of index.byKey) {
     if (group.length > 1) issues.add({ kind: "collision", source: group[0], ref: key, expected: group.join(" | ") });
@@ -372,7 +395,9 @@ function scanNames(files, index, issues) {
 //---------------------------------------------------------------------------
 
 // references: false looks at the names only (fast: no file is read)
-export function scanPaths(files, { references = true } = {}) {
+// others: files outside the web build (the game's non-standard folders), checked
+// only for Live2D model names: the model folder is one of them until it is included.
+export function scanPaths(files, { references = true, others = [] } = {}) {
   const index = buildIndex(files);
   const issues = new Issues();
   if (references) {
@@ -380,12 +405,14 @@ export function scanPaths(files, { references = true } = {}) {
     scanText(files, index, issues);
   }
   scanNames(files, index, issues);
+  const all = others.length ? [...files, ...others] : files;
+  scanLive2dNames(all, all === files ? index : buildIndex(all), issues);
   return { checked: issues.checked, issues: issues.list() };
 }
 
 // kind -> number of references (or names) affected
 export function countByKind(issues) {
-  const counts = { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0 };
+  const counts = { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0 };
   for (const issue of issues) counts[issue.kind] += issue.count;
   return counts;
 }
@@ -418,6 +445,8 @@ export function pathWarnings(issues) {
   if (ext.length) out.push(`${ext.length} file(s) have an upper-case extension (${sample(ext, 2)}): the engine asks for it in lower case.`);
   const folder = of("folder");
   if (folder.length) out.push(`${folder.length} folder(s) are not spelled as the engine asks: ${folder.slice(0, 3).map((i) => `${i.ref} (must be ${i.to})`).join(", ")}.`);
+  const model = of("model");
+  if (model.length) out.push(`${model.length} Live2D model file(s) are spelled differently from their folder: ${model.slice(0, 2).map((i) => `${i.actual} (must be ${i.to})`).join(", ")}. The Live2D plugin asks for the folder's spelling, so the model fails to load in the browser.`);
   const collision = of("collision");
   if (collision.length) out.push(`${collision.length} group(s) of files differ only by letter case, so only one of each can exist on Windows: ${collision.slice(0, 2).map((i) => i.expected).join("; ")}.`);
   const unsafe = of("unsafe");

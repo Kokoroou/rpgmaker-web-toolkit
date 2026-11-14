@@ -15,7 +15,7 @@ Read-only. Exit code 1 when anything other than `missing` is found.
 
 | Level | Looks at | Cost | Use when |
 |---|---|---|---|
-| `quick` | File and folder **names** only: `ext`, `folder`, `collision`, `unsafe` | Reads no file | A first look at a very large game |
+| `quick` | File and folder **names** only: `ext`, `folder`, `collision`, `unsafe`, `model` | Reads no file | A first look at a very large game |
 | `standard` (default) | `quick` + every **static reference**: `data/*.json` (pictures, faces, battlers, tilesets, parallaxes, BGM/BGS/ME/SE, movies, event commands 101/231/241/245/249/250/261/283/284/322, move routes), the plugin list in `js/plugins.js`, `index.html`, CSS `url()`, and path literals in `js/plugins/*.js` — whole paths (`"img/x.png"`) and folders (`'img/menus/CG/'`, where the file name is added at run time) | Reads data and scripts | Normal case, same check as `rwk analyze` |
 | `deep` | `standard` + a list of **plugin code that builds paths at run time** (`ImageManager.load…`, `"img/" + name`, `fetch`, `new Audio`…) | Same | Pictures or sounds are still missing after `standard`, or the game uses many plugins |
 
@@ -26,6 +26,7 @@ Read-only. Exit code 1 when anything other than `missing` is found.
 | `case` / `unicode` | The reference names a file that exists under another letter case or Unicode form (NFC/NFD). Also a **folder** written in code (`'img/menus/CG/'`), whose `ref` ends with `/` | Yes, when exactly one file (or folder) matches (`fix: reference`) |
 | `ext` | Extension has upper-case letters (`Actor1.PNG`); the engine asks for lower case | Yes (`fix: file`) unless the lower-case name is taken |
 | `folder` | Engine folder spelled differently (`img/Faces`, `audio/BGM`) | Yes (`fix: file`) |
+| `model` | A Live2D model file spelled differently from its folder (`Model_01/model_01.model3.json`, Cubism 2: `.model.json`). Live2D plugins build `<folder>/<folder>.model3.json`, so no reference shows it. Also checked in the non-standard folders the build leaves out | Yes (`fix: file`) unless both spellings exist |
 | `unsafe` | Name has `#`, `?`, `\`, `%XX`, or spaces at the ends | Only `thorough` |
 | `collision` | Two files differ only by case (possible when a game was unzipped on Linux/macOS) | No: a person picks the one to keep |
 | `missing` | The reference matches no file at all, even ignoring case | No |

@@ -3,13 +3,14 @@
 //
 //   node scan.js <game folder> [--level quick|standard|deep] [--json]
 //
-//   quick     file and folder names only (upper-case extensions, engine folders, case collisions, unsafe characters)
+//   quick     file and folder names only (upper-case extensions, engine folders, case collisions, unsafe characters,
+//             Live2D model files spelled differently from their folder, non-standard folders included)
 //   standard  quick + every static reference (data/*.json, plugin list, index.html, CSS, path literals in plugin scripts)
 //   deep      standard + a list of plugin code that builds paths at run time, for a person (or Claude) to read
 
 import fs from "node:fs";
 import path from "node:path";
-import { analyzeGame, collectFiles } from "../../../../cli/lib/game.js";
+import { analyzeGame, collectFiles, otherFiles } from "../../../../cli/lib/game.js";
 import { countByKind, scanPaths } from "../../../../cli/lib/paths.js";
 
 const args = process.argv.slice(2);
@@ -39,7 +40,7 @@ function reviewList(files) {
 
 const game = analyzeGame(path.resolve(folder));
 const files = collectFiles(game, {});
-const { checked, issues } = scanPaths(files, { references: level !== "quick" });
+const { checked, issues } = scanPaths(files, { references: level !== "quick", others: otherFiles(game, files) });
 const result = {
   game: { title: game.title, engine: game.engine, root: game.root },
   level,
