@@ -55,7 +55,7 @@ Flags may come before or after the command. A command comes first, then the game
 | `delete <game>` | Deletes the site's Worker; `--purge` also deletes its R2 data | [Manage](/reference/commands/sites#delete) |
 | `saves import`, `export`, `move`, `delete` | Upload desktop saves, download, move to another email, delete a player's cloud saves | [Saves commands](/reference/commands/saves) |
 | `login`, `logout`, `whoami`, `profiles` | Cloudflare logins and profiles | [Logins and accounts](/reference/commands/accounts) |
-| `doctor` | Checks this PC and the account before a first deploy. Reads only | [Manage](/reference/commands/sites#doctor) |
+| `doctor [<game>]` | Checks this PC and the account before a first deploy; with a game, also that game (Worker, site, Access, toolkit version). Reads only | [Manage](/reference/commands/sites#doctor) |
 
 `rwk --help` lists them, `rwk <command> --help` shows one with its examples, `rwk --version` prints the toolkit version. `rwk help` and `rwk help <command>` do the same.
 

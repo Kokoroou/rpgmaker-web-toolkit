@@ -9,7 +9,7 @@ Full error details: set `$env:RWK_DEBUG = "1"` in PowerShell (`export RWK_DEBUG=
 
 ## Running the command
 
-Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cloudflare login, the token's permissions, and that the account has R2 switched on and a workers.dev subdomain. `rwk analyze` checks the game alone, without logging in. See [Commands](/reference/commands).
+Not sure what is wrong on this PC? `rwk doctor` checks Node.js, wrangler, the Cloudflare login, the token's permissions, and that the account has R2 switched on and a workers.dev subdomain. A published game that does not open? `rwk doctor my-game` (or its link) checks that game too: its Worker, whether the site answers, Access and its toolkit version. `rwk analyze` checks the game folder alone, without logging in. See [Commands](/reference/commands).
 
 | Message | Fix |
 |---|---|

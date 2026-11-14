@@ -69,6 +69,19 @@ Deletes the site's Worker after you type its name. Saves and large files stay in
 
 ```powershell
 & $rwk doctor
+& $rwk doctor my-game
 ```
 
 Checks this PC: Node.js version, wrangler, the Cloudflare login, and what the login or `CLOUDFLARE_API_TOKEN` may do (Workers, R2, and Access for a token). It also checks what the account needs before a first deploy: R2 switched on, a workers.dev subdomain, and whether the toolkit's R2 bucket exists yet. Reads only; exits with `1` when something needed is missing. See [Troubleshooting](/setup/troubleshooting).
+
+With a game (its link or site name), it then checks that game, each problem with what to do:
+
+| Check | Fails or warns when |
+|---|---|
+| Game | No game of this account was deployed under that name (an old name points to the new one) |
+| Worker | The site's Worker is gone: deploy again from the game folder, the saves stay in R2 |
+| Site | It cannot be reached, is still locked (its access protection was never finished), or answers with an error |
+| Access | Access is set up but does not protect the site |
+| Toolkit | A warning: the site runs an older or newer toolkit than this CLI (`upgrade` brings it up to date), or none was recorded |
+
+A game that cannot be checked (not logged in, R2 denied) counts as a failure. For a game folder, use [`analyze`](/reference/commands/check).

@@ -224,7 +224,7 @@ async function r2Delete(bucket, key) {
 // that can log in to the account redeploys with the same answers.
 //---------------------------------------------------------------------------
 
-const CONFIGS_KEY = "rwk/games.json";
+export const CONFIGS_KEY = "rwk/games.json";
 
 export async function loadGameConfigs(bucket) {
   const raw = await r2Get(bucket, CONFIGS_KEY);
