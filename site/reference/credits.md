@@ -14,7 +14,7 @@ The screenshots in this guide show **[GameDev: The Beginning](https://yancharkin
 | License of the game's own assets | Most graphics, music and sounds are by yancharkin, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | Source | [yancharkin/game_jams](https://github.com/yancharkin/game_jams/tree/main/%5Bigmc_2017%5D_gamedev_the_beginning) |
 | Other parts | The game's plugins (by Yanfly, Galv, SumRndmDde, Moghunter, Victor Sant and others), its font *Manaspace* by codeman38 and some sounds from freesound.org keep their own licenses: see the `credits` file in the game |
-| Try it in a browser | [gamedev-the-beginning.kokoroou.workers.dev](https://gamedev-the-beginning.kokoroou.workers.dev/), published with this toolkit |
+| Try it in a browser | [gamedev-the-beginning.kokoroou-games-01.workers.dev](https://gamedev-the-beginning.kokoroou-games-01.workers.dev/), published with this toolkit |
 
 **The screenshots are licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)**, like the game's assets, not under the toolkit's license. They are adaptations of the game: it runs in a browser with the toolkit's on-screen controls, menus and dialogs drawn over it, and the [capture script](https://github.com/Kokoroou/rpgmaker-web-toolkit/blob/main/site/screenshots/capture.mjs) sets up each scene (it moves the player, gives items, changes the button labels). You may reuse them under the same license, crediting yancharkin for the game.
 

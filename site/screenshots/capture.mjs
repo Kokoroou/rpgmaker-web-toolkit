@@ -18,7 +18,7 @@ import { createWorker } from "../../worker/index.js";
 // require() so a global Playwright (NODE_PATH) works too.
 const { chromium } = createRequire(import.meta.url)("playwright");
 
-const GAME = process.env.RWK_SHOT_GAME || "https://gamedev-the-beginning.kokoroou.workers.dev/";
+const GAME = process.env.RWK_SHOT_GAME || "https://gamedev-the-beginning.kokoroou-games-01.workers.dev/";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const runtime = path.join(here, "../../runtime");
 const out = path.join(here, "../public/img");
