@@ -25,8 +25,9 @@ const CANDIDATES = {
   linux: ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/microsoft-edge"],
 };
 
-export function findChrome(given) {
-  const list = [given, process.env.CHROME_PATH, ...(CANDIDATES[process.platform] || [])].filter(Boolean);
+// given (a path the caller has), else CHROME_PATH, else the usual places of `candidates`.
+export function findChrome(given, { env = process.env, candidates = CANDIDATES[process.platform] || [] } = {}) {
+  const list = [given, env.CHROME_PATH, ...candidates].filter(Boolean);
   const found = list.find((p) => fs.existsSync(p));
   if (!found) throw new Error("Chrome not found: install Google Chrome (or Edge / Chromium), or set CHROME_PATH to its program file.");
   return found;
@@ -139,8 +140,13 @@ export async function launchChrome({ executable, headed = false }) {
         proc.kill();
         await new Promise((resolve) => proc.once("exit", resolve));
       }
-      // Chrome's child processes may hold files a moment longer on Windows.
-      fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+      // Chrome's child processes may hold or still write files a moment longer
+      // (Windows, a busy CI runner): a profile left in the temp folder is no failure.
+      try {
+        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+      } catch {
+        // The OS cleans its temp folder.
+      }
     },
   };
 }

@@ -20,6 +20,12 @@
   }
   class Scene_Boot extends Scene_Base {
     start() {
+      if (faults.stuckBoot) {
+        // A server that is not there, and a name that is no web address.
+        fetch("http://127.0.0.1:9/gone.json").catch(() => {});
+        new Image().src = "img/%E0%A4%A.png";
+        return;
+      }
       setTimeout(() => SceneManager.goto(Scene_Title), 200);
     }
   }

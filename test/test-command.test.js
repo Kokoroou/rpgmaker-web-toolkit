@@ -8,10 +8,11 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { addProblem, describe, pluginOf, responseProblem, testGame } from "../cli/commands/test.js";
-import { findChrome } from "../cli/lib/chrome.js";
+import { addProblem, describe, openSite, pluginOf, responseProblem, testGame, waitUpload } from "../cli/commands/test.js";
+import { findChrome, launchChrome, openPage } from "../cli/lib/chrome.js";
+import { CliError } from "../cli/lib/ui.js";
 import { failedResult } from "../cli/lib/report.js";
-import { buildIndex } from "../cli/lib/test-server.js";
+import { buildIndex, localSaveApi, startTestServer } from "../cli/lib/test-server.js";
 import { contentTypeOf } from "../cli/lib/cloudflare.js";
 
 const STUB = fs.readFileSync(path.join(import.meta.dirname, "fixtures", "stub-engine.js"), "utf8");
@@ -91,6 +92,43 @@ test("test: the local site serves names with the web's letter case", () => {
   assert.equal(index.caseOf("img/faces/none.png"), null);
 });
 
+test("test: the local site answers as the deployed one", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-test-site-"));
+  fs.writeFileSync(path.join(dir, "Actor1.png"), PNG);
+  const generated = new Map([
+    ["index.html", "<p>game</p>"],
+    // Not a body a Response can have: the server answers 500 instead of stopping.
+    ["broken.txt", Symbol("no body")],
+  ]);
+  const server = await startTestServer({ files: [{ rel: "img/faces/Actor1.png", abs: path.join(dir, "Actor1.png"), size: PNG.length }], generated, vars: { GAME_ID: "t", AUTH_MODE: "none", RWK_LOCKED: "0", RWK_SAVE_HISTORY: "off" } });
+  try {
+    const get = (rel, init) => fetch(`${server.origin}/${rel}`, init);
+    assert.equal(await (await get("")).text(), "<p>game</p>");
+    const png = await get("img/faces/Actor1.png");
+    assert.equal(png.status, 200);
+    assert.equal(png.headers.get("content-type"), "image/png");
+    assert.equal((await get("img/faces/Actor1.png", { method: "HEAD" })).status, 200);
+    assert.equal((await get("img/faces/actor1.png")).status, 404, "letter case counts");
+    assert.equal(server.caseOf("img/faces/actor1.png"), "img/faces/Actor1.png");
+    assert.equal((await get("img/%E0%A4%A.png")).status, 400);
+    assert.equal((await get("broken.txt")).status, 500);
+    const put = await get("api/saves/file1", { method: "PUT", headers: { "content-type": "application/octet-stream", "x-rwk-enc": "lz", "if-none-match": "*" }, body: "data" });
+    assert.equal(put.status, 200);
+    assert.equal((await get("api/saves/file1")).status, 200);
+  } finally {
+    await server.close();
+  }
+});
+
+test("test: a deployed site's save API answered on this PC keeps its own saves", async () => {
+  const api = localSaveApi({ GAME_ID: "g", RWK_SAVE_HISTORY: "off" });
+  const url = "https://g.a.workers.dev/api/saves/file1";
+  assert.equal((await api(new Request(url))).status, 404);
+  const put = await api(new Request(url, { method: "PUT", headers: { "content-type": "application/octet-stream", "x-rwk-enc": "lz", "if-none-match": "*" }, body: "x" }));
+  assert.equal(put.status, 200);
+  assert.equal((await api(new Request(url))).status, 200);
+});
+
 test("test: a failed run keeps what it found in the JSON result", () => {
   const err = Object.assign(new Error("1 step(s) failed (boot)"), { hint: "h", result: { site: "s", url: "u", test: { steps: [] }, facts: [["a", "b"]], next: ["n"] } });
   const r = failedResult("test", err, []);
@@ -100,6 +138,72 @@ test("test: a failed run keeps what it found in the JSON result", () => {
   assert.equal(r.facts, undefined);
   assert.equal(r.next, undefined);
   assert.equal(r.error, "1 step(s) failed (boot)");
+});
+
+// A page that answers `location.href + ' ' + document.readyState` with each of `answers` in turn.
+const fakePage = (answers, nav = {}) => ({
+  async send() {
+    return nav;
+  },
+  async evaluate() {
+    const next = answers.length > 1 ? answers.shift() : answers[0];
+    if (next instanceof Error) throw next;
+    return next;
+  },
+});
+
+test("test: opening the site waits for the page, and stops at Cloudflare Access", async () => {
+  assert.deepEqual(await openSite(fakePage([new Error("navigating"), "https://g.a.workers.dev/ loading", "https://g.a.workers.dev/ interactive"]), "https://g.a.workers.dev/"), { url: "https://g.a.workers.dev/" });
+  await assert.rejects(openSite(fakePage(["https://team.cloudflareaccess.com/cdn-cgi/access/login complete"]), "https://g.a.workers.dev/"), (err) => err instanceof CliError && /behind Cloudflare Access/.test(err.message) && /rwk test "<game folder>"/.test(err.hint));
+  await assert.rejects(openSite(fakePage([], { errorText: "net::ERR_NAME_NOT_RESOLVED" }), "https://gone.a.workers.dev/"), /cannot be opened \(net::ERR_NAME_NOT_RESOLVED\)/);
+  await assert.rejects(openSite(fakePage(["https://g.a.workers.dev/ loading"]), "https://g.a.workers.dev/", 300), /did not load in 0.3 s/);
+});
+
+test("test: the cloud save step waits for the upload", async () => {
+  assert.deepEqual(await waitUpload([{ rel: "api/saves/file1", status: 200 }, { rel: "api/saves/global", status: 201 }]), { saves: ["file1", "global"] });
+  const later = [];
+  setTimeout(() => later.push({ rel: "api/saves/file%201", status: 200 }), 100);
+  assert.deepEqual(await waitUpload(later, 3000), { saves: ["file 1"] });
+  await assert.rejects(waitUpload([{ rel: "api/saves/file1", status: 500 }]), /upload of api\/saves\/file1 failed \(HTTP 500\)/);
+  await assert.rejects(waitUpload([], 300), /did not go up to the cloud in 0.3 s/);
+});
+
+test("test: every step in a few words", () => {
+  assert.equal(describe("new game", { mapId: 3, eventRunning: true }), "map 3, an event runs");
+  assert.equal(describe("walk", { steps: 0, from: { mapId: 1 }, to: { mapId: 1 }, scene: "Scene_Battle" }), "0 step(s), now in Scene_Battle");
+  assert.equal(describe("save", { slot: 1 }), "file 1");
+  assert.equal(describe("cloud save", { saves: ["file1"] }), "uploaded: file1");
+  assert.equal(describe("load", { mapId: 2 }), "map 2");
+  assert.equal(describe("toolkit menu", { rows: 7 }), "7 entries");
+  assert.equal(describe("phone", { viewport: "844x390", canvas: "694x390", controls: true }), "844x390, game 694x390, touch controls shown");
+  assert.equal(describe("menu", { ok: true }), "");
+  assert.equal(describe("boot", null), "");
+});
+
+test("test: which browser it uses", () => {
+  const here = import.meta.filename;
+  assert.equal(findChrome(here, { env: {}, candidates: [] }), here);
+  assert.equal(findChrome(undefined, { env: { CHROME_PATH: here }, candidates: ["/nope/chrome"] }), here);
+  assert.equal(findChrome("/nope/given", { env: {}, candidates: ["/nope/chrome", here] }), here);
+  assert.throws(() => findChrome(undefined, { env: {}, candidates: ["/nope/chrome"] }), /Chrome not found: .*CHROME_PATH/);
+});
+
+browserTest("test: the browser helpers the bench shares", { timeout: 60000 }, async () => {
+  const browser = await launchChrome({ executable: chrome });
+  try {
+    const page = await openPage(browser.cdp);
+    await page.viewport(400, 300);
+    await page.send("Page.navigate", { url: "data:text/html,<p id=x>hi</p>" });
+    await page.waitFor("document.getElementById('x')");
+    await assert.rejects(page.waitFor("window.never", 300), /timed out after 0.3 s waiting for window.never/);
+    await assert.rejects(page.evaluate("new Promise(() => {})", 200), /timed out after 0.2 s/);
+    await assert.rejects(page.evaluate("missing.thing"), /ReferenceError/);
+    assert.equal(await page.evaluate("innerWidth"), 400);
+    assert.ok((await page.metrics()).JSHeapUsedSize > 0);
+    await page.gc();
+  } finally {
+    await browser.close();
+  }
 });
 
 browserTest("test: a game folder that works passes every step", { timeout: 180000 }, async () => {
@@ -130,6 +234,23 @@ browserTest("test: a broken game folder fails with each problem", { timeout: 180
   });
 });
 
+browserTest("test: a game that never loads fails at boot, and the steps after it are skipped", { timeout: 120000 }, async () => {
+  await assert.rejects(testGame(fakeGame({ stuckBoot: true }), { out: out() }, { ...quick, bootSeconds: 2 }), (err) => {
+    assert.match(err.message, /1 step\(s\) failed \(boot\)/);
+    const steps = byName(err.result.test.steps);
+    assert.equal(steps.open.status, "ok");
+    assert.equal(steps.boot.status, "fail");
+    assert.match(steps.boot.detail, /did not get past loading in 2 s \(scene: Scene_Boot\)/);
+    assert.equal(steps["new game"].status, "skip");
+    assert.equal(steps["toolkit menu"].detail, "the game did not start");
+    assert.equal(steps.phone, undefined, "no phone run for a game that does not start");
+    const texts = err.result.test.problems.map((p) => p.text).join("\n");
+    assert.match(texts, /127\.0\.0\.1:9\/gone\.json: net::ERR_/);
+    assert.match(texts, /HTTP 400/);
+    return true;
+  });
+});
+
 browserTest("test: a deployed site by its link, its save API answered on this PC", { timeout: 180000 }, async () => {
   const root = fakeGame();
   const seen = [];
@@ -153,6 +274,12 @@ browserTest("test: a deployed site by its link, its save API answered on this PC
     assert.equal(steps["cloud save"].status, "ok");
     assert.equal(result.url, link);
     assert.deepEqual(seen.filter((s) => s.includes("/api/")), [], "the site's own save API was not touched");
+
+    // By its site name: the link comes from the account's game list.
+    const named = await testGame("stub-game", { out: out() }, { ...quick, connect: async () => ({}), loadSettings: () => ({}), findSite: async () => ({ slug: "stub-game", url: link, title: "Stub Game", engine: "MZ" }) });
+    assert.equal(named.site, "stub-game");
+    assert.equal(named.test.url, link);
+    await assert.rejects(testGame("stub-game", { out: out() }, { ...quick, connect: async () => ({}), loadSettings: () => ({}), findSite: async () => ({ slug: "stub-game" }) }), /No link is recorded for "stub-game"/);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

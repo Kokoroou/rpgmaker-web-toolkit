@@ -104,8 +104,8 @@ async function prepare(target, d) {
 }
 
 export async function testGame(input, { out } = {}, deps = {}) {
-  // walkSeconds: how long the walk step plays (shorter in the tests).
-  const d = { analyzeGame, startTestServer, connect, loadSettings, findSite, findChrome, launchChrome, ask, walkSeconds: 8, ...deps };
+  // walkSeconds: how long the walk step plays; bootSeconds: how long the game may take to load (shorter in the tests).
+  const d = { analyzeGame, startTestServer, connect, loadSettings, findSite, findChrome, launchChrome, ask, walkSeconds: 8, bootSeconds: 90, ...deps };
   if (!input) input = await d.ask("Drag and drop or paste the game folder, or the game's link or site name", "", null, { hint: `Pass it after the command: ${USAGE}` });
   const target = expectTarget(input, ["folder", "link", "name"], USAGE);
   const executable = d.findChrome();
@@ -154,7 +154,8 @@ export async function testGame(input, { out } = {}, deps = {}) {
 }
 
 // The steps in the browser. -> { steps, problems, browser, game }
-async function play(chrome, prepared, folder, { walkSeconds }) {
+async function play(chrome, prepared, folder, { walkSeconds, bootSeconds }) {
+  const boot = () => page.evaluate(`RWK_TEST.boot(${bootSeconds * 1000})`, bootSeconds * 1000 + 30000);
   const browser = (await chrome.cdp.send("Browser.getVersion")).product;
   const page = await openPage(chrome.cdp);
   const origin = new URL(prepared.url).origin;
@@ -176,7 +177,7 @@ async function play(chrome, prepared, folder, { walkSeconds }) {
     const req = requests.get(e.requestId) || { url: e.response.url, method: "GET" };
     const url = new URL(e.response.url);
     const sameOrigin = url.origin === origin;
-    const rel = sameOrigin ? decodeURIComponent(url.pathname).replace(/^\/+/, "") : e.response.url;
+    const rel = sameOrigin ? safeDecode(url.pathname).replace(/^\/+/, "") : e.response.url;
     if (sameOrigin && req.method === "PUT" && rel.startsWith("api/saves/")) uploads.push({ rel, status: e.response.status });
     const problem = responseProblem({ status: e.response.status, method: req.method, rel, sameOrigin }, prepared.local ? prepared.local.caseOf : undefined);
     if (problem) addProblem(problems, "network", problem, current);
@@ -270,7 +271,7 @@ async function play(chrome, prepared, folder, { walkSeconds }) {
   // Desktop
   await page.viewport(DESKTOP.width, DESKTOP.height);
   const opened = await step("open", () => openSite(page, prepared.url));
-  const booted = await step("boot", () => page.evaluate("RWK_TEST.boot()", 120000), { skip: opened ? null : "the page did not open" });
+  const booted = await step("boot", boot, { skip: opened ? null : "the page did not open" });
   const game = booted ? { engine: booted.engine } : null;
   const onMap = await step("new game", () => page.evaluate("RWK_TEST.newGame()", 90000), { skip: booted ? null : "the game did not start" });
   const noMap = onMap ? null : "the new game did not reach a map";
@@ -289,7 +290,7 @@ async function play(chrome, prepared, folder, { walkSeconds }) {
     await page.viewport(PHONE.width, PHONE.height, true);
     await step("phone", async () => {
       await openSite(page, prepared.url);
-      await page.evaluate("RWK_TEST.boot()", 120000);
+      await boot();
       await page.evaluate("RWK_TEST.newGame()", 90000).catch(() => {});
       await sleep(1500);
       const seen = await page.evaluate("RWK_TEST.phone()");
@@ -305,10 +306,10 @@ async function play(chrome, prepared, folder, { walkSeconds }) {
 }
 
 // Opens the site; a site behind Cloudflare Access stops here, as a test cannot sign in.
-async function openSite(page, url) {
+export async function openSite(page, url, timeoutMs = 30000) {
   const nav = await page.send("Page.navigate", { url });
   if (nav.errorText) throw new Error(`${url} cannot be opened (${nav.errorText})`);
-  const end = Date.now() + 30000;
+  const end = Date.now() + timeoutMs;
   for (;;) {
     let here = "";
     try {
@@ -320,16 +321,16 @@ async function openSite(page, url) {
       throw new CliError("The site is behind Cloudflare Access: the test cannot sign in.", { hint: 'Test the game folder instead (rwk test "<game folder>"): the same build, served on this PC' });
     }
     if (/ (interactive|complete)$/.test(here)) return { url: here.split(" ")[0] };
-    if (Date.now() > end) throw new Error(`${url} did not load in 30 s`);
+    if (Date.now() > end) throw new Error(`${url} did not load in ${timeoutMs / 1000} s`);
     await sleep(200);
   }
 }
 
-async function waitUpload(uploads, timeoutMs = 15000) {
+export async function waitUpload(uploads, timeoutMs = 15000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
     const done = uploads.find((u) => u.status < 300);
-    if (done) return { saves: uploads.filter((u) => u.status < 300).map((u) => decodeURIComponent(u.rel.slice("api/saves/".length))) };
+    if (done) return { saves: uploads.filter((u) => u.status < 300).map((u) => safeDecode(u.rel.slice("api/saves/".length))) };
     const bad = uploads.find((u) => u.status >= 300 && u.status !== 412);
     if (bad) throw new Error(`the upload of ${bad.rel} failed (HTTP ${bad.status})`);
     await sleep(200);
@@ -337,11 +338,20 @@ async function waitUpload(uploads, timeoutMs = 15000) {
   throw new Error(`the save did not go up to the cloud in ${timeoutMs / 1000} s`);
 }
 
+// A path as the site sees it; a name that is no valid escape stays as it was asked.
+export function safeDecode(text) {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 // " (plugin X)" from an error's stack: the first plugin file in it.
 export function pluginOf(stack) {
   const m = /js\/plugins\/([^/?#:)]+)\.js/.exec(stack || "");
   if (!m) return "";
-  const name = decodeURIComponent(m[1]);
+  const name = safeDecode(m[1]);
   return ` (plugin ${name}${name.startsWith("RWK_") ? ", rpgmaker-web-toolkit" : ""})`;
 }
 
