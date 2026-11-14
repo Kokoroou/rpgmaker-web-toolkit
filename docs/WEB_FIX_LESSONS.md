@@ -142,6 +142,23 @@ in NW.js calls `require('fs')`.
 **Toolkit:** done by `rwk-guard.js` (#119): the game's listeners skip any press that starts
 on `[data-rwk-ui]`.
 
+### MV saves made before an update that changed the game title
+
+**On the web:** the Load screen shows the save slots as empty or greyed out, although the
+`fileN.rpgsave` files were imported. Seen on 3 of the 25 games scanned on 2026-11-15, all MV
+whose title carries the version (`… v1.04` → `… v1.07`).
+**Why Windows hides it:** MV's `DataManager.isThisGameFile` checks that the slot's `title` in
+`global.rpgsave` equals `$dataSystem.gameTitle` only when `StorageManager.isLocalMode()` is
+false, that is, in a browser. MZ does not check the title.
+**Detect:** decode `save/global.rpgsave` (LZString base64) and compare each slot's `title` with
+`gameTitle` in `data/System.json`.
+**Fix:** do not change `System.json`; give the slots the current title in the copy that goes to
+the web. Encode it again **in the engine's LZString 1.3 format**: lz-string 1.5's
+`compressToBase64` output is often read by MV as an empty `global`, which hides every save
+(see [LESSONS.md](LESSONS.md)).
+**Toolkit:** done by the save import (`rwk saves import`, or the question on the first deploy):
+`retitleMvGlobal`. The files in the game folder are not changed.
+
 ## Media and size
 
 ### Ogg-only audio, WebM-only movies
