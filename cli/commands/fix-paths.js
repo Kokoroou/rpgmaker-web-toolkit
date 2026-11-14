@@ -1,5 +1,5 @@
 // fix-paths: fixes, in the game folder, the file paths that work on Windows but break on the web
-// (letter case, upper-case extensions, engine folder spelling, characters a web address cannot hold).
+// (letter case, upper-case extensions, engine folder spelling, Live2D model file names, characters a web address cannot hold).
 // Shows the plan first; changes nothing without --apply or a yes in the terminal. Keeps a backup
 // (<game>/.rwk-paths-backup/<time>/), rescans after the changes and rolls back if they made it worse.
 // No Cloudflare: a published game gets the fix with the next `rwk deploy` (changed files only).
@@ -14,7 +14,7 @@ const SHOWN = 50;
 
 const LEVEL_WORDS = {
   safe: "only the references (data, plugin list, index.html, CSS) are changed to the file's exact name; no file is renamed",
-  standard: "safe + upper-case extensions (.PNG → .png), engine folders (img/Faces → img/faces) and path literals in plugin code",
+  standard: "safe + upper-case extensions (.PNG → .png), engine folders (img/Faces → img/faces), Live2D model files (Model_01/model_01.model3.json → Model_01.model3.json) and path literals in plugin code",
   thorough: "standard + files whose names have # ? \\ or %XX are renamed (a#1.png → a_1.png), with their references",
 };
 
@@ -110,7 +110,7 @@ function leftFor(counts, level) {
   const person = PERSON_KINDS.reduce((n, k) => n + (counts[k] || 0), 0);
   if (person) lines.push(`${person} problem(s) need a person (a missing file, or several files that differ only by case): rwk analyze shows them.`);
   if (level !== "thorough" && counts.unsafe) lines.push(`${counts.unsafe} file name(s) have characters a web address cannot hold: --level thorough renames them.`);
-  if (level === "safe" && (counts.ext || counts.folder)) lines.push("Upper-case extensions and engine folder names are renamed from --level standard.");
+  if (level === "safe" && (counts.ext || counts.folder || counts.model)) lines.push("Upper-case extensions, engine folder names and Live2D model file names are renamed from --level standard.");
   return lines;
 }
 

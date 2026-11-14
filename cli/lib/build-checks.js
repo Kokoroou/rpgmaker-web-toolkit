@@ -38,11 +38,12 @@ export function warnMobileMedia(files) {
 // Warns about file names and references that work on Windows but not on the web (letter
 // case, upper-case extensions…). Returns { checked, ...count per kind } for the JSON result.
 // folder: the game folder as given, for the command that fixes them.
-export function warnPathProblems(files, folder) {
-  const { checked, issues } = scanPaths(files);
+// others: files of folders left out of the build, checked for Live2D model names only.
+export function warnPathProblems(files, folder, others = []) {
+  const { checked, issues } = scanPaths(files, { others });
   for (const warning of pathWarnings(issues)) log.warn(warning);
   const counts = countByKind(issues);
-  if (counts.case + counts.unicode + counts.ext + counts.folder + counts.unsafe) {
+  if (counts.case + counts.unicode + counts.ext + counts.folder + counts.unsafe + counts.model) {
     log.info(`To fix the letter case, extensions, folder names and odd characters: rwk fix-paths ${folder ? `"${folder}"` : "<game folder>"} (shows the plan first, keeps a backup)`);
   }
   return { checked, ...counts };

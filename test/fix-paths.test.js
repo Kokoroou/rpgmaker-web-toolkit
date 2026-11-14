@@ -92,7 +92,7 @@ test("fix-paths: a yes applies, keeps a backup and says to deploy; --undo last p
   assert.match(read(root, "data/Actors.json"), /"characterName":"Actor1"/);
   assert.match(read(root, "data/Actors.json"), /"characterName":"a_1"/);
   assert.ok(fs.existsSync(path.join(root, "img/pictures/Logo.png")));
-  assert.deepEqual(result.fix.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0 });
+  assert.deepEqual(result.fix.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0 });
   assert.equal(listBackups(dir).length, 1);
   assert.match(result.next[0], new RegExp(`rwk deploy "${dir.replace(/\\/g, "\\\\")}"`));
   assert.match(result.next[1], /--undo last/);
@@ -113,6 +113,27 @@ test("fix-paths: --apply needs no question, and a game in www/ keeps its backup 
   const again = await fixPaths(dir, { level: "standard", apply: true }, noQuestion);
   assert.deepEqual(again.facts, [["Changes", "none"]], "nothing left: nothing done, no empty backup");
   assert.equal(listBackups(dir).length, 1);
+});
+
+test("fix-paths: a Live2D model file in a non-standard folder is renamed to its folder's spelling from --level standard", async (t) => {
+  quiet(t);
+  const { dir, root } = makeGame(t);
+  const model = (name) => path.join(root, "live2dModel", "Model_01", name);
+  fs.mkdirSync(path.dirname(model("x")), { recursive: true });
+  fs.writeFileSync(model("model_01.model3.json"), "{}");
+  const names = () => fs.readdirSync(path.dirname(model("x")));
+
+  const safe = await fixPaths(dir, { level: "safe", apply: true }, noQuestion);
+  assert.deepEqual(names(), ["model_01.model3.json"], "safe renames no file");
+  assert.equal(safe.fix.remaining.model, 1);
+
+  const result = await fixPaths(dir, { level: "standard", apply: true }, noQuestion);
+  assert.deepEqual(names(), ["Model_01.model3.json"]);
+  assert.equal(result.fix.remaining.model, 0);
+  assert.ok(result.fix.renames.some((r) => /Model_01\.model3\.json$/.test(r.to)));
+
+  await fixPaths(dir, { undo: "last" }, noQuestion);
+  assert.deepEqual(names(), ["model_01.model3.json"]);
 });
 
 test("fix-paths: wrong usage and no backup are explained", async (t) => {

@@ -92,6 +92,15 @@ export function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, ""));
 }
 
+// The files in the game's non-standard folders (game.unknownDirs) that `files` leaves out:
+// a Live2D model folder is one of them until the config includes it.
+export function otherFiles(game, files) {
+  const dirs = new Set(game.unknownDirs);
+  if (!dirs.size) return [];
+  const inBuild = new Set(files.map((f) => f.rel));
+  return collectFiles(game, { include: game.unknownDirs }).filter((f) => dirs.has(f.rel.split("/")[0]) && !inBuild.has(f.rel));
+}
+
 // Lists every file of the web build: { rel (posix), abs, size, mtimeMs }.
 export function collectFiles(game, { include = [], exclude = [] } = {}) {
   const excluded = compileGlobs([...DEFAULT_EXCLUDES, ...exclude]);

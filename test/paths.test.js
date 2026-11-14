@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { analyze } from "../cli/commands/analyze.js";
-import { analyzeGame, collectFiles } from "../cli/lib/game.js";
+import { analyzeGame, collectFiles, otherFiles } from "../cli/lib/game.js";
 import { countByKind, pathWarnings, scanPaths } from "../cli/lib/paths.js";
 import { warnings } from "../cli/lib/ui.js";
 
@@ -166,6 +166,31 @@ test("paths: ambiguous spelling has no automatic fix", { skip: !caseSensitiveDis
   const result = scan(dir);
   assert.equal(find(result, "case", "HERO").fix, null);
   assert.ok(find(result, "collision"));
+});
+
+test("paths: a Live2D model file spelled differently from its folder, also in a folder left out of the build", () => {
+  const dir = makeGame({
+    "live2dModel/Model_01/model_01.model3.json": "{}",
+    "live2dModel/Model_01/Model_01.moc3": "x",
+    "live2dModel/Model_02/Model_02.model3.json": "{}",
+    "live2dModel/Model_03/Model_03_alt.model3.json": "{}",
+    "img/live2d/Hero/hero.model.json": "{}",
+  });
+  const game = analyzeGame(dir);
+  const files = collectFiles(game, {});
+  // Left out of the build (not an engine folder): only the Live2D check reads it.
+  const others = otherFiles(game, files);
+  assert.ok(others.some((f) => f.rel === "live2dModel/Model_01/model_01.model3.json"));
+  const { issues } = scanPaths(files, { others });
+  const models = issues.filter((i) => i.kind === "model").map((i) => [i.actual, i.to, i.fix]);
+  assert.deepEqual(models.sort(), [
+    ["img/live2d/Hero/hero.model.json", "img/live2d/Hero/Hero.model.json", "file"],
+    ["live2dModel/Model_01/model_01.model3.json", "live2dModel/Model_01/Model_01.model3.json", "file"],
+  ]);
+  assert.equal(countByKind(issues).model, 2);
+  assert.ok(pathWarnings(issues).some((w) => /2 Live2D model file\(s\).*must be live2dModel\/Model_01\/Model_01\.model3\.json/.test(w)));
+  // Without the left-out folders, only the one in the build.
+  assert.deepEqual(scan(dir).issues.filter((i) => i.kind === "model").map((i) => i.actual), ["img/live2d/Hero/hero.model.json"]);
 });
 
 test("paths: characters that break a web address", () => {

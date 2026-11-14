@@ -2,7 +2,9 @@
 // Used by `rwk fix-paths` and by the rwk-paths skill's fix.js.
 //
 //   safe       rewrites references (data/*.json, the plugin list, index.html, CSS) to the exact name of the file they mean
-//   standard   safe + renames upper-case extensions and engine folders (img/Faces -> img/faces) + rewrites path literals in plugin scripts
+//   standard   safe + renames upper-case extensions, engine folders (img/Faces -> img/faces) and Live2D model files spelled
+//              differently from their folder (Model_01/model_01.model3.json -> Model_01.model3.json) + rewrites path literals
+//              in plugin scripts
 //   thorough   standard + renames files with characters that break a web address (# ? \ %XX) and rewrites the references to them
 //
 // What it never does: guess between several files, touch a reference that is missing altogether, merge or delete a
@@ -12,7 +14,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { analyzeGame, collectFiles, resolveCI } from "./game.js";
+import { analyzeGame, collectFiles, otherFiles, resolveCI } from "./game.js";
 import { countByKind, scanPaths } from "./paths.js";
 
 export const FIX_LEVELS = {
@@ -26,7 +28,9 @@ const isCode = (source) => /^js\/(main\.js|plugins\/.+\.js)$/i.test(source);
 const loadState = (folder) => {
   const game = analyzeGame(path.resolve(folder));
   const files = collectFiles(game, {});
-  return { game, files, byRel: new Map(files.map((f) => [f.rel, f])), ...scanPaths(files) };
+  // The non-standard folders only for the Live2D model names (scanPaths' others).
+  const others = otherFiles(game, files);
+  return { game, files, byRel: new Map([...files, ...others].map((f) => [f.rel, f])), ...scanPaths(files, { others }) };
 };
 
 // A name without the characters that break a web address.
@@ -46,7 +50,7 @@ function renameOnDisk(from, to) {
 function plannedRenames(state, level, report) {
   const ops = [];
   for (const issue of state.issues) {
-    if (issue.kind === "ext" && issue.fix === "file") {
+    if ((issue.kind === "ext" || issue.kind === "model") && issue.fix === "file") {
       const from = state.byRel.get(issue.actual).abs;
       ops.push({ order: 0, from, to: path.join(path.dirname(from), path.posix.basename(issue.to)) });
     } else if (issue.kind === "unsafe" && level.unsafe) {

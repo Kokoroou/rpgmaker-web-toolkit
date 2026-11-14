@@ -38,10 +38,11 @@ Windows ignores letter case; the web host and the browser do not. A game can run
 - **Letter case or Unicode form**: a reference in `data/*.json`, the plugin list (`js/plugins.js`), `index.html`, a CSS file or a path written in a plugin differs from the file's name only by case (or accents saved in another Unicode form).
 - **A folder written in code** (`loadBitmap('img/menus/CG/', name)` for a folder named `cg`): every picture in it is missing online, and an RPG Maker menu that waits for them never starts — the browser stays on the "Now Loading" screen. This is checked apart from the line above because it has no file name to compare.
 - **Upper-case extension** (`Actor1.PNG`) and **engine folders** spelled differently (`img/Faces`, `audio/BGM`): the engine asks for lower case.
+- **Live2D model file** spelled differently from its folder (`Model_01/model_01.model3.json`): Live2D plugins ask for `Model_01/Model_01.model3.json`. Also checked in folders the build leaves out, since the model folder is one of them until you include it.
 - **Files that differ only by case**, and names with `#`, `?`, `\` or `%XX`, which break a web address.
 - **References to files that are not in the game**: often unused, so only a warning.
 
-With `--json` the result has `paths: { checked, case, unicode, missing, ext, folder, collision, unsafe }`. A name assembled by a plugin at run time cannot be checked.
+With `--json` the result has `paths: { checked, case, unicode, missing, ext, folder, collision, unsafe, model }`. A name assembled by a plugin at run time cannot be checked.
 
 ### Fix them: fix-paths
 
@@ -56,7 +57,7 @@ With `--json` the result has `paths: { checked, case, unicode, missing, ext, fol
 | Level | Changes |
 |---|---|
 | `safe` | Only the **references** (`data/*.json`, the plugin list, `index.html`, CSS) are rewritten to the file's exact name. No file is renamed, plugin code is not edited |
-| `standard` (default) | `safe` + renames **upper-case extensions** (`.PNG` → `.png`) and **engine folders** (`img/Faces` → `img/faces`), and rewrites whole path literals in `js/plugins/*.js` and `js/main.js` |
+| `standard` (default) | `safe` + renames **upper-case extensions** (`.PNG` → `.png`) **engine folders** (`img/Faces` → `img/faces`) and **Live2D model files** (`Model_01/model_01.model3.json` → `Model_01.model3.json`), and rewrites whole path literals in `js/plugins/*.js` and `js/main.js` |
 | `thorough` | `standard` + renames files with `#`, `?`, `\` or `%XX` in the name (`a#1.png` → `a_1.png`) and rewrites the references to them |
 
 - It always shows the plan first. In a terminal it then asks; with `--yes` or `--json` it only shows the plan unless `--apply` is given. Without `--level`, a terminal asks for one and an unattended run uses `standard`.
