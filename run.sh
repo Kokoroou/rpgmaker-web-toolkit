@@ -114,12 +114,12 @@ prune_deps() {
 # Older versions go, the newest few stay (a run on an old version may still be going).
 prune_old() {
   local keep=3 n=0 dir
-  # shellcheck disable=SC2012,SC2046 # directory names are hashes or tags: no spaces or odd characters
-  for dir in $(ls -1dt "$cache"/toolkit/*/ 2>/dev/null); do
+  # shellcheck disable=SC2012 # directory names are hashes or tags: no odd characters
+  while IFS= read -r dir; do
     n=$((n + 1))
     [ "$n" -le "$keep" ] && continue
     live_lease "$dir" || rm -rf "$dir"
-  done
+  done < <(ls -1dt "$cache"/toolkit/*/ 2>/dev/null)
   # What a run that was killed halfway left behind.
   find "$cache" -maxdepth 1 -name 'tmp-*' -mtime +1 -exec rm -rf {} + 2>/dev/null || true
   prune_deps
@@ -189,8 +189,8 @@ build_deps() {
 
 # Makes the version ready in the cache and takes a lease on it. -> verdir, lease
 acquire() {
-  local attempt stage deps_stage root hash
-  for attempt in 1 2 3; do
+  local stage deps_stage root hash
+  for _ in 1 2 3; do
     resolve_version
     verdir="$cache/toolkit/$key"
     stage=''
