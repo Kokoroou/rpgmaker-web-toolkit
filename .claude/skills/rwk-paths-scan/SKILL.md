@@ -16,7 +16,7 @@ Read-only. Exit code 1 when anything other than `missing` is found.
 | Level | Looks at | Cost | Use when |
 |---|---|---|---|
 | `quick` | File and folder **names** only: `ext`, `folder`, `collision`, `unsafe`, `model` | Reads no file | A first look at a very large game |
-| `standard` (default) | `quick` + every **static reference**: `data/*.json` (pictures, faces, battlers, tilesets, parallaxes, BGM/BGS/ME/SE, movies, event commands 101/231/241/245/249/250/261/283/284/322, move routes), the plugin list in `js/plugins.js`, `index.html`, CSS `url()`, and path literals in `js/plugins/*.js` — whole paths (`"img/x.png"`) and folders (`'img/menus/CG/'`, where the file name is added at run time) | Reads data and scripts | Normal case, same check as `rwk analyze` |
+| `standard` (default) | `quick` + every **static reference**: `data/*.json` (pictures, faces, battlers, tilesets, parallaxes, BGM/BGS/ME/SE, movies, event commands 101/231/241/245/249/250/261/283/284/322, move routes), the plugin list in `js/plugins.js` and the parameters its plugins' headers type as `file` (`@dir`, also in structs and lists), `index.html`, CSS `url()`, and path literals in `js/plugins/*.js` — whole paths (`"img/x.png"`) and folders (`'img/menus/CG/'`, where the file name is added at run time) | Reads data and scripts | Normal case, same check as `rwk analyze` |
 | `deep` | `standard` + a list of **plugin code that builds paths at run time** (`ImageManager.load…`, `"img/" + name`, `fetch`, `new Audio`…) | Same | Pictures or sounds are still missing after `standard`, or the game uses many plugins |
 
 ## Issue kinds

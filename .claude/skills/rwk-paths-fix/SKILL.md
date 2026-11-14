@@ -17,7 +17,7 @@ The same fix is a toolkit command, `rwk fix-paths "<game folder>" [--level …] 
 
 | Level | Does | Touches |
 |---|---|---|
-| `safe` | Rewrites **references** to the file's exact name: `data/*.json`, the plugin list in `js/plugins.js`, `index.html`, CSS | Only text inside strings in config/data files. No file or folder is renamed; plugin code is not edited |
+| `safe` | Rewrites **references** to the file's exact name: `data/*.json`, the plugin list and its file parameters in `js/plugins.js`, `index.html`, CSS | Only text inside strings in config/data files. No file or folder is renamed; plugin code is not edited |
 | `standard` (default) | `safe` + renames **upper-case extensions** (`.PNG` → `.png`) **engine folders** (`img/Faces` → `img/faces`) and **Live2D model files** spelled differently from their folder (`model_01.model3.json` → `Model_01.model3.json`) + rewrites **path literals** in `js/plugins/*.js` and `js/main.js` | Adds renames and edits to plugin source |
 | `thorough` | `standard` + renames files with **URL-unsafe characters** (`a#1.png` → `a_1.png`) and rewrites the references to them | Adds renames of assets whose names the author chose |
 
