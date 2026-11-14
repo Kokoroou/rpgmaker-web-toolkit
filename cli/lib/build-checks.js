@@ -37,10 +37,15 @@ export function warnMobileMedia(files) {
 
 // Warns about file names and references that work on Windows but not on the web (letter
 // case, upper-case extensions…). Returns { checked, ...count per kind } for the JSON result.
-export function warnPathProblems(files) {
+// folder: the game folder as given, for the command that fixes them.
+export function warnPathProblems(files, folder) {
   const { checked, issues } = scanPaths(files);
   for (const warning of pathWarnings(issues)) log.warn(warning);
-  return { checked, ...countByKind(issues) };
+  const counts = countByKind(issues);
+  if (counts.case + counts.unicode + counts.ext + counts.folder + counts.unsafe) {
+    log.info(`To fix the letter case, extensions, folder names and odd characters: rwk fix-paths ${folder ? `"${folder}"` : "<game folder>"} (shows the plan first, keeps a backup)`);
+  }
+  return { checked, ...counts };
 }
 
 // Lists the translations (data-<code>/) the web build will offer and warns about

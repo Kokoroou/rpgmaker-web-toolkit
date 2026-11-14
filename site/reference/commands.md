@@ -46,6 +46,7 @@ Flags may come before or after the command. A command comes first, then the game
 |---|---|---|
 | `deploy <folder>` | First deploy, or update (changed files only). `--name` answers the first deploy's site name question; `--new-site --name <name>` publishes [one more site](/setup/updating#publish-a-second-site-of-the-same-game) | [First deploy](/setup/first-deploy), [Update](/setup/updating) |
 | `analyze <folder>` | Checks the game without Cloudflare: warnings and file count. Nothing published. `deploy --dry-run` does the same | [Check without publishing](/reference/commands/check) |
+| `fix-paths <folder>` | Fixes file paths that work on Windows only (letter case, `.PNG`, `img/Faces`, `#` in names) in the game folder: plan first, backup, `--undo last` | [Check without publishing](/reference/commands/check#fix-them-fix-paths) |
 | `upgrade <game>` | Updates a deployed game's toolkit without uploading the game again; `--all` for every game | [Manage](/reference/commands/sites#upgrade) |
 | `config <game>` | Changes the game's settings; `--get` / `--set` for scripts | [Manage](/reference/commands/sites#config), [Customize](/setup/configuration) |
 | `rename <folder> --to <name>` | Moves the site to a new address, keeping the saves | [Manage](/reference/commands/sites#rename) |
@@ -70,7 +71,7 @@ One argument names the game. Each command accepts the forms in its row above, an
 
 A name that is also a folder in the current directory is read as the folder: give the link to mean the site.
 
-Without a target, a command that takes a folder (`deploy`, `analyze`, `saves import`, `config`, `rename`) works on the **current directory** when it holds a game (`index.html` and `js/`, or the same in `www/`). So inside the game folder, `rwk deploy` is enough. Elsewhere it asks for the folder, or stops with exit code 2 when run unattended. An unquoted path with spaces works too (`deploy D:\Games\My Game`), though quotes are safer.
+Without a target, a command that takes a folder (`deploy`, `analyze`, `fix-paths`, `saves import`, `config`, `rename`) works on the **current directory** when it holds a game (`index.html` and `js/`, or the same in `www/`). So inside the game folder, `rwk deploy` is enough. Elsewhere it asks for the folder, or stops with exit code 2 when run unattended. An unquoted path with spaces works too (`deploy D:\Games\My Game`), though quotes are safer.
 
 ## Flags
 

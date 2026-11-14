@@ -155,7 +155,7 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
     log.warn(`${oddNames.length} file name(s) have non-ASCII characters (${shown}). If a picture or sound is missing in the browser, check these first.`);
   }
 
-  warnPathProblems(files);
+  warnPathProblems(files, inputPath);
 
   const publicDir = path.join(buildDir, "public");
   const stats = syncPublicDir(publicDir, assets, generated);

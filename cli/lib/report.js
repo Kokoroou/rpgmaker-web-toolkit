@@ -42,6 +42,7 @@ const DONE = {
   list: "sites",
   delete: "deleted",
   analyze: "checked, nothing published",
+  "fix-paths": "paths fixed",
   doctor: "checks done",
   login: "logged in",
   logout: "logged out",
@@ -51,7 +52,7 @@ const DONE = {
 };
 
 // The same closing block for every command: what was done, the facts, what to do next.
-const doneOf = (result) => (result.dryRun ? "checked, nothing published" : result.key !== undefined ? "setting read" : DONE[result.command] || "done");
+const doneOf = (result) => (result.dryRun ? (result.command === "fix-paths" ? "plan only, nothing changed" : "checked, nothing published") : result.key !== undefined ? "setting read" : DONE[result.command] || "done");
 
 export function renderSummary(result) {
   const name = result.site || "rpgmaker-web-toolkit";

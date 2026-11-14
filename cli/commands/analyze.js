@@ -60,7 +60,7 @@ export async function analyze(inputPath, { command = "analyze", name } = {}) {
   }
 
   log.step("Checking file paths");
-  const paths = warnPathProblems(files);
+  const paths = warnPathProblems(files, inputPath);
   log.info(`${paths.checked} references checked`);
 
   return {

@@ -11,6 +11,8 @@ node .claude/skills/rwk-paths/scripts/fix.js "<game folder>" --level standard --
 node .claude/skills/rwk-paths/scripts/fix.js "<game folder>" --undo "<game>/.rwk-paths-backup/<time>"
 ```
 
+The same fix is a toolkit command, `rwk fix-paths "<game folder>" [--level …] [--apply] [--undo last]` (`cli/lib/paths-fix.js` does the work for both): point a user without Claude Code to it.
+
 ## Levels
 
 | Level | Does | Touches |
