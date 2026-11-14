@@ -21,6 +21,7 @@ and on-screen controls. User-facing docs: `README.md` and the guide in `site/`.
 - `scripts/check-workers-api.js` — checks upgrade's Workers API calls (`cli/lib/workers-api.js`) against Cloudflare's OpenAPI schema; weekly in `workers-api.yml`
 - `tools/perf/` — `npm run perf -- "<game folder>"`: measures what the `runtime/` plugins cost a real game in Chrome (not shipped)
 - `site/` — VitePress user guide, published to GitHub Pages by `docs.yml`
+- `docs/LESSONS.md` — toolkit bugs and the rule each one left. `docs/WEB_FIX_LESSONS.md` — problems in a game's own files that break only on the web (no game names), and which ones the toolkit already handles: read it before fixing a game by hand, add to it after
 
 Details: `site/reference/how-it-works.md`. Contributor setup: `CONTRIBUTING.md`.
 
