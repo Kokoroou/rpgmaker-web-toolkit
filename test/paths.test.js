@@ -193,6 +193,17 @@ test("paths: a Live2D model file spelled differently from its folder, also in a 
   assert.deepEqual(scan(dir).issues.filter((i) => i.kind === "model").map((i) => i.actual), ["img/live2d/Hero/hero.model.json"]);
 });
 
+test("paths: a data file that is not JSON and a plugin list that cannot be read are skipped, not errors", () => {
+  const dir = makeGame({
+    "data/Broken.json": "{ not json",
+    "js/plugins.js": "var $plugins = [ {",
+    "img/characters/Actor1.png": "x",
+    "data/Actors.json": [null, { characterName: "actor1", faceName: "", battlerName: "" }],
+  });
+  const result = scan(dir);
+  assert.deepEqual(result.issues.map((i) => [i.kind, i.source]), [["case", "data/Actors.json"]]);
+});
+
 test("paths: characters that break a web address", () => {
   const dir = makeGame({ "img/pictures/a#1.png": "x", "img/pictures/ok.png": "x" });
   const result = scan(dir);
