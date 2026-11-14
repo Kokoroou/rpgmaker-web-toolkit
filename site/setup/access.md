@@ -9,7 +9,7 @@ lang: en
 
 ## Turn on Access
 
-At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit first tries to do it itself through the Cloudflare API: it creates the Access application for the game's address and a policy named after the game that allows your Cloudflare account's email (plus any email in the config's `players`). This needs a Zero Trust team to exist already and an API token with the [Access permissions](/reference/commands#run-without-questions-ci); the browser login of a terminal run does not carry them, so there it usually falls back to the steps below. With `--yes` (CI) the API is the only way, and a run that cannot do it stops with exit code 2.
+At the end of the first deploy, choose `1) Cloudflare Access`. The toolkit first tries to do it itself through the Cloudflare API: it creates the Access application for the game's address and a policy named after the game that allows your Cloudflare account's email (plus any email in the config's `players`). This needs a Zero Trust team to exist already and an API token with the [Access permissions](/reference/commands/unattended); the browser login of a terminal run does not carry them, so there it usually falls back to the steps below. With `--yes` (CI) the API is the only way, and a run that cannot do it stops with exit code 2.
 
 The steps in the dashboard: the toolkit opens the game's **Access** page in the Cloudflare dashboard (**Workers & Pages** → the game → **Access**):
 
