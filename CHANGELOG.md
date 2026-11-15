@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.9.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.8.0...v0.9.0) (2026-11-15)
+
+
+### Features
+
+* **cli:** add rwk test to play a game in a headless browser and report what breaks ([#160](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/160)) ([da35234](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/da3523415d62ad7dd5169af09eca06b3ea0e59b2))
+* **cli:** cache the one-liner's toolkit and make cleanup safe for deploys in several shells ([#150](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/150)) ([bbde50f](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/bbde50f343e5cf36a2c5277d8a438f1d39ce1c99))
+* **cli:** check a deployed game with rwk doctor &lt;game&gt; ([#156](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/156)) ([8ce8e95](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8ce8e954169a1af85f4e61bc6c3e6e2c77317c8d))
+* **cli:** find and fix Live2D model files spelled differently from their folder ([#162](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/162)) ([c0c8be9](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/c0c8be9cf5f80c01a38f46343e718c05857787b8))
+* **cli:** fix file paths that break on the web with rwk fix-paths ([#157](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/157)) ([1d366dd](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/1d366dd087f4b52e8f1cf4d4d2f5fb3f2fad253f))
+* **cli:** upgrade several games at once, tidy CLI logs and help ([#147](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/147)) ([e73e81f](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e73e81f691341065c437d8e9804da29f20c6f479))
+* **runtime:** choose the step of the item quantity window and move layout save/reset to the top center ([#153](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/153)) ([331615e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/331615ef8577449deca7e27079e4e397c3e1495b))
+
+
+### Bug Fixes
+
+* **cli:** ask before a deploy updates another game with the same game id ([#167](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/167)) ([f4ce373](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f4ce37339d00550d9578ad13f99404cd8a563ee5))
+* **cli:** check file names in plugin parameters for letter case ([#164](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/164)) ([f6571d3](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/f6571d36184b6d618aada2fb6819a346f61d1751))
+* **cli:** encode retitled MV saves in the engine's own LZString format ([#159](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/159)) ([8a21214](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/8a212145e507c67509310f15f925721e70ca4911))
+* **cli:** find and fix files the engine asks for by name spelled differently ([#165](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/165)) ([e054551](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/e054551dfdf93560b7db974f3457425d9d01926a))
+* **cli:** find and fix names plugins load spelled differently ([#166](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/166)) ([265d0bb](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/265d0bb46fdf37d7ac653286bfb97c96f878da4b))
+* **cli:** keep the upper-case extension of fonts in fix-paths ([#168](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/168)) ([847d2bd](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/847d2bd918b396c195856b7f5f5828baceef56f2))
+* **cli:** send files with % in the name to R2 so the deploy does not fail ([#154](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/154)) ([d4db3a3](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/d4db3a38f70c3b531cfb7204f5d7b09ae3422151))
+* **runtime:** do not focus the search field when the tools menu opens on a phone ([#149](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/149)) ([41b3dc5](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/41b3dc5d7142411365e51a1f0f4e30ab25976d26))
+
+
+### Performance Improvements
+
+* **cli:** cache the toolkit's dependencies in the Action and prefer the npm cache in rwk.sh/rwk.cmd ([#151](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/151)) ([12aada6](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/12aada63a0c23d8701f135b87cf0527ee8265b24))
+
 ## [0.8.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.7.0...v0.8.0) (2026-11-12)
 
 
