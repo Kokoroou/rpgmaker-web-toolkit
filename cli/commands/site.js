@@ -6,7 +6,7 @@ import { DEFAULT_BUCKET, loadSettings } from "../lib/config.js";
 import { apiToken, deleteWorker, loadGameConfigs, loadPlayers, probeAccess, saveGameConfigs } from "../lib/cloudflare.js";
 import { deleteObject, listObjects } from "../lib/r2-api.js";
 import { settingsKey } from "../../worker/settings.js";
-import { findGameBySite, storageIdOf } from "../lib/game.js";
+import { findGameBySite, sameTitle, storageIdOf } from "../lib/game.js";
 import { openUrlCommand } from "../lib/platform.js";
 import { TOOLKIT_VERSION } from "../lib/stage.js";
 import { expectTarget, siteNameOf } from "../lib/target.js";
@@ -107,9 +107,8 @@ export async function list(deps = {}) {
   const configs = await d.loadGameConfigs(DEFAULT_BUCKET);
   const games = Object.values(configs).sort((a, b) => a.slug.localeCompare(b.slug));
   // A game published as several sites (deploy --new-site): each line says so.
-  const count = {};
-  for (const cfg of games) count[cfg.fingerprint] = (count[cfg.fingerprint] || 0) + 1;
-  const others = (cfg) => (cfg.fingerprint && count[cfg.fingerprint] > 1 ? games.filter((x) => x !== cfg && x.fingerprint === cfg.fingerprint).map((x) => x.slug) : []);
+  // Another game with the same game ID has another title (sites.js ownSites).
+  const others = (cfg) => (cfg.fingerprint ? games.filter((x) => x !== cfg && x.fingerprint === cfg.fingerprint && sameTitle(x.title, cfg.title)).map((x) => x.slug) : []);
   log.step("Games in this account");
   log.table(games.map((cfg) => {
     const also = others(cfg);

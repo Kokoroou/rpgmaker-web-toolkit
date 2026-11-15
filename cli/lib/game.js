@@ -199,6 +199,24 @@ export function toSlug(text) {
     .replace(/-+$/g, "");
 }
 
+// A game title without what changes between versions of the same game: bracketed
+// tags, version numbers ("1.00", "Ver_1.03", "v2.1b") and edition words. Two titles
+// with the same key name the same game. Letters of every script count, so two
+// Japanese titles do not both come out empty.
+export function titleKey(title) {
+  const text = String(title || "").normalize("NFKC").toLowerCase();
+  const key = text
+    .replace(/[([{（【].*?[)\]}）】]/g, " ")
+    .replace(/\b(?:ver(?:sion)?[\s._-]*|v)?\d+(?:[._]\d+)+[a-z]?\b/g, " ")
+    .replace(/\b(?:vh|viet ?hoa|eng|english|full|final|steam|patched|version|edition|demo|trial)\b/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+  return key || text.replace(/\s+/g, "");
+}
+
+// Whether a published site's title (cfg.title) and the folder's are one game.
+// A site saved without a title is taken as the same game.
+export const sameTitle = (a, b) => !a || !b || titleKey(a) === titleKey(b);
+
 // Where the game's saves, save history, player list and large files live in
 // R2, and the Worker's GAME_ID: the first site name, kept when the site is
 // renamed so nothing has to move.

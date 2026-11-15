@@ -12,7 +12,7 @@ Every key of a game's settings, as [`config`](/setup/configuration) shows them. 
 | `slug` | Site name: `https://<slug>.<subdomain>.workers.dev` | With the [`rename`](/setup/updating#change-the-site-address) command |
 | `storageId` | Set by `rename`: the first site name, under which saves and large files stay in R2 | No |
 | `retiredWorkers` | Set by `rename`: old Workers to delete once the new site works | No |
-| `fingerprint` | Identifies the game. MZ: `mz:<advanced.gameId>`; MV: `mv:<game title>` | No |
+| `fingerprint` | Identifies the game. MZ: `mz:<advanced.gameId>`; MV: `mv:<game title>`. Two MZ games with the same ID are told apart by `title` ([same game ID](/setup/updating#two-games-with-the-same-game-id)) | No |
 | `title`, `engine`, `url` | For reference, filled in by the toolkit | No effect |
 | `include` | Extra top-level folders / files to publish, or patterns of files to keep. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |
 | `exclude` | Patterns of files to leave out. [`rwk.json`](#rwk-json-in-the-game-folder) can add more | Yes |

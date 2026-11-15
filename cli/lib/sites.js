@@ -8,8 +8,10 @@
 //
 // From a link or a site name, a command finds the site by name (findGameBySite):
 // nothing here. From the game folder, which site is meant comes from --name,
-// else "name" in rwk.json, else the only site, else a question.
+// else "name" in rwk.json, else the only site, else a question. A site whose title
+// is another game's (same MZ game ID, see ownSites) is never picked without one.
 
+import { sameTitle } from "./game.js";
 import { PROJECT_FILE } from "./project.js";
 import { CliError, NeedsAnswer, choose, isUnattended, log } from "./ui.js";
 
@@ -26,7 +28,36 @@ export function sitesOfGame(configs, fingerprint) {
 // The key a new site of the game gets: the game's own while it has none.
 export const newSiteKey = (configs, fingerprint, slug) => (sitesOfGame(configs, fingerprint).length ? siteKey(fingerprint, slug) : fingerprint);
 
+// The sites with the folder's fingerprint, split by title: `own` are this game's,
+// `others` belong to another game with the same fingerprint. An MZ game ID
+// (advanced.gameId) is copied with the project, so a developer's next game often
+// keeps the ID of the one before.
+export function ownSites(configs, game) {
+  const all = sitesOfGame(configs, game.fingerprint);
+  const own = all.filter(([, cfg]) => sameTitle(cfg.title, game.title));
+  return { own, others: all.filter((site) => !own.includes(site)) };
+}
+
 const listOf = (sites) => sites.map(([, cfg]) => `"${cfg.slug}"`).join(", ");
+
+// No site of this game, but one of another game with the same ID: a new version
+// whose title changed, or a different game. Only the deployer knows.
+async function otherGameOrUpdate(game, others, question) {
+  const named = others.map(([, cfg]) => `"${cfg.slug}" (${cfg.title})`).join(", ");
+  const text = `This game ("${game.title}") has the same game ID as ${named}, but another title.`;
+  const hint = `A different game: --new-site (with --name <new site name>). A new version of that game: --name ${others[0][1].slug}`;
+  if (isUnattended()) throw new NeedsAnswer(`${text} Is it a different game or a new version of that one?`, hint);
+  log.warn(text);
+  return question(
+    "Is it a different game, or a new version of that one?",
+    [
+      { label: "A different game: publish it as a new site", value: null },
+      ...others.map((entry) => ({ label: `A new version of "${entry[1].title}": update ${entry[1].slug}${entry[1].url ? `  ${entry[1].url}` : ""}`, value: entry })),
+    ],
+    0,
+    { whenUnattended: null, hint }
+  );
+}
 
 // Which site of the game in the folder a command works on.
 //   name     --name (a site of the game, or the new site's name with newSite)
@@ -36,10 +67,18 @@ const listOf = (sites) => sites.map(([, cfg]) => `"${cfg.slug}"`).join(", ");
 // -> { key, cfg, name } of a published site, or { key: null, cfg: null, name } for a
 // new one (name: the site name to use without asking, or undefined to ask).
 export async function siteOfFolder(configs, game, { name, project, newSite = false, folder, pick = "--name <site name>", question = choose } = {}) {
-  const sites = sitesOfGame(configs, game.fingerprint);
+  const { own: sites, others } = ownSites(configs, game);
   const fileName = project && project.name;
   const bySlug = (slug) => sites.find(([, cfg]) => cfg.slug === slug);
   const found = ([key, cfg]) => ({ key, cfg, name: cfg.slug });
+
+  // A site of the other game named on purpose: this folder updates it.
+  const wanted = name ?? fileName;
+  const named = !newSite && wanted && others.find(([, cfg]) => cfg.slug === wanted);
+  if (named) {
+    log.info(`"${named[1].slug}" was published as "${named[1].title}": updating it with this folder's "${game.title}".`);
+    return found(named);
+  }
 
   if (newSite) {
     const wanted = name ?? (fileName && !bySlug(fileName) ? fileName : undefined);
@@ -49,7 +88,14 @@ export async function siteOfFolder(configs, game, { name, project, newSite = fal
     if (sites.length) log.info(`This game is published as ${listOf(sites)}: deploying it as one more site, with its own settings and saves.`);
     return { key: null, cfg: null, name: wanted };
   }
-  if (!sites.length) return { key: null, cfg: null, name: name ?? fileName };
+  if (!sites.length) {
+    // A name of none of the sites is the new site's, as for a first deploy.
+    if (others.length && wanted === undefined) {
+      const site = await otherGameOrUpdate(game, others, question);
+      if (site) return found(site);
+    }
+    return { key: null, cfg: null, name: wanted };
+  }
 
   if (name !== undefined) {
     const site = bySlug(name);
