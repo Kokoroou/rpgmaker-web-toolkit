@@ -110,6 +110,30 @@ test("paths: upper-case extension, engine folder spelled differently, name that 
   assert.equal(find(result, "missing", "Actor1"), undefined);
 });
 
+test("paths: a font with an upper-case extension is left as it is: it is asked for with its extension", () => {
+  // System.json and a plugin parameter ask for fonts/FRADM.TTF: renaming the file to .ttf
+  // (as for Actor1.PNG) broke every font of a game on the web.
+  const dir = makeGame({
+    "fonts/FRADM.TTF": "x",
+    "js/plugins/Fonts.JS": "",
+    "data/System.json": { gameTitle: "Demo", advanced: { gameId: 1, mainFontFilename: "FRADM.TTF", numberFontFilename: "FRADM.TTF" } },
+  });
+  const result = scan(dir);
+  assert.deepEqual(result.issues.map((i) => [i.kind, i.source]), [["ext", "js/plugins/Fonts.JS"]], "a plugin is named without its extension: that one is renamed");
+  assert.equal(fixPaths(dir, { level: "standard" }).renames.some((r) => /FRADM/.test(r.from)), false);
+});
+
+test("paths: the fonts in System.json are checked for letter case", () => {
+  const dir = makeGame({
+    "fonts/FRADM.ttf": "x",
+    "data/System.json": { gameTitle: "Demo", advanced: { gameId: 1, mainFontFilename: "FRADM.TTF", numberFontFilename: "fradm.ttf" } },
+  });
+  const result = scan(dir);
+  const fonts = result.issues.filter((i) => i.source === "data/System.json");
+  assert.deepEqual(fonts.map((i) => [i.kind, i.ref, i.to, i.fix]), [["case", "FRADM.TTF", "FRADM.ttf", "reference"], ["case", "fradm.ttf", "FRADM.ttf", "reference"]]);
+  assert.equal(fonts[0].sites[0].where, "data/System.json $.advanced.mainFontFilename");
+});
+
 test("paths: the plugin list, index.html and CSS", () => {
   const dir = makeGame({
     "js/plugins/MyPlugin.js": "",
