@@ -6,7 +6,7 @@
 //   node fix.js <game folder> --undo <backup folder>
 //
 //   safe       rewrites references (data/*.json, the plugin list, index.html, CSS) to the exact name of the file they mean
-//   standard   safe + renames upper-case extensions and engine folders (img/Faces -> img/faces) + rewrites path literals in plugin scripts
+//   standard   safe + renames upper-case extensions the engine adds (not fonts) and engine folders (img/Faces -> img/faces) + rewrites path literals in plugin scripts
 //   thorough   standard + renames files with characters that break a web address (# ? \ %XX) and rewrites the references to them
 
 import { FIX_LEVELS, fixPaths, undoFix } from "../../../../cli/lib/paths-fix.js";

@@ -27,6 +27,24 @@ updates as before, same ID and another title asks "a different game or a new ver
 (`--new-site` / `--name <site>` when it cannot ask). The stored title follows each
 deploy, so a game renamed on purpose is asked about once.
 
+## fix-paths renamed fonts and broke every font of a game
+
+**Where:** the `ext` kind of `cli/lib/paths.js` (upper-case extensions), renamed by
+`rwk fix-paths --level standard`. Found 2026-11-15 on a real MZ game.
+
+**The bug:** the game had `fonts/FRADM.TTF` and asked for `FRADM.TTF` (`System.json`
+`mainFontFilename`, a plugin's font list). It worked on the web as it was. fix-paths renamed the
+files to `.ttf`, as it does for `Actor1.PNG`, and every font became a 404: `LoadError` at boot.
+The rescan after the fix said "clean", because it did not read those references either.
+The `.PNG` rule is right only where the engine adds the extension itself
+(`img/faces/` + `Actor1` + `.png`); a font, a CSS file or a page is named with its extension.
+
+**The rule:** rename a file only when the toolkit knows how every reference to it is
+written. A name the engine builds can be renamed; a name the game writes in full belongs to
+its references, and the fix is in the reference, not in the file. And a rescan only proves
+what the scan can see: before a fix that renames a kind of file, make the scan read the
+references to that kind (here: the `System.json` fonts).
+
 ## "Nothing to change" while the title screen fails to load
 
 **Where:** the path scan (`cli/lib/paths.js`). Found 2026-11-15 on a deployed MZ game.

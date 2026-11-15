@@ -47,8 +47,13 @@ the reference: other references may already use the right spelling.
 **On the web:** that file is never found. The engine always asks for `.png` / `.ogg`.
 **Why Windows hides it:** letter case again.
 **Detect:** `rwk analyze` (kind `ext`); reading file names is enough.
-**Fix:** rename the file to the lower-case extension, unless that name is taken.
-**Toolkit:** done by `rwk fix-paths --level standard`.
+**Fix:** rename the file to the lower-case extension, unless that name is taken. **Only for
+files the engine adds the extension to** (pictures, sounds, movies, effects, `data/*.json`,
+plugins). A font is asked for by its whole name (`mainFontFilename: "FRADM.TTF"` in MZ's
+`System.json`, a plugin's own font list): `fonts/FRADM.TTF` is right as it is, and renaming it
+to `.ttf` broke every font of an MZ game (404, then `LoadError` at boot).
+**Toolkit:** done by `rwk fix-paths --level standard`, for those files only. The fonts in
+`System.json` are checked for letter case like any other reference.
 
 ### Engine folder spelled differently (`img/Faces`, `audio/BGM`)
 
@@ -266,6 +271,23 @@ Keep the original plugin outside `www/` (`<game>/<plugin>.js.orig`) so it is not
 then keep the enabled plugins whose call is not behind `Utils.isNwjs()` (the common
 `require('nw.gui')` in a `catch` behind `$gameTemp.isPlaytest() && Utils.isNwjs()` is fine).
 Idea: `rwk analyze` could list them, and the top-level folders beside `www/` that a plugin reads.
+
+### A plugin for the game's own phone app calls its native bridge on any phone
+
+**On the web:** fine on a computer; on a phone (or Chrome's phone mode) the game never gets
+past "Now Loading" and shows `ReferenceError: ExternalStorage is not defined`.
+**Why Windows hides it:** `Utils.isMobileDevice()` is false on Windows. Seen in an MZ game
+that also ships an Android app: its save plugin treats every mobile device as that app and
+calls the app's JavaScript bridge (an `ExternalStorage` global) from `ConfigManager.load`,
+so a phone browser stops at boot.
+**Detect:** `rwk test` (the "phone" step); `grep -n "isMobileDevice" js/plugins` and read what
+each branch calls.
+**Fix:** in that plugin, a local `const isAndroidApp = () => Utils.isMobileDevice() && typeof
+ExternalStorage !== "undefined";` and use it in place of `Utils.isMobileDevice()`: a phone
+browser then saves like a computer's (localforage, synced by the toolkit). Keep the original
+beside the game, outside the build (`<game>/<plugin>.js.orig`).
+**Toolkit:** manual. Idea: `rwk analyze` could list plugin code that calls an undefined global
+behind `isMobileDevice()`.
 
 ### Game plugins that eat touches and clicks
 

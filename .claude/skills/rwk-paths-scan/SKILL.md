@@ -24,7 +24,7 @@ Read-only. Exit code 1 when anything other than `missing` is found.
 | Kind | Meaning | Automatic fix |
 |---|---|---|
 | `case` / `unicode` | The reference names a file that exists under another letter case or Unicode form (NFC/NFD). Also a **folder** written in code (`'img/menus/CG/'`), whose `ref` ends with `/`, and a name a plugin loads (`loadTitle2("Title")`, `ref` `Title`) or the start of one it builds (`loadMenusFaces3("actor_" + id)`, `ref` `actor_…`) | Yes, when exactly one file (or folder) matches (`fix: reference`) |
-| `ext` | Extension has upper-case letters (`Actor1.PNG`); the engine asks for lower case | Yes (`fix: file`) unless the lower-case name is taken |
+| `ext` | Extension has upper-case letters (`Actor1.PNG`) on a file the engine adds the extension to (pictures, sounds, movies, effects, `data/*.json`, `js/plugins/*.js`); the engine asks for lower case. A font (`fonts/FRADM.TTF`) is not reported: it is asked for by its whole name | Yes (`fix: file`) unless the lower-case name is taken |
 | `folder` | Engine folder spelled differently (`img/Faces`, `audio/BGM`) | Yes (`fix: file`) |
 | `model` | A Live2D model file spelled differently from its folder (`Model_01/model_01.model3.json`, Cubism 2: `.model.json`). Live2D plugins build `<folder>/<folder>.model3.json`, so no reference shows it. Also checked in the non-standard folders the build leaves out | Yes (`fix: file`) unless both spellings exist |
 | `engine` | A file the engine's own scripts (`js/rpg_*.js`, `js/rmmz_*.js`) ask for by name (`ImageManager.loadSystem('IconSet')`, MV's unencrypted `"img/system/Window.png"`) spelled differently. The extension follows `hasEncryptedImages` (`.rpgmvp` MV, `.png_` MZ) | Yes (`fix: file`, the engine is not edited) unless two files match |

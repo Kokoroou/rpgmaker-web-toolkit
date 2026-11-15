@@ -2,7 +2,7 @@
 // Used by `rwk fix-paths` and by the rwk-paths skill's fix.js.
 //
 //   safe       rewrites references (data/*.json, the plugin list, index.html, CSS) to the exact name of the file they mean
-//   standard   safe + renames upper-case extensions, engine folders (img/Faces -> img/faces) and Live2D model files spelled
+//   standard   safe + renames upper-case extensions the engine asks for in lower case (Actor1.PNG, not a font), engine folders (img/Faces -> img/faces) and Live2D model files spelled
 //              differently from their folder (Model_01/model_01.model3.json -> Model_01.model3.json), files the engine asks
 //              for by name (img/system/window.png -> Window.png) + rewrites path literals and loaded names
 //              (loadTitle2("Title"), "actor_" + id) in plugin scripts

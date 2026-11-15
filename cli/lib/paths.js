@@ -3,11 +3,11 @@
 // "actor1"; the web host (Workers assets) and the browser do not, and the picture
 // or sound is a 404. Reads the game's files, never writes.
 //
-// Looks at: the data/*.json references (pictures, sounds, movies, event commands),
+// Looks at: the data/*.json references (pictures, sounds, movies, event commands, the System.json fonts),
 // the plugins listed in js/plugins.js and their file parameters, index.html and CSS files, and the path
 // literals in the plugin scripts and the names they load (ImageManager.loadTitle2("Title")),
 // and the names the engine's own scripts ask for. Also at the names themselves (upper-case
-// extensions, engine folders such as img/Characters, names that differ only by case,
+// extensions of the files the engine adds the extension to, engine folders such as img/Characters, names that differ only by case,
 // Live2D model files spelled differently from their folder).
 //
 // scanPaths() -> { checked, issues }; an issue is
@@ -26,6 +26,12 @@ const IMAGE = [".png", ".rpgmvp", ".png_"];
 const AUDIO = [".ogg", ".m4a", ".rpgmvo", ".rpgmvm", ".ogg_", ".m4a_"];
 const MOVIE = [".webm", ".mp4"];
 const AUDIO_DIRS = ["bgm", "bgs", "me", "se"].map((d) => `audio/${d}`);
+// Extensions the engine adds to a name itself (loadBitmap("img/faces/", "Actor1") -> Actor1.png, a plugin
+// "Name" -> js/plugins/Name.js), so the file must have them in lower case. Other files (fonts, CSS, an HTML
+// page) are asked for by their whole name, extension included: an upper-case one is fine as long as the
+// references spell it the same, and renaming the file would break them.
+const ENGINE_EXTS = new Set([...IMAGE, ...AUDIO, ...MOVIE, ".efkefc"]);
+const engineAddsExt = (rel, ext) => ENGINE_EXTS.has(ext) || (ext === ".json" && /^data[^/]*\//i.test(rel)) || (ext === ".js" && /^js\/plugins\//i.test(rel));
 
 // JSON keys holding a picture name, and the folder it is in.
 const IMAGE_KEYS = {
@@ -207,6 +213,8 @@ function jsonRefs(file, data) {
       if (IMAGE_KEYS[key]) image(IMAGE_KEYS[key], node, at);
       else if (key === "battlerName") add(battlers, IMAGE, node, at);
       else if (key === "effectName") add(["effects"], [".efkefc"], node, at);
+      // MZ System.json: the fonts the engine loads, named with their extension (FontManager.load).
+      else if (base === "system.json" && (key === "mainFontFilename" || key === "numberFontFilename")) add(["fonts"], [""], node, at);
     } else if (Array.isArray(node)) {
       node.forEach((child, i) => visit(child, [...at, i], key));
     } else if (node && typeof node === "object") {
@@ -642,7 +650,7 @@ function scanNames(files, index, issues) {
   for (const { rel } of files) {
     const segs = rel.split("/");
     const ext = path.posix.extname(rel);
-    if (ext && ext !== ext.toLowerCase()) {
+    if (ext && ext !== ext.toLowerCase() && engineAddsExt(rel, ext.toLowerCase())) {
       const to = rel.slice(0, rel.length - ext.length) + ext.toLowerCase();
       const taken = index.byKey.get(ciKey(to)).length > 1;
       issues.add({ kind: "ext", source: rel, ref: ext, expected: to, actual: rel, to, fix: taken ? null : "file" });
