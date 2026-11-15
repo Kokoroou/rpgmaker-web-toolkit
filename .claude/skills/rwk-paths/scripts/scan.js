@@ -5,7 +5,8 @@
 //
 //   quick     file and folder names only (upper-case extensions, engine folders, case collisions, unsafe characters,
 //             Live2D model files spelled differently from their folder, non-standard folders included)
-//   standard  quick + every static reference (data/*.json, plugin list, index.html, CSS, path literals in plugin scripts)
+//   standard  quick + every static reference (data/*.json, plugin list, index.html, CSS, path literals in plugin scripts,
+//             the names the engine's own scripts ask for)
 //   deep      standard + a list of plugin code that builds paths at run time, for a person (or Claude) to read
 
 import fs from "node:fs";

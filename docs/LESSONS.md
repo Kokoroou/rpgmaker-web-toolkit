@@ -23,6 +23,15 @@ real game 404s and the scan is clean, the first question is *which source did th
 not read*, before *why did the check miss it*. `rwk test` on the game folder is the
 quickest way to get that 404 without deploying.
 
+**Again, the same day:** an MV game stopped at boot on `img/system/Window.png` (the file
+is `window.png`) after `fix-paths` had run. This time the unread source was **the engine's
+own scripts**: `rpg_core.js` asks for `"img/system/Window.png"` (unencrypted, its
+`Decrypter._ignoreList`) and `rpg_windows.js` for `loadSystem('Window')`. No game file
+names them, so a scan of the game's references can never see them. `rwk test` even
+said "Fix it with rwk fix-paths", which then found nothing. Now scanned (kind `engine`,
+fixed by renaming the file, since the engine is not the game's to edit). Still not
+scanned: a plugin's own `ImageManager.loadX("name")` calls.
+
 ## A control that is rebuilt under the user's finger never gets its click
 
 **Where:** the folder download's progress panel (`runtime/RWK_Download.js`), and

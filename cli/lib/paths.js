@@ -5,14 +5,15 @@
 //
 // Looks at: the data/*.json references (pictures, sounds, movies, event commands),
 // the plugins listed in js/plugins.js and their file parameters, index.html and CSS files, and the path
-// literals in the plugin scripts. Also at the names themselves (upper-case
+// literals in the plugin scripts, and the names the engine's own scripts ask for. Also at the names themselves (upper-case
 // extensions, engine folders such as img/Characters, names that differ only by case,
 // Live2D model files spelled differently from their folder).
 //
 // scanPaths() -> { checked, issues }; an issue is
 //   { kind, source, ref, expected, actual, to, fix, count, sites }
 //   kind: case | unicode (the file exists under another spelling), missing, ext, folder, collision, unsafe,
-//         model (a Live2D model file spelled differently from its folder)
+//         model (a Live2D model file spelled differently from its folder),
+//         engine (a file the engine's own code asks for by name, e.g. img/system/Window.png, spelled differently)
 //   fix:  "reference" (rewrite the reference to `to`), "file" (rename `actual` to `to`), or null (a person decides)
 //   sites: where the reference is: { where, at } with at = { json: [path…] } or { start, end, text }
 
@@ -52,6 +53,15 @@ const LITERAL = /(["'`])((?:img|audio|data|js|fonts|movies|effects|icon|css)\/[^
 const DIR_LITERAL = /(["'`])((?:img|audio|movies|effects)\/(?:[^"'`\n\\$]+?\/)?)\1/gid;
 const HTML_REF = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gid;
 const CSS_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/gid;
+
+// The engine's own scripts (MV js/rpg_core.js…, MZ js/rmmz_core.js…).
+const ENGINE_SCRIPT = /^js\/(rpg|rmmz)_[a-z]+\.js$/;
+// ImageManager.loadSystem('IconSet'), reserveSystem('Balloon')… with the name written in the code.
+const ENGINE_LOADER = /ImageManager\.(?:load|reserve|request)(System|Picture|Face|Character|Parallax|Title1|Title2|Enemy|SvActor|SvEnemy|Animation|Battleback1|Battleback2|Tileset)\(\s*(["'])([^"'`\n\\$/]+)\2\s*[,)]/g;
+const LOADER_DIRS = {
+  System: "system", Picture: "pictures", Face: "faces", Character: "characters", Parallax: "parallaxes", Title1: "titles1", Title2: "titles2",
+  Enemy: "enemies", SvActor: "sv_actors", SvEnemy: "sv_enemies", Animation: "animations", Battleback1: "battlebacks1", Battleback2: "battlebacks2", Tileset: "tilesets",
+};
 
 const nfcKey = (rel) => rel.normalize("NFC");
 const ciKey = (rel) => rel.normalize("NFC").toLowerCase();
@@ -437,6 +447,7 @@ function scanTextPaths(file, text, regex, group, baseDir, index, issues, { repor
 
 function scanText(files, index, issues) {
   const byRel = new Map(files.map((f) => [f.rel, f]));
+  scanEngine(files, byRel, index, issues);
   for (const file of files) {
     const lower = file.rel.toLowerCase();
     const isHtml = lower === "index.html";
@@ -476,6 +487,43 @@ function scanDirLiterals(file, text, index, issues) {
     const [start, end] = m.indices[2];
     const site = { where: `${file.rel}:${text.slice(0, start).split("\n").length}`, at: { start, end, text: raw } };
     issues.add({ kind: "case", source: file.rel, ref: raw, expected: raw, actual, to: `${actual}/`, fix: "reference" }, site);
+  }
+}
+
+// The names the engine's own scripts ask for. No game file writes them down, so the
+// reference scan does not see them, and the engine's code is not the game's to edit:
+// the file is renamed to the engine's spelling instead (fix "file"). The worst one is
+// MV's Window.png: rpg_core.js always loads "img/system/Window.png" unencrypted
+// (Decrypter._ignoreList), so a window.png there stops the game at boot on the web.
+// Which file a name means depends on the encryption: Window.rpgmvp (MV), Window.png_
+// (MZ) or Window.png; a path written whole in the engine (that ignore list) stays plain.
+function scanEngine(files, byRel, index, issues) {
+  const texts = files.filter((f) => ENGINE_SCRIPT.test(f.rel)).map((file) => [file, readText(file)]).filter(([, text]) => text !== null);
+  if (!texts.length) return;
+  const imageLiterals = (text) => [...text.matchAll(LITERAL)].map((m) => m[2]).filter((rel) => rel.startsWith("img/"));
+  const plain = new Set(texts.flatMap(([, text]) => imageLiterals(text)));
+  let encrypted = false;
+  try {
+    const system = byRel.get("data/System.json");
+    encrypted = !!system && JSON.parse(fs.readFileSync(system.abs, "utf8").replace(/^﻿/, "")).hasEncryptedImages === true;
+  } catch {
+    // not valid JSON: read as not encrypted
+  }
+  const ext = !encrypted ? ".png" : texts.some(([f]) => f.rel.startsWith("js/rmmz_")) ? ".png_" : ".rpgmvp";
+  const check = (file, ref, rel) => {
+    issues.checked++;
+    const found = lookup(index, [{ rel, dir: 0, ext: "" }]);
+    if (found.status !== "case" && found.status !== "unicode") return;
+    // Two files for the one name (a collision): a person picks.
+    const one = found.hits.length === 1;
+    issues.add({ kind: "engine", source: file.rel, ref, expected: rel, actual: found.hits[0].actual, to: rel, fix: one ? "file" : null });
+  };
+  for (const [file, text] of texts) {
+    for (const rel of imageLiterals(text)) check(file, rel, rel);
+    for (const m of text.matchAll(ENGINE_LOADER)) {
+      const base = `img/${LOADER_DIRS[m[1]]}/${m[3]}`;
+      if (!plain.has(`${base}.png`)) check(file, m[3], base + ext);
+    }
   }
 }
 
@@ -549,7 +597,7 @@ export function scanPaths(files, { references = true, others = [] } = {}) {
 
 // kind -> number of references (or names) affected
 export function countByKind(issues) {
-  const counts = { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0 };
+  const counts = { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0, engine: 0 };
   for (const issue of issues) counts[issue.kind] += issue.count;
   return counts;
 }
@@ -584,6 +632,9 @@ export function pathWarnings(issues) {
   if (folder.length) out.push(`${folder.length} folder(s) are not spelled as the engine asks: ${folder.slice(0, 3).map((i) => `${i.ref} (must be ${i.to})`).join(", ")}.`);
   const model = of("model");
   if (model.length) out.push(`${model.length} Live2D model file(s) are spelled differently from their folder: ${model.slice(0, 2).map((i) => `${i.actual} (must be ${i.to})`).join(", ")}. The Live2D plugin asks for the folder's spelling, so the model fails to load in the browser.`);
+  // Counted by file: the engine may ask for one in several places.
+  const engine = [...new Map(of("engine").map((i) => [i.actual, i])).values()];
+  if (engine.length) out.push(`${engine.length} file(s) the engine asks for by name are spelled differently: ${engine.slice(0, 3).map((i) => `${i.actual} (must be ${i.to})`).join(", ")}. The engine does not find them in the browser; without img/system/Window.png an MV game stops at boot.`);
   const collision = of("collision");
   if (collision.length) out.push(`${collision.length} group(s) of files differ only by letter case, so only one of each can exist on Windows: ${collision.slice(0, 2).map((i) => i.expected).join("; ")}.`);
   const unsafe = of("unsafe");

@@ -3,8 +3,8 @@
 //
 //   safe       rewrites references (data/*.json, the plugin list, index.html, CSS) to the exact name of the file they mean
 //   standard   safe + renames upper-case extensions, engine folders (img/Faces -> img/faces) and Live2D model files spelled
-//              differently from their folder (Model_01/model_01.model3.json -> Model_01.model3.json) + rewrites path literals
-//              in plugin scripts
+//              differently from their folder (Model_01/model_01.model3.json -> Model_01.model3.json), files the engine asks
+//              for by name (img/system/window.png -> Window.png) + rewrites path literals in plugin scripts
 //   thorough   standard + renames files with characters that break a web address (# ? \ %XX) and rewrites the references to them
 //
 // What it never does: guess between several files, touch a reference that is missing altogether, merge or delete a
@@ -49,9 +49,12 @@ function renameOnDisk(from, to) {
 
 function plannedRenames(state, level, report) {
   const ops = [];
+  const once = new Set(); // the engine may ask for one file in several places
   for (const issue of state.issues) {
-    if ((issue.kind === "ext" || issue.kind === "model") && issue.fix === "file") {
+    if ((issue.kind === "ext" || issue.kind === "model" || issue.kind === "engine") && issue.fix === "file") {
       const from = state.byRel.get(issue.actual).abs;
+      if (once.has(from)) continue;
+      once.add(from);
       ops.push({ order: 0, from, to: path.join(path.dirname(from), path.posix.basename(issue.to)) });
     } else if (issue.kind === "unsafe" && level.unsafe) {
       const from = state.byRel.get(issue.source).abs;
@@ -265,7 +268,7 @@ export function fixPaths(folder, { level: levelName = "standard", apply = false 
   if (apply) {
     const after = loadState(folder);
     const countsAfter = countByKind(after.issues);
-    const worse = countsAfter.missing > countsBefore.missing || countsAfter.collision > countsBefore.collision || countsAfter.case + countsAfter.unicode > countsBefore.case + countsBefore.unicode;
+    const worse = countsAfter.missing > countsBefore.missing || countsAfter.collision > countsBefore.collision || countsAfter.case + countsAfter.unicode + countsAfter.engine > countsBefore.case + countsBefore.unicode + countsBefore.engine;
     if (worse) {
       restore(after.game.root, backup.dir);
       report.rolledBack = true;

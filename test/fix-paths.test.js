@@ -92,7 +92,7 @@ test("fix-paths: a yes applies, keeps a backup and says to deploy; --undo last p
   assert.match(read(root, "data/Actors.json"), /"characterName":"Actor1"/);
   assert.match(read(root, "data/Actors.json"), /"characterName":"a_1"/);
   assert.ok(fs.existsSync(path.join(root, "img/pictures/Logo.png")));
-  assert.deepEqual(result.fix.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0 });
+  assert.deepEqual(result.fix.remaining, { case: 0, unicode: 0, missing: 0, ext: 0, folder: 0, collision: 0, unsafe: 0, model: 0, engine: 0 });
   assert.equal(listBackups(dir).length, 1);
   assert.match(result.next[0], new RegExp(`rwk deploy "${dir.replace(/\\/g, "\\\\")}"`));
   assert.match(result.next[1], /--undo last/);
