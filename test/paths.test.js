@@ -424,3 +424,22 @@ test("paths: the start of a name a plugin's own loader builds (\"actor_\" + id) 
   assert.equal(report.rolledBack, false);
   assert.equal(fs.readFileSync(path.join(dir, "js", "plugins", "MenuFaces.js"), "utf8"), menu.replace('"actor_"', '"Actor_"'));
 });
+
+test("paths: a fix that would leave a new problem is rolled back, and a fix with nothing to do leaves no backup", () => {
+  // Renaming Bg.PNG to Bg.png breaks the percent-encoded reference, which cannot be rewritten safely.
+  const dir = makeGame({
+    "index.html": '<html><body><img src="img/pictures/B%67.PNG"><script src="js/main.js"></script></body></html>',
+    "img/pictures/Bg.PNG": "x",
+  });
+  const report = fixPaths(dir, { level: "standard", apply: true });
+  assert.equal(report.rolledBack, true);
+  assert.ok(report.skipped.some((s) => /everything was restored/.test(s)), report.skipped.join("\n"));
+  assert.deepEqual(fs.readdirSync(path.join(dir, "img", "pictures")), ["Bg.PNG"]);
+  assert.deepEqual(report.remaining, report.before);
+
+  const clean = makeGame({ "img/pictures/Bg.png": "x" });
+  const none = fixPaths(clean, { level: "standard", apply: true });
+  assert.equal(none.backup, null);
+  assert.equal(fs.existsSync(path.join(clean, ".rwk-paths-backup")), true, "the backup folder may stay, but empty");
+  assert.deepEqual(fs.readdirSync(path.join(clean, ".rwk-paths-backup")), []);
+});
