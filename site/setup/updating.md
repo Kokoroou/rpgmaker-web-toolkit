@@ -114,4 +114,8 @@ rwk delete game1v1                               # retire the first site; game1v
 
 Each site counts as one Worker on the [free plan](/reference/limits), and its files over 25 MiB are stored once more in R2.
 
+## Two games with the same game ID
+
+An MZ game is recognised by its game ID (`advanced.gameId` in `data/System.json`), so a new version updates the same site. A developer who starts a new game from a copy of an older project keeps that ID, though. When a folder has the ID of a published site but **another title** (versions and tags such as `1.00`, `Ver_1.03` or `(Steam)` aside), `deploy` asks whether it is a different game, published as a new site with its own settings and saves, or a new version of that site whose title changed. Without a terminal it stops with exit code 2; answer with `--new-site` (a different game, with `--name <new site name>` if you like) or `--name <that site>` (a new version). From then on, each folder finds its own site.
+
 Other commands, and running a fixed toolkit version: [Commands](/reference/commands).

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseCommandLine } from "../cli/lib/args.js";
 import { list } from "../cli/commands/site.js";
-import { takenNames } from "../cli/lib/game.js";
+import { sameTitle, takenNames, titleKey } from "../cli/lib/game.js";
 import { newSiteKey, publishedSiteOf, siteKey, siteOfFolder, sitesOfGame } from "../cli/lib/sites.js";
 import { NeedsAnswer, setQuiet, setUnattended, warnings } from "../cli/lib/ui.js";
 
@@ -114,6 +114,60 @@ test("list: each site of a game names the others", async (t) => {
       ["game1v2", ["game1v1"]],
       ["other", []],
     ]
+  );
+});
+
+test("titleKey: versions, tags and edition words do not make another game; another name does", () => {
+  const same = [
+    ["Salvation Tale ~Hero Erika Faces Tomorrow Even in Corruption~ 1.00", "Salvation Tale ~Hero Erika Faces Tomorrow Even in Corruption~ 1.02"],
+    ["The Heterosexual of Yurihime Academy Ver_1.03", "The Heterosexual of Yurihime Academy Ver_1.10"],
+    ["Slave Princess Elnea (Steam Patched Version)", "Slave Princess Elnea"],
+    ["My Game v2.1b", "My Game"],
+    ["勇者エリカ 1.0", "勇者エリカ"],
+  ];
+  for (const [a, b] of same) assert.ok(sameTitle(a, b), `${a} = ${b}`);
+  const different = [
+    ["Salvation Tale ~Hero Erika Faces Tomorrow Even in Corruption~ 1.00", "Island of Rebirth"],
+    ["Slave Princess Elnea (Steam Patched Version)", "The Heterosexual of Yurihime Academy ~Cock-Defeated Twin Princesses Fallen to Lust~ Ver_1.03"],
+    ["勇者エリカ", "魔王の島"],
+  ];
+  for (const [a, b] of different) assert.ok(!sameTitle(a, b), `${a} ≠ ${b}`);
+  assert.ok(sameTitle(undefined, "Anything"), "a site saved without a title");
+  assert.notEqual(titleKey("1.0"), "", "a title that is only a version keeps a key");
+});
+
+test("siteOfFolder: another game with the same game ID is not updated without asking", async (t) => {
+  quietly(t);
+  const island = { slug: "reborn-island", fingerprint: "mz:9", title: "Island of Rebirth", url: "https://reborn-island.me.workers.dev" };
+  const configs = { "mz:9": island };
+  const salvation = { fingerprint: "mz:9", title: "Salvation Tale ~Hero Erika Faces Tomorrow Even in Corruption~ 1.00" };
+  assert.equal((await siteOfFolder(configs, { fingerprint: "mz:9", title: "Island of Rebirth" }, {})).cfg, island, "its own game: as before");
+
+  let asked;
+  const question = async (text, options) => {
+    asked = options.map((o) => o.label);
+    return options[0].value;
+  };
+  assert.deepEqual(await siteOfFolder(configs, salvation, { question }), { key: null, cfg: null, name: undefined }, "a different game: a new site");
+  assert.match(asked[0], /A different game/);
+  assert.match(asked[1], /A new version of "Island of Rebirth": update reborn-island/);
+  assert.equal((await siteOfFolder(configs, salvation, { question: async (_, options) => options[1].value })).cfg, island, "a new version whose title changed");
+  assert.equal((await siteOfFolder(configs, salvation, { name: "reborn-island" })).cfg, island, "named on purpose: updated");
+  assert.equal((await siteOfFolder(configs, salvation, { project: { name: "reborn-island" } })).cfg, island);
+  assert.deepEqual(await siteOfFolder(configs, salvation, { name: "salvation-tale" }), { key: null, cfg: null, name: "salvation-tale" }, "a new name: a new site");
+  assert.equal(newSiteKey(configs, "mz:9", "salvation-tale"), "mz:9@salvation-tale", "kept apart from the other game's key");
+
+  // Once both are published, each folder finds its own site without a question.
+  const both = { ...configs, "mz:9@salvation-tale": { slug: "salvation-tale", fingerprint: "mz:9", title: salvation.title } };
+  assert.equal((await siteOfFolder(both, salvation, {})).cfg.slug, "salvation-tale");
+  assert.equal((await siteOfFolder(both, { fingerprint: "mz:9", title: "Island of Rebirth" }, {})).cfg, island);
+  const listed = await list({ connect: async () => ({}), loadSettings: () => ({}), loadGameConfigs: async () => both });
+  assert.deepEqual(listed.sites.map((s) => s.sameGame), [[], []], "rwk list does not call them one game");
+
+  unattended(t);
+  await assert.rejects(
+    siteOfFolder(configs, salvation, {}),
+    (err) => err instanceof NeedsAnswer && /same game ID as "reborn-island" \(Island of Rebirth\)/.test(err.message) && /--new-site/.test(err.hint) && /--name reborn-island/.test(err.hint)
   );
 });
 

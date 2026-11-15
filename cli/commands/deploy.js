@@ -43,7 +43,7 @@ import { connect, siteOf } from "../lib/session.js";
 import { askNewName, checkSiteName, preview } from "./preview.js";
 import { expectTarget } from "../lib/target.js";
 import { PROJECT_FILE, readProjectFile, showProjectFile, withProjectPatterns } from "../lib/project.js";
-import { newSiteKey, siteOfFolder, sitesOfGame } from "../lib/sites.js";
+import { newSiteKey, ownSites, siteOfFolder } from "../lib/sites.js";
 import { CliError, NeedsAnswer, ask, c, choose, confirm, formatBytes, isUnattended, log, pause, planSteps, warnings } from "../lib/ui.js";
 
 // deploy, saves import (importOnly) and rename (rename, to): the commands that start from the game folder.
@@ -92,13 +92,16 @@ export async function deploy(inputPath, { importOnly = false, rename = false, to
   if (cfg) {
     saved = JSON.stringify(cfg);
     log.ok(`Using the config saved in R2 (site name: ${cfg.slug})`);
+    // The title tells this game from another with the same game ID (sites.js):
+    // it follows the game, once the deployer has said which site is its.
+    cfg.title = game.title;
   } else if (rename) {
     throw new CliError("This game is not published yet, so it has no site to rename.", { hint: `Publish it first: rwk deploy "${inputPath}"` });
   } else {
     // Every other site's name is taken, the game's own sites too.
     const taken = takenNames(configs, null);
     const slug = checkSiteName(site.name, null, taken, inputPath);
-    log.info(`${newSite && sitesOfGame(configs, game.fingerprint).length ? "New site of this game" : "First deploy of this game"}: answer a few questions (Enter = use the default).`);
+    log.info(`${newSite && ownSites(configs, game).own.length ? "New site of this game" : "First deploy of this game"}: answer a few questions (Enter = use the default).`);
     cfg = await createConfig(game, taken, slug, project);
     key = newSiteKey(configs, game.fingerprint, cfg.slug);
   }

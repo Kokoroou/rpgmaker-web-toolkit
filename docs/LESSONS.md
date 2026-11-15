@@ -5,6 +5,28 @@ so the same mistake is not made twice. Each one names the bug, the cause, and th
 rule that follows. Problems in a game's own files that break only on the web go in
 [WEB_FIX_LESSONS.md](WEB_FIX_LESSONS.md).
 
+## Two games, one site: the MZ game ID is not unique
+
+**Where:** which site a deploy from a game folder updates (`cli/lib/sites.js`, the
+fingerprint in `cli/lib/game.js`). Found 2026-11-15 on four real MZ games.
+
+**The bug:** deploying a game overwrote the site of *another* game: both had the same
+`advanced.gameId` in `data/System.json` (two pairs of games, each pair from one
+developer). A MZ game is identified as `mz:<gameId>`, so the second game was taken for
+a new version of the first: same Worker, same settings, same cloud saves, no question.
+RPG Maker writes the game ID when a project is *created*, and a developer who starts
+the next game from a copy of the last one keeps it. The ID was chosen because it does
+not change between versions (the title often does: "… 1.00"), and that same property
+is what makes it shared.
+
+**The rule:** an identifier the toolkit did not make is a *hint* of identity, not a
+proof. Before an action that overwrites something (a site, saves), check a second,
+independent field, and when they disagree, ask instead of picking. Here the second
+field is the title without its version and tags (`titleKey`): same ID and same title
+updates as before, same ID and another title asks "a different game or a new version?"
+(`--new-site` / `--name <site>` when it cannot ask). The stored title follows each
+deploy, so a game renamed on purpose is asked about once.
+
 ## "Nothing to change" while the title screen fails to load
 
 **Where:** the path scan (`cli/lib/paths.js`). Found 2026-11-15 on a deployed MZ game.
