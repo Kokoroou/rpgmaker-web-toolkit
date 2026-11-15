@@ -27,6 +27,7 @@ Read-only. Exit code 1 when anything other than `missing` is found.
 | `ext` | Extension has upper-case letters (`Actor1.PNG`); the engine asks for lower case | Yes (`fix: file`) unless the lower-case name is taken |
 | `folder` | Engine folder spelled differently (`img/Faces`, `audio/BGM`) | Yes (`fix: file`) |
 | `model` | A Live2D model file spelled differently from its folder (`Model_01/model_01.model3.json`, Cubism 2: `.model.json`). Live2D plugins build `<folder>/<folder>.model3.json`, so no reference shows it. Also checked in the non-standard folders the build leaves out | Yes (`fix: file`) unless both spellings exist |
+| `engine` | A file the engine's own scripts (`js/rpg_*.js`, `js/rmmz_*.js`) ask for by name (`ImageManager.loadSystem('IconSet')`, MV's unencrypted `"img/system/Window.png"`) spelled differently. The extension follows `hasEncryptedImages` (`.rpgmvp` MV, `.png_` MZ) | Yes (`fix: file`, the engine is not edited) unless two files match |
 | `unsafe` | Name has `#`, `?`, `\`, `%XX`, or spaces at the ends | Only `thorough` |
 | `collision` | Two files differ only by case (possible when a game was unzipped on Linux/macOS) | No: a person picks the one to keep |
 | `missing` | The reference matches no file at all, even ignoring case | No |

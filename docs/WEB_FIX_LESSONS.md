@@ -85,6 +85,26 @@ written a different number of times than the scan found, is reported without a f
 A parameter typed `string` that a plugin uses as a file name is not seen: the header is
 all the scan knows.
 
+### A file the engine asks for by name, spelled differently (`img/system/window.png`)
+
+Example: an MV game (encrypted assets, ~5,000 references) with `img/system/window.png` and
+`window.rpgmvp`, while the engine loads `Window`. A plugin also loads `"window"`, which is
+why the lower-case spelling looked right.
+**On the web:** the game never leaves Scene_Boot: "Loading Error / Failed to load:
+img/system/Window.png / Retry", and four 404s for `Window.png` in the console.
+**Why Windows hides it:** letter case. And on MV it is always the **plain** `.png`: `rpg_core.js`
+lists `"img/system/Window.png"` in `Decrypter._ignoreList`, so the engine reads it unencrypted
+even in an encrypted game. `window.rpgmvp` does not help.
+**Detect:** `rwk analyze` (kind `engine`). The scan reads the engine's own scripts
+(`js/rpg_*.js`, `js/rmmz_*.js`): the paths written whole there (that ignore list) and the
+names in `ImageManager.loadSystem('IconSet')` / `reserveSystem(…)` calls, with the extension the
+encryption gives (`.rpgmvp` MV, `.png_` MZ, else `.png`). No game file writes these names, so
+the reference scan never saw them. `rwk test` shows the error screen.
+**Fix:** rename the **file** to the engine's spelling (`window.png` → `Window.png`), not the
+engine. Only the file the engine reads: here the plugin's `"window"` still finds `window.rpgmvp`.
+**Toolkit:** done by `rwk fix-paths --level standard`. Not seen: a plugin's own
+`loadSystem("name")` calls (only whole path literals in plugins are checked).
+
 ### A folder written in plugin code with the wrong case
 
 Example: `loadBitmap('img/menus/CG/', name)` when the folder is `img/menus/cg`.
@@ -186,6 +206,32 @@ override that has already done its main work, it is only a console line.
 obfuscated commercial plugins often forbid it: check whether the game still plays.
 Seen in an MV Live2D plugin: once at `SceneManager.run` and in each "add model" command.
 In both places the game went on and the model showed (checked in Chrome).
+
+Two more variants, from an MV game with a text-script (ADV) system:
+- **Extra save data in its own file.** A "common save" plugin (flags shared by every slot)
+  writes `save/common.rpgsave` with `fs`. Its `load()` catches the `require` error, but assigns
+  an undeclared `json` inside the `try` and reads it after: on NW.js that is a sloppy-mode
+  global, in a browser a second `ReferenceError` outside the `try`, thrown from
+  `DataManager.createGameObjects`. The game stops at boot. **Read past the first error**: a
+  `catch` around the `require` does not mean the plugin survives it.
+  Fix: in the plugin, `if (!Utils.isNwjs())` keep the data in `localStorage` (one key of its
+  own), and declare the variable. The toolkit syncs only `fileN`, `global` and `config`, so
+  that data stays in the browser and is not in the cloud saves.
+- **Script files read from beside Game.exe.** The ADV plugin reads its scenario files
+  (`scenario/*.sl`, ~380 files) with `fs.readFileSync` from `scenario/` next to `Game.exe`,
+  **outside `www/`** (it builds the folder from `process.argv[0]`). The first event that runs a
+  script stops the game. The web build cannot reach that folder at all.
+  Fix: copy `scenario/` into `www/scenario/` (Game.exe still reads the old one), add
+  `{"include": ["scenario"]}` to `rwk.json` in the game folder (not an engine folder, so the
+  build leaves it out otherwise), and in the plugin `if (!Utils.isNwjs())` read
+  `'scenario/' + name` with a synchronous `XMLHttpRequest` (`overrideMimeType('text/plain;
+  charset=utf-8')`, so the bytes decode as `fs` decoded them). The plugin's code is synchronous;
+  a `fetch` would mean rewriting its callers.
+Keep the original plugin outside `www/` (`<game>/<plugin>.js.orig`) so it is not uploaded.
+**Detect:** `rwk test` (the error screen names the plugin); `grep -l "require(" js/plugins/*.js`,
+then keep the enabled plugins whose call is not behind `Utils.isNwjs()` (the common
+`require('nw.gui')` in a `catch` behind `$gameTemp.isPlaytest() && Utils.isNwjs()` is fine).
+Idea: `rwk analyze` could list them, and the top-level folders beside `www/` that a plugin reads.
 
 ### Game plugins that eat touches and clicks
 

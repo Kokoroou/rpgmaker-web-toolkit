@@ -8,6 +8,7 @@ import test from "node:test";
 import { analyze } from "../cli/commands/analyze.js";
 import { analyzeGame, collectFiles, otherFiles } from "../cli/lib/game.js";
 import { countByKind, pathWarnings, scanPaths } from "../cli/lib/paths.js";
+import { fixPaths } from "../cli/lib/paths-fix.js";
 import { warnings } from "../cli/lib/ui.js";
 
 
@@ -18,7 +19,7 @@ const caseSensitiveDisk = (() => {
   return !fs.existsSync(path.join(dir, "A"));
 })();
 
-// files: { "img/characters/Actor1.png": "x", "data/Actors.json": object | string }
+// files: { "img/characters/Actor1.png": "x", "data/Actors.json": object | string, "js/rmmz_core.js": null (left out) }
 function makeGame(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rwk-paths-"));
   const base = {
@@ -29,6 +30,7 @@ function makeGame(files) {
     "data/System.json": { gameTitle: "Demo", advanced: { gameId: 1 } },
   };
   for (const [rel, content] of Object.entries({ ...base, ...files })) {
+    if (content === null) continue;
     const abs = path.join(dir, ...rel.split("/"));
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, typeof content === "string" ? content : JSON.stringify(content));
@@ -306,4 +308,58 @@ test("analyze: reports the path problems in the warnings and the result, and wri
   assert.ok(result.paths.checked >= 1);
   assert.equal(fs.readFileSync(path.join(dir, "data", "Actors.json"), "utf8"), before);
   warnings.length = 0;
+});
+
+test("paths: a file the MV engine always loads unencrypted (img/system/Window.png) spelled differently is renamed, not the engine", () => {
+  const dir = makeGame({
+    "js/rmmz_core.js": null,
+    "js/rpg_core.js": 'Decrypter._ignoreList = [\n    "img/system/Window.png"\n];',
+    "js/rpg_windows.js": "this.windowskin = ImageManager.loadSystem('Window');\nthis.contents.blt(ImageManager.loadSystem('IconSet'), 0, 0);",
+    "js/rpg_scenes.js": "ImageManager.reserveSystem('Balloon', 0, this._id);",
+    "data/System.json": { gameTitle: "Demo", hasEncryptedImages: true },
+    // The plain window.png is the one the engine reads; window.rpgmvp is for a plugin's loadSystem("window").
+    "img/system/window.png": "x",
+    "img/system/window.rpgmvp": "x",
+    "img/system/iconset.rpgmvp": "x",
+    "img/system/Balloon.rpgmvp": "x",
+  });
+  const { issues } = scan(dir);
+  const engine = issues.filter((i) => i.kind === "engine").map((i) => [i.source, i.actual, i.to, i.fix]);
+  assert.deepEqual(engine.sort(), [
+    ["js/rpg_core.js", "img/system/window.png", "img/system/Window.png", "file"],
+    ["js/rpg_windows.js", "img/system/iconset.rpgmvp", "img/system/IconSet.rpgmvp", "file"],
+  ]);
+  assert.equal(countByKind(issues).engine, 2);
+  assert.ok(pathWarnings(issues).some((w) => /2 file\(s\) the engine asks for by name.*img\/system\/window\.png \(must be img\/system\/Window\.png\)/.test(w)));
+
+  const report = fixPaths(dir, { level: "standard", apply: true });
+  assert.deepEqual(report.renames.map((r) => r.to.split(path.sep).join("/")).sort(), ["img/system/IconSet.rpgmvp", "img/system/Window.png"]);
+  assert.equal(report.rolledBack, false);
+  assert.equal(report.remaining.engine, 0);
+  const names = fs.readdirSync(path.join(dir, "img", "system")).sort();
+  assert.deepEqual(names, ["Balloon.rpgmvp", "IconSet.rpgmvp", "Window.png", "window.rpgmvp"]);
+  assert.equal(fixPaths(dir, { level: "safe" }).renames.length, 0, "safe renames nothing");
+});
+
+test("paths: MZ engine names follow the encryption (.png_), and two files for one name are left to a person", () => {
+  const encrypted = makeGame({
+    "js/rmmz_windows.js": 'this.windowskin = ImageManager.loadSystem("Window");',
+    "data/System.json": { gameTitle: "Demo", hasEncryptedImages: true },
+    "img/system/window.png_": "x",
+  });
+  assert.deepEqual(scan(encrypted).issues.map((i) => [i.kind, i.actual, i.to, i.fix]), [["engine", "img/system/window.png_", "img/system/Window.png_", "file"]]);
+  // Not encrypted: Window.png is asked for, and window.png_ is no match.
+  const plain = makeGame({
+    "js/rmmz_windows.js": 'this.windowskin = ImageManager.loadSystem("Window");',
+    "img/system/window.png_": "x",
+  });
+  assert.deepEqual(scan(plain).issues, []);
+  if (caseSensitiveDisk) {
+    const two = makeGame({
+      "js/rmmz_windows.js": 'ImageManager.loadSystem("Window");',
+      "img/system/window.png": "x",
+      "img/system/WINDOW.png": "x",
+    });
+    assert.equal(find(scan(two), "engine").fix, null);
+  }
 });
