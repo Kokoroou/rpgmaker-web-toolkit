@@ -5,7 +5,8 @@
 //
 // Looks at: the data/*.json references (pictures, sounds, movies, event commands),
 // the plugins listed in js/plugins.js and their file parameters, index.html and CSS files, and the path
-// literals in the plugin scripts, and the names the engine's own scripts ask for. Also at the names themselves (upper-case
+// literals in the plugin scripts and the names they load (ImageManager.loadTitle2("Title")),
+// and the names the engine's own scripts ask for. Also at the names themselves (upper-case
 // extensions, engine folders such as img/Characters, names that differ only by case,
 // Live2D model files spelled differently from their folder).
 //
@@ -58,6 +59,11 @@ const CSS_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/gid;
 const ENGINE_SCRIPT = /^js\/(rpg|rmmz)_[a-z]+\.js$/;
 // ImageManager.loadSystem('IconSet'), reserveSystem('Balloon')… with the name written in the code.
 const ENGINE_LOADER = /ImageManager\.(?:load|reserve|request)(System|Picture|Face|Character|Parallax|Title1|Title2|Enemy|SvActor|SvEnemy|Animation|Battleback1|Battleback2|Tileset)\(\s*(["'])([^"'`\n\\$/]+)\2\s*[,)]/g;
+// In plugins: any ImageManager.<loader>("name") or ("prefix" + …), the engine's loaders and
+// the ones a plugin adds: ImageManager.loadMenusFaces3 = function(filename) {
+// return this.loadBitmap('img/menus/faces/faces3/', filename, 0, true); }
+const LOADER_CALL = /ImageManager\.([A-Za-z_$][\w$]*)\(\s*(["'])([^"'`\n\\$/]*)\2\s*([,)+])/dg;
+const LOADER_DEF = /ImageManager\.([A-Za-z_$][\w$]*)\s*=\s*function\s*\(\s*([A-Za-z_$][\w$]*)[^)]*\)\s*\{\s*return\s+this\.(?:load|reserve|request)Bitmap\(\s*(["'])(img\/[^"'`\n\\$]+?)\/?\3\s*,\s*\2\s*[,)]/g;
 const LOADER_DIRS = {
   System: "system", Picture: "pictures", Face: "faces", Character: "characters", Parallax: "parallaxes", Title1: "titles1", Title2: "titles2",
   Enemy: "enemies", SvActor: "sv_actors", SvEnemy: "sv_enemies", Animation: "animations", Battleback1: "battlebacks1", Battleback2: "battlebacks2", Tileset: "tilesets",
@@ -447,7 +453,9 @@ function scanTextPaths(file, text, regex, group, baseDir, index, issues, { repor
 
 function scanText(files, index, issues) {
   const byRel = new Map(files.map((f) => [f.rel, f]));
-  scanEngine(files, byRel, index, issues);
+  const ext = imageExt(files, byRel);
+  scanEngine(files, byRel, ext, index, issues);
+  const loaders = pluginLoaders(files);
   for (const file of files) {
     const lower = file.rel.toLowerCase();
     const isHtml = lower === "index.html";
@@ -466,7 +474,89 @@ function scanText(files, index, issues) {
     if (isScript) {
       scanTextPaths(file, text, LITERAL, 2, "", index, issues, { reportMissing: false });
       scanDirLiterals(file, text, index, issues);
+      if (lower.startsWith("js/plugins/")) scanPluginLoaders(file, text, loaders, ext, index, issues);
     }
+  }
+}
+
+// The extension an image the engine loads by name has: .rpgmvp (MV) or .png_ (MZ) when
+// the images are encrypted, else .png.
+function imageExt(files, byRel) {
+  let encrypted = false;
+  try {
+    const system = byRel.get("data/System.json");
+    encrypted = !!system && JSON.parse(fs.readFileSync(system.abs, "utf8").replace(/^﻿/, "")).hasEncryptedImages === true;
+  } catch {
+    // not valid JSON: read as not encrypted
+  }
+  return !encrypted ? ".png" : files.some((f) => /^js\/rmmz_/.test(f.rel)) ? ".png_" : ".rpgmvp";
+}
+
+// The loaders the plugins add to ImageManager, and their folder. -> Map name -> "img/…"
+function pluginLoaders(files) {
+  const out = new Map();
+  for (const file of files) {
+    if (!/^js\/plugins\/.+\.js$/i.test(file.rel)) continue;
+    const text = readText(file);
+    if (text) for (const m of text.matchAll(LOADER_DEF)) out.set(m[1], m[4]);
+  }
+  return out;
+}
+
+// The folder a loader reads, or null for one we do not know.
+function loaderDir(name, loaders) {
+  const engine = /^(?:load|reserve|request)(\w+)$/.exec(name);
+  if (engine && Object.hasOwn(LOADER_DIRS, engine[1])) return `img/${LOADER_DIRS[engine[1]]}`;
+  return loaders.get(name) || null;
+}
+
+// The names (no extension) of the files right in `dir` with extension `ext`.
+function namesIn(index, dir, ext) {
+  index.names ||= new Map();
+  const key = `${dir}/|${ext}`;
+  if (!index.names.has(key)) {
+    const names = [];
+    for (const rel of index.exact) {
+      if (rel.startsWith(`${dir}/`) && rel.endsWith(ext) && !rel.slice(dir.length + 1).includes("/")) names.push(rel.slice(dir.length + 1, rel.length - ext.length).normalize("NFC"));
+    }
+    index.names.set(key, names);
+  }
+  return index.names.get(key);
+}
+
+// ImageManager.loadTitle2("Title") or loadMenusFaces3("actor_" + id) in a plugin: only the
+// name (or its start) is written, the loader adds the folder and the extension, so the
+// path-literal scan does not see it. The plugin is the game's code: the name in it is
+// rewritten (fix "reference"); the file is left as it is, since other references may
+// already use the file's spelling. A name that no file has, in any case, is not reported
+// (the plugin may be turned off, or make the file some other way).
+function scanPluginLoaders(file, text, loaders, ext, index, issues) {
+  for (const m of text.matchAll(LOADER_CALL)) {
+    const dir = loaderDir(m[1], loaders);
+    const name = m[3];
+    if (!dir) continue;
+    const [start, end] = m.indices[3];
+    const site = { where: `${file.rel}:${text.slice(0, start).split("\n").length}`, at: { start, end, text: name } };
+    issues.checked++;
+    if (m[4] !== "+") {
+      if (!name) continue;
+      const found = lookup(index, [{ rel: `${dir}/${name}${ext}`, dir: dir.split("/").length, ext }]);
+      if (found.status !== "case" && found.status !== "unicode") continue;
+      // Two files for the one name (a collision), or one in another folder spelling: a person picks.
+      const to = found.hits.length === 1 && found.hits[0].actual.startsWith(`${dir}/`) ? nameOfHit(found.hits[0]) : null;
+      issues.add({ kind: found.status, source: file.rel, ref: name, expected: `${dir}/${name}${ext}`, actual: found.hits[0].actual, to, fix: to ? "reference" : null }, site);
+      continue;
+    }
+    // "actor_" + id: no file starts with it, but some do in another letter case.
+    const prefix = name.normalize("NFC");
+    if (prefix.length < 2) continue;
+    const names = namesIn(index, dir, ext);
+    if (names.some((n) => n.startsWith(prefix))) continue;
+    const like = names.filter((n) => n.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!like.length) continue;
+    const spellings = [...new Set(like.map((n) => n.slice(0, prefix.length)))];
+    const to = spellings.length === 1 && name === prefix ? spellings[0] : null;
+    issues.add({ kind: "case", source: file.rel, ref: `${name}…`, expected: `${dir}/${name}…${ext}`, actual: `${dir}/${like[0]}${ext}`, to, fix: to ? "reference" : null }, site);
   }
 }
 
@@ -497,19 +587,11 @@ function scanDirLiterals(file, text, index, issues) {
 // (Decrypter._ignoreList), so a window.png there stops the game at boot on the web.
 // Which file a name means depends on the encryption: Window.rpgmvp (MV), Window.png_
 // (MZ) or Window.png; a path written whole in the engine (that ignore list) stays plain.
-function scanEngine(files, byRel, index, issues) {
+function scanEngine(files, byRel, ext, index, issues) {
   const texts = files.filter((f) => ENGINE_SCRIPT.test(f.rel)).map((file) => [file, readText(file)]).filter(([, text]) => text !== null);
   if (!texts.length) return;
   const imageLiterals = (text) => [...text.matchAll(LITERAL)].map((m) => m[2]).filter((rel) => rel.startsWith("img/"));
   const plain = new Set(texts.flatMap(([, text]) => imageLiterals(text)));
-  let encrypted = false;
-  try {
-    const system = byRel.get("data/System.json");
-    encrypted = !!system && JSON.parse(fs.readFileSync(system.abs, "utf8").replace(/^﻿/, "")).hasEncryptedImages === true;
-  } catch {
-    // not valid JSON: read as not encrypted
-  }
-  const ext = !encrypted ? ".png" : texts.some(([f]) => f.rel.startsWith("js/rmmz_")) ? ".png_" : ".rpgmvp";
   const check = (file, ref, rel) => {
     issues.checked++;
     const found = lookup(index, [{ rel, dir: 0, ext: "" }]);

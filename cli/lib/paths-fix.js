@@ -4,7 +4,8 @@
 //   safe       rewrites references (data/*.json, the plugin list, index.html, CSS) to the exact name of the file they mean
 //   standard   safe + renames upper-case extensions, engine folders (img/Faces -> img/faces) and Live2D model files spelled
 //              differently from their folder (Model_01/model_01.model3.json -> Model_01.model3.json), files the engine asks
-//              for by name (img/system/window.png -> Window.png) + rewrites path literals in plugin scripts
+//              for by name (img/system/window.png -> Window.png) + rewrites path literals and loaded names
+//              (loadTitle2("Title"), "actor_" + id) in plugin scripts
 //   thorough   standard + renames files with characters that break a web address (# ? \ %XX) and rewrites the references to them
 //
 // What it never does: guess between several files, touch a reference that is missing altogether, merge or delete a

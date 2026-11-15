@@ -363,3 +363,64 @@ test("paths: MZ engine names follow the encryption (.png_), and two files for on
     assert.equal(find(scan(two), "engine").fix, null);
   }
 });
+
+test("paths: a name a plugin loads (loadTitle2(\"Title\")) spelled differently from the file is rewritten in the plugin, from --level standard", () => {
+  const plugin = [
+    'this._title = new Sprite(ImageManager.loadTitle2("Title"));',
+    "this._cursor = new Sprite(ImageManager.loadTitle2('Cursor'));",
+    'ImageManager.loadPicture("NoSuchPicture");',
+  ].join("\n");
+  const dir = makeGame({
+    "js/plugins/TitleMenu.js": plugin,
+    "img/titles2/title.png": "x",
+    "img/titles2/Cursor.png": "x",
+  });
+  const { issues } = scan(dir);
+  assert.deepEqual(issues.map((i) => [i.kind, i.source, i.ref, i.actual, i.to, i.fix, i.sites[0].where]), [
+    ["case", "js/plugins/TitleMenu.js", "Title", "img/titles2/title.png", "title", "reference", "js/plugins/TitleMenu.js:1"],
+  ]);
+
+  assert.equal(fixPaths(dir, { level: "safe" }).edits.length, 0, "safe leaves plugin code alone");
+  const report = fixPaths(dir, { level: "standard", apply: true });
+  assert.equal(report.rolledBack, false);
+  assert.equal(report.remaining.case, 0);
+  assert.equal(fs.readFileSync(path.join(dir, "js", "plugins", "TitleMenu.js"), "utf8"), plugin.replace('"Title"', '"title"'));
+  assert.deepEqual(fs.readdirSync(path.join(dir, "img", "titles2")).sort(), ["Cursor.png", "title.png"], "the files are not renamed");
+});
+
+test("paths: a name a plugin loads follows the encryption (MV .rpgmvp)", () => {
+  const dir = makeGame({
+    "js/rmmz_core.js": null,
+    "js/rpg_core.js": "",
+    "data/System.json": { gameTitle: "Demo", hasEncryptedImages: true },
+    "js/plugins/Hud.js": 'ImageManager.loadSystem("hud_gauge");',
+    "img/system/Hud_Gauge.rpgmvp": "x",
+  });
+  assert.deepEqual(scan(dir).issues.map((i) => [i.kind, i.expected, i.actual, i.to]), [["case", "img/system/hud_gauge.rpgmvp", "img/system/Hud_Gauge.rpgmvp", "Hud_Gauge"]]);
+});
+
+test("paths: the start of a name a plugin's own loader builds (\"actor_\" + id) is checked against the files in its folder", () => {
+  const loader = "ImageManager.loadMenusFaces3 = function(filename) {\n    return this.loadBitmap('img/menus/faces/faces3/', filename, 0, true);\n};";
+  const menu = [
+    'this._char = new Sprite(ImageManager.loadMenusFaces3("actor_" + this._actor._actorId));',
+    'this._face = ImageManager.loadMenusFaces3("Actor_" + id);', // already right
+    'this._other = ImageManager.loadMenusFaces3("bust_" + id);', // no such file in any case: not ours to judge
+    'this._pic = ImageManager.loadPicture("cg_" + n);', // two spellings on disk: a person picks
+  ].join("\n");
+  const dir = makeGame({
+    "js/plugins/MenuCore.js": loader,
+    "js/plugins/MenuFaces.js": menu,
+    "img/menus/faces/faces3/Actor_1.png": "x",
+    "img/menus/faces/faces3/Actor_2.png": "x",
+    "img/pictures/CG_1.png": "x",
+    "img/pictures/Cg_2.png": "x",
+  });
+  const { issues } = scan(dir);
+  assert.deepEqual(issues.map((i) => [i.kind, i.ref, i.to, i.fix, i.sites[0].where]).sort(), [
+    ["case", "actor_…", "Actor_", "reference", "js/plugins/MenuFaces.js:1"],
+    ["case", "cg_…", null, null, "js/plugins/MenuFaces.js:4"],
+  ]);
+  const report = fixPaths(dir, { level: "standard", apply: true });
+  assert.equal(report.rolledBack, false);
+  assert.equal(fs.readFileSync(path.join(dir, "js", "plugins", "MenuFaces.js"), "utf8"), menu.replace('"actor_"', '"Actor_"'));
+});

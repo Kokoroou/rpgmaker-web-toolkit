@@ -15,7 +15,7 @@ const SHOWN = 50;
 
 const LEVEL_WORDS = {
   safe: "only the references (data, plugin list, index.html, CSS) are changed to the file's exact name; no file is renamed",
-  standard: "safe + upper-case extensions (.PNG → .png), engine folders (img/Faces → img/faces), Live2D model files (Model_01/model_01.model3.json → Model_01.model3.json), files the engine asks for by name (img/system/window.png → Window.png) and path literals in plugin code",
+  standard: "safe + upper-case extensions (.PNG → .png), engine folders (img/Faces → img/faces), Live2D model files (Model_01/model_01.model3.json → Model_01.model3.json), files the engine asks for by name (img/system/window.png → Window.png) and path literals and loaded names in plugin code",
   thorough: "standard + files whose names have # ? \\ or %XX are renamed (a#1.png → a_1.png), with their references",
 };
 
