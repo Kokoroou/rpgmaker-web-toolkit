@@ -102,8 +102,42 @@ encryption gives (`.rpgmvp` MV, `.png_` MZ, else `.png`). No game file writes th
 the reference scan never saw them. `rwk test` shows the error screen.
 **Fix:** rename the **file** to the engine's spelling (`window.png` → `Window.png`), not the
 engine. Only the file the engine reads: here the plugin's `"window"` still finds `window.rpgmvp`.
-**Toolkit:** done by `rwk fix-paths --level standard`. Not seen: a plugin's own
-`loadSystem("name")` calls (only whole path literals in plugins are checked).
+**Toolkit:** done by `rwk fix-paths --level standard`. A plugin's own `loadSystem("name")`
+calls: see the next lesson.
+
+### A name a plugin loads by itself, spelled differently (`loadTitle2("Title")`)
+
+Two variants from one MV game (~10,000 files, a MOG title and menu set):
+- `ImageManager.loadTitle2("Title")` in a title-screen plugin, the file `img/titles2/title.png`.
+  **On the web:** the title picture is missing, two 404s for `Title.png`.
+- `ImageManager.loadMenusFaces3("actor_" + actorId)`, a loader the menu plugin adds
+  (`ImageManager.loadMenusFaces3 = function(filename) { return this.loadBitmap('img/menus/faces/faces3/', filename, 0, true); }`),
+  the files `Actor_1.png`, `Actor_2.png`… **On the web:** opening the menu stops the game on
+  "Loading Error / Failed to load: img/menus/faces/faces3/actor_1.png". The same plugins load
+  `"Actor_" + id` everywhere else, which is why it looked right.
+**Why Windows hides it:** letter case. No data file or path literal names these files.
+**Detect:** `rwk analyze` (kind `case`, source the plugin, `ref` `Title` or `actor_…`). The scan
+reads `ImageManager.<loader>("name")` and `("prefix" + …)` in `js/plugins/*.js`, for the engine's
+loaders and for those a plugin defines as `return this.loadBitmap('img/…/', filename, …)`. A
+prefix is wrong when no file in the folder starts with it and some do in another case. `rwk test`
+shows the menu one (the deploy log did not: the player had not opened the menu).
+**Fix:** change the literal in the plugin (`"actor_"` → `"Actor_"`), not the files.
+**Toolkit:** done by `rwk fix-paths --level standard`. Not seen: a name from a variable or a
+plugin parameter used as a string, and loaders defined some other way.
+
+### Plugin errors at boot that Windows has too
+
+Two seen in the same MV game (core 1.6.1): `DataManager.setAutoSaveFileId is not a function`
+(a newer `Community_Basic.js` than the core, it throws on its last lines, after the screen size
+is set) and `DotMoveSystemClassAlias is not defined` (`DotMoveSystem_FunctionEx.js` enabled
+without the `DotMoveSystem.js` it extends: the add-on does nothing).
+**On the web:** two uncaught errors in the console and in `rwk test`; the game plays.
+**Why it is not a web problem:** the same scripts throw the same way in NW.js.
+**Detect:** the plugin's code against the engine (`grep setAutoSaveFileId js/rpg_*.js`) or the
+plugin list (is the base plugin there?).
+**Fix:** none needed. Do not "fix" it by adding the missing plugin: that changes how the game plays.
+**Toolkit:** reported by `rwk test`, as it cannot tell. Idea: say "also on Windows" when the
+error is a missing function of the engine or a missing base plugin.
 
 ### A folder written in plugin code with the wrong case
 

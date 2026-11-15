@@ -32,6 +32,21 @@ said "Fix it with rwk fix-paths", which then found nothing. Now scanned (kind `e
 fixed by renaming the file, since the engine is not the game's to edit). Still not
 scanned: a plugin's own `ImageManager.loadX("name")` calls.
 
+**A third time, the next deploy:** that gap, as written down. An MV game 404'd on
+`img/titles2/Title.png` (a plugin's `loadTitle2("Title")`, the file is `title.png`) after
+`fix-paths`. And `rwk test` found a worse one the deploy log never reached, because the
+player had not opened the menu yet: the menu stopped on the error screen for
+`img/menus/faces/faces3/actor_1.png`, built as `loadMenusFaces3("actor_" + id)` with a
+loader the plugin adds itself. Both now scanned (kind `case`, the plugin's literal is
+rewritten). A known gap in this list is not a note, it is the next bug: when one is
+written down, add the check, or say it in what `analyze` prints.
+
+**The rule, for names built in code:** a name the code builds is still checkable when its
+**constant part** is written down. `"actor_" + id` cannot say which file it wants, but if
+no file in the folder starts with `actor_` and some start with `Actor_`, it is wrong in
+every case. And a console log is only what the player reached: run `rwk test` before
+calling a game fixed.
+
 ## A control that is rebuilt under the user's finger never gets its click
 
 **Where:** the folder download's progress panel (`runtime/RWK_Download.js`), and
