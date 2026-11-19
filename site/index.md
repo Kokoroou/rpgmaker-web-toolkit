@@ -1,4 +1,5 @@
 ---
+title: "Play RPG Maker MV & MZ in a Browser"
 description: "Publish an RPG Maker MZ or MV game to Cloudflare Workers on the free plan, with cloud saves, an on-screen gamepad for phones and email login. For games you own."
 lang: en
 layout: home

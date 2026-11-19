@@ -1,5 +1,5 @@
 ---
-description: "Check an RPG Maker game for the web with rwk analyze (warnings, file count, file paths; nothing published), fix its file paths with rwk fix-paths, and play it in a hidden browser with rwk test."
+description: "Check an RPG Maker game for the web with rwk analyze (publishes nothing), fix its file paths with rwk fix-paths, and play it in a hidden browser with rwk test."
 lang: en
 ---
 
