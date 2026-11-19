@@ -24,9 +24,12 @@ export function pageUrl(relativePath) {
   return SITE_URL + pagePath(relativePath);
 }
 
-/** The page's own title, as it appears in <title>. The home page shows only the site name. */
+/** The home page's <title>: the words people search for first, the site name last. */
+export const HOME_TITLE = `Play RPG Maker MV & MZ in a Browser | ${SITE_NAME}`;
+
+/** The page's own title, as it appears in <title>. */
 export function fullTitle(pageData) {
-  if (pageData.relativePath === "index.md") return SITE_NAME;
+  if (pageData.relativePath === "index.md") return HOME_TITLE;
   return `${pageData.title} | ${SITE_NAME}`;
 }
 
@@ -95,6 +98,27 @@ const jsonLdByPage = {
   "setup/first-deploy.md": [howToFirstDeploy],
 };
 
+// First page of each section, which has no index page of its own for some sections.
+const SECTIONS = {
+  setup: ["Set up a game", "setup/requirements"],
+  play: ["Play", "play/"],
+  reference: ["Reference", "reference/commands"],
+  creators: ["For game creators", "creators/"],
+};
+
+/** BreadcrumbList for a page below a section (Home > Section > Page), or null for the home page and section roots. */
+export function breadcrumbs(pageData) {
+  const section = SECTIONS[pageData.relativePath.split("/")[0]];
+  if (!section || pageData.relativePath.split("/").length < 2) return null;
+  const trail = [["Home", ""], section, [pageData.title, pagePath(pageData.relativePath)]];
+  if (trail[1][1] === trail[2][1]) trail.splice(1, 1);
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map(([name, p], i) => ({ "@type": "ListItem", position: i + 1, name, item: SITE_URL + p })),
+  };
+}
+
 /** Throws when a page breaks the length limits, so a bad title or description never ships. */
 export function checkLimits(pageData) {
   const where = pageData.relativePath;
@@ -129,7 +153,8 @@ export function pageHead(pageData) {
     meta({ name: "twitter:image", content: OG_IMAGE }),
     meta({ name: "twitter:image:alt", content: OG_ALT }),
   ];
-  for (const data of jsonLdByPage[pageData.relativePath] ?? []) {
+  const crumbs = breadcrumbs(pageData);
+  for (const data of [...(crumbs ? [crumbs] : []), ...(jsonLdByPage[pageData.relativePath] ?? [])]) {
     head.push(["script", { type: "application/ld+json" }, JSON.stringify(data)]);
   }
   return head;
