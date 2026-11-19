@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.9.0...v0.9.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **site:** searchable home title, breadcrumbs and docs build failing on a long description ([#169](https://github.com/Kokoroou/rpgmaker-web-toolkit/issues/169)) ([09d485e](https://github.com/Kokoroou/rpgmaker-web-toolkit/commit/09d485efffd4e0c155401e3fd70f655ae6691d34))
+
 ## [0.9.0](https://github.com/Kokoroou/rpgmaker-web-toolkit/compare/v0.8.0...v0.9.0) (2026-11-15)
 
 
